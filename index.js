@@ -1,9 +1,6 @@
 import antlr4 from 'antlr4';
 import JavaScriptLexer from './grammars/JavaScriptLexer.js';
 import JavaScriptParser from './grammars/JavaScriptParser.js';
-import { fstat, writeFile } from 'fs';
-import path from 'path';
-import Omggif from 'omggif';
 import testVisitor from './testVisitor.js';
 
 const input = "function Mult(a, b) \n { \n return a * b; \n }";
