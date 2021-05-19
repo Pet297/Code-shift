@@ -1,0 +1,22 @@
+{
+  "name": "code-shift",
+  "version": "0.0.0",
+  "description": "Automatic tool for visualisation of changes in code.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Pet297/Code-shift.git"
+  },
+  "author": "Petr Martinek <petet2000@seznam.cz>",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Pet297/Code-shift/issues"
+  },
+  "homepage": "https://github.com/Pet297/Code-shift#readme",
+  "dependencies": {
+    "antlr4": "^4.9.2"
+  }
+}
