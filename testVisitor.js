@@ -1,13 +1,17 @@
-export default function VisitRules(tree, depth = 0, func_num = -1, prev = -1)
+export default function VisitRules(tree, depth = 0, func_num = -1, prev = -1, l = [])
 {
     if (typeof tree.children === 'undefined')
     {
         //console.log("#" + tree.symbol.type + " - " + tree.symbol.text + " - Rule " + prev);
-        if (tree.symbol.type == 117) console.log("[" + prev + "] " + tree.symbol.text);
+        if (tree.symbol.type == 117)
+        {
+            l.push({id: prev, name: tree.symbol.text});
+            //console.log();
+        }
     }
     else
     {
-        tree.children.forEach(element => {VisitRules(element, depth + 1, tree.ruleIndex, func_num);});
+        tree.children.forEach(element => {VisitRules(element, depth + 1, tree.ruleIndex, func_num, l);});
     }
 }
     
@@ -37,4 +41,21 @@ function VisitRules0(tree, depth)
                 });
         }
     
+}
+
+export function TransformRulesF(l)
+{
+    let ll = [];
+    l.forEach(element =>
+        {
+             if (element.id == 39)
+             {
+                 ll.push({name: element.name, children:[]});
+             }
+             else
+             {
+                 ll[ll.length-1].children.push(element);
+             }
+    });
+    return ll;
 }
