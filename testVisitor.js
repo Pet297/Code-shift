@@ -103,6 +103,33 @@ else if (treeNode.ruleIndex == 44)
     }
     return params;
 }
+else if (treeNode.ruleIndex == 41)
+{
+    let functions = [];
+    for (const child of treeNode.children)
+    {
+        if (child !== undefined)
+        {
+        if (child.ruleIndex == 42)
+        {
+            functions.push(TranslateRule(child.children[0]));
+        }
+    }
+    }
+    return new SemanticDefinition([],functions,"class_functions");
+    return null;
+}
+else if (treeNode.ruleIndex == 40)
+{
+    let className = treeNode.children[1].children[0].symbol.text;
+    let body = TranslateRule(treeNode.children[2]);
+    return new SemanticDefinition([],body,"class");
+}
+else if (treeNode.ruleIndex == 43)
+{
+    //function in class
+    return null;
+}
 else return null;
 
 }
