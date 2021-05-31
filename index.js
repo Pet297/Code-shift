@@ -2,8 +2,9 @@ import antlr4 from 'antlr4';
 import JavaScriptLexer from './grammars/JavaScriptLexer.js';
 import JavaScriptParser from './grammars/JavaScriptParser.js';
 import testVisitor from './testVisitor.js';
-import {TransformRulesF} from './testVisitor.js';
+import {TransformRulesF, TranslateRule} from './testVisitor.js';
 import fs from 'fs';
+import { Console } from 'console';
 
 const input = fs.readFileSync('./test1a').toString()
 
@@ -15,9 +16,6 @@ parser.buildParseTrees = true;
 const tree = parser.program();
 
 
-let l = [];
-testVisitor(tree,0,-1,-1,l);
+let l = TranslateRule(tree);
 console.log(l);
-let l2 = TransformRulesF(l);
-console.log(l2);
 
