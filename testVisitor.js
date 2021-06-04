@@ -43,37 +43,21 @@ export default function VisitRules(tree, depth)
     
 }
 
-export function TransformRulesF(l)
-{
-    let ll = [];
-    l.forEach(element =>
-        {
-             if (element.id == 39)
-             {
-                 ll.push({name: element.name, children:[]});
-             }
-             else
-             {
-                 ll[ll.length-1].children.push(element);
-             }
-    });
-    return ll;
-}
-
 export function TranslateRule(treeNode) {
 
 // PROGRAM -> STATEMENTs
-if (treeNode.ruleIndex == 0) return TranslateRule(treeNode.children[0]);
+if (treeNode.ruleIndex == 0) return TranslateRule(FindChild(treeNode, 48));
 // STATEMENTs -> (STATEMENT)*
 else if (treeNode.ruleIndex == 48)
 {
     let blocks = [];
-    for (const child of treeNode.children)
+    let children1 = FindChildren(treeNode, 1);
+    for (const child of children1)
     {
         let block = TranslateRule(child);
         if (block != null) blocks.push(block);
     }
-    return new SemanticDefinition([], blocks, "statements");
+    return new SemanticDefinition([], blocks, "statements", "Program");
 }
 // STATEMENT -> TYPE (a lot of rules)
 else if (treeNode.ruleIndex == 1)
@@ -86,60 +70,121 @@ else if (treeNode.ruleIndex == 2)
 }
 else if (treeNode.ruleIndex == 39)
 {
-    let funcName = treeNode.children[1].children[0].symbol.text;
-    let params = TranslateRule(treeNode.children[3]);
-    let body = TranslateRule(treeNode.children[5].children[1]);
-    return new SemanticDefinition(params,body,"function");
+    let funcName = FindChild(treeNode,70)?.children[0].symbol.text;
+    let params = TranslateRule(FindChild(treeNode,44));
+    let body = TranslateRule(FindChild(FindChild(treeNode,47)),48);
+    return new SemanticDefinition(params,body,"function", funcName);
 }
 else if (treeNode.ruleIndex == 44)
 {
     let params = [];
-    for (const child of treeNode.children)
+    let children45 = FindChildren(treeNode, 45);
+    for (const child of children45)
     {
-        if (child.ruleIndex == 45)
-        {
-            params.push(child.children[0].children[0].children[0].symbol.text);
-        }
+        params.push(FindChild(FindChild(child,58),70).children[0].symbol.text);
     }
     return params;
 }
 else if (treeNode.ruleIndex == 41)
 {
     let functions = [];
-    for (const child of treeNode.children)
+    let children42 = FindChildren(treeNode, 42);
+
+    for (const child of children42)
     {
-        if (child !== undefined)
-        {
-        if (child.ruleIndex == 42)
-        {
-            functions.push(TranslateRule(child.children[0]));
-        }
+        functions.push(TranslateRule(child.children[0]));
     }
-    }
-    return new SemanticDefinition([],functions,"class_functions");
-    return null;
+    return new SemanticDefinition([],functions,"class_functions", "");
 }
+//CLASS extends
 else if (treeNode.ruleIndex == 40)
 {
     let className = treeNode.children[1].children[0].symbol.text;
     let body = TranslateRule(treeNode.children[2]);
-    return new SemanticDefinition([],body,"class");
+    return CollapseDefinition(body, [], className, "class");
 }
 else if (treeNode.ruleIndex == 43)
 {
-    //function in class
-    return null;
+    return new SemanticDefinition([],[],"class_function", "NAME");
+}
+else if (treeNode.ruleIndex == 15) {
+    return TranslateRule(FindChild(treeNode, 16));
+}
+else if (treeNode.ruleIndex == 16) {
+    return TranslateRule(FindChild(treeNode, 17));
+}
+else if (treeNode.ruleIndex == 17) {
+    let asigned = ScanLiterals(FindChild(treeNode, 58));
+    let dependent = ScanLiterals(FindChild(treeNode, 57));
+    return new SemanticAction(asigned[0], dependent);
+}
+else if (treeNode.ruleIndex == 19) {
+    let dependent = ScanLiterals(FindChild(treeNode, 56));
+    let asigned = dependent[0];
+    dependent.shift();
+    return new SemanticAction(asigned, dependent);
 }
 else return null;
 
 }
 
+function FindChild(treeNode, index) {
+    if (treeNode == null) return null;
+    for (const child of treeNode.children)
+    {
+        if (child !== undefined)
+        {
+            if (child?.ruleIndex == index)
+            {
+                return child;
+            }
+        }
+    }
+    return null;
+}
+
+function FindChildren(treeNode, index) {
+    let l = [];
+    if (treeNode == null) return l;
+    for (const child of treeNode.children)
+    {
+        if (child !== undefined)
+        {
+            if (child?.ruleIndex == index)
+            {
+                l.push(child);
+            }
+        }
+    }
+    return l;
+}
+
+function CollapseDefinition(definition, newParams, newName, newType) {
+    return new SemanticDefinition(newParams, definition.localCode, newType, newName);
+}
+// Pozor, konstanta 117
+function ScanLiterals(treeNode, l = []) {
+    if (typeof treeNode.children === 'undefined')
+    {
+        if (treeNode.symbol.type == 117)
+        {
+            l.push(treeNode.symbol.text);
+        }
+    }
+    else
+    {
+        treeNode.children.forEach(element => {ScanLiterals(element,l);});
+    }
+    return l;
+}
+
 class SemanticDefinition
 {
-    constructor(paramList, localCode, definitionType) {
+    constructor(paramList, localCode, definitionType, name) {
         this.paramList = paramList;
         this.localCode = localCode;
         this.definitionType = definitionType;
+        this.name = name;
     }
 }
 

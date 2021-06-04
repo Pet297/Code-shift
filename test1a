@@ -6,16 +6,14 @@ function Add(a, b)
 }
 const input = "function Add(a, b)\n{\nvar c = 0;\nc = a + b;\nreturn c;\n}";
 let k = Add(100,200);
-let l = Add(100,200);
+let l = Add(k,200);
 ;
 class C2 extends C1 {
     constructor() {
 		super();
-		//this.l = [];
 	}
 
 	enterProgram(ctx) {
-	//this.l = [];
 	}
 
 	enterFunctionDecl(ctx) {
