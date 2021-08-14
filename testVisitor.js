@@ -109,7 +109,7 @@ switch (treeNode.ruleIndex)
         let children16 = FindChildren(treeNode, 17);
         for (const child of children16)
         {
-            variableNames16.push(TranslateRule(child));
+            variableActions16.push(TranslateRule(child));
         }
         return variableActions16;
     case 17: // variableDeclaration(17) -> (58) ['=' (57)]?
@@ -123,10 +123,10 @@ switch (treeNode.ruleIndex)
         return TranslateRule(FindChild(treeNode, 56));
     case 20: // ifStatement(20) -> 'If' '(' (56) ')' (2) ['Else' (2)]?
         let condition20 = TranslateRule(FindChild(treeNode, 56));
-        let codes20 = FindChild(treeNode, 2);
+        let codes20 = FindChildren(treeNode, 2);
         let codeblocks20 = [];
 
-        for (child of codes20)
+        for (const child of codes20)
         {
             codeblocks20.push(TranslateRule(child));
         }
@@ -145,7 +145,7 @@ switch (treeNode.ruleIndex)
 
         let decisionblocks21 = [];
 
-        for (child of decisions21)
+        for (const child of decisions21)
         {
             decisionblocks21.push(TranslateRule(child));
         }
@@ -244,7 +244,7 @@ switch (treeNode.ruleIndex)
             //Preklad spravne
             if (child != null) functions41.push(TranslateRule(child));
         }
-        return new SemanticDefinition(extendinglist41,functions,"class_functions", null);
+        return new SemanticDefinition(extendinglist41,functions41,"class_functions", null);
     case 42: // classElement(42) -> ['Static' | !!? (70) | 'Async']* [(43) | (58) '=' (59) ';'] | (18) | '#'? (53) '=' (57)
         // 43: method/getter/setter
         // 58: class_variable
@@ -314,7 +314,7 @@ switch (treeNode.ruleIndex)
             let block48 = TranslateRule(child);
             if (block48 != null) blocks48.push(block48);
         }
-        return new SemanticDefinition([], blocks, "program", null);
+        return new SemanticDefinition([], blocks48, "program", null);
     case 49: // arrayLiteral(49) -> '[' (50) ']'
         return null;
     case 50: // elementList(50) -> ','* (51)? [','+ (51)]* ','*
@@ -331,7 +331,7 @@ switch (treeNode.ruleIndex)
         let children54 = FindChildren(treeNode, 55);
         let names54 = [];
 
-        for (child of children54)
+        for (const child of children54)
         {
             names54.push(TranslateRule(child));
         }
@@ -349,7 +349,7 @@ switch (treeNode.ruleIndex)
         let dep56 = [];
         let val56 = [];
 
-        for (child of children56)
+        for (const child of children56)
         {
             let act56 = TranslateRule(child);
             dep56.push(act56.dependingVariables);
@@ -362,8 +362,6 @@ switch (treeNode.ruleIndex)
              //                            -> | (57) ['**'|'*'|'/'|'%'|'+'|'-'|'??'|'<<'|'>>'|'>>>'|'<'|'>'|'<='|'>='|'Instanceof'|'In'|'=='|'!='|'==='|'!=='|'&'|'^'|'|'|'&&'|'||'] (57) |
              //                            -> | (57) '?' (57) ':' (57) | (57) '=' (57) | (57) (63) (57) | 'Import' '(' (57) ')' | (57) (TEMPLATESTRINGLITERAL) |
              //                            -> | (26) | 'This' | (70) | 'Super' | (64) | (49) | (59) | '(' (56) ')'
-        
-        return null;
 
         let t26_57 = TranslateRule(FindChild(treeNode,26));
         let t41_57 = TranslateRule(FindChild(treeNode,41));
@@ -380,7 +378,7 @@ switch (treeNode.ruleIndex)
 
         let ts57_57 = [];
 
-        for (child of cs57_57)
+        for (const child of cs57_57)
         {
             ts57_57.push(TranslateRule(child));
         }
@@ -402,8 +400,8 @@ switch (treeNode.ruleIndex)
                 if (treeNode.children[1]?.ruleIndex == 63 || treeNode.children[1].symbol.text == '=')
                 {
                     //asignment
-                    left20_57 = [];
-                    right20_57 = [];
+                    let left20_57 = [];
+                    let right20_57 = [];
 
                     left20_57.push(ts57_57[0].dependingVariables);
                     left20_57.push(ts57_57[1].dependingVariables);
@@ -417,16 +415,16 @@ switch (treeNode.ruleIndex)
                 else
                 {
                     //binary operator
-                    left20_57 = [];
-                    right21_57 = [];
+                    let left21_57 = [];
+                    let right21_57 = [];
 
-                    left20_57.push(ts57_57[0].dependingVariables);
-                    left20_57.push(ts57_57[1].dependingVariables);
+                    left21_57.push(ts57_57[0].dependingVariables);
+                    left21_57.push(ts57_57[1].dependingVariables);
 
-                    right20_57.push(ts57_57[0].dependentOn);
-                    right20_57.push(ts57_57[1].dependentOn);
+                    right21_57.push(ts57_57[0].dependentOn);
+                    right21_57.push(ts57_57[1].dependentOn);
 
-                    return new SemanticAction(left20_57,right20_57);
+                    return new SemanticAction(left21_57,right21_57);
                 }
             case 3:
                 // (57) '?' (57) ':' (57)

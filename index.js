@@ -6,7 +6,7 @@ import {TranslateRule} from './testVisitor.js';
 import fs from 'fs';
 import { Console } from 'console';
 
-const input = fs.readFileSync('./test1a').toString()
+const input = fs.readFileSync('./test1b').toString()
 
 const chars = new antlr4.InputStream(input);
 const lexer = new JavaScriptLexer(chars);
