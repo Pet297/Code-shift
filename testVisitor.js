@@ -352,8 +352,8 @@ switch (treeNode.ruleIndex)
         for (const child of children56)
         {
             let act56 = TranslateRule(child);
-            dep56.push(act56.dependingVariables);
-            val56.push(act56.dependentOn)
+            MergeArrays(dep56, act56.dependingVariables);
+            MergeArrays(val56, act56.dependentOn)
         }
 
         return new SemanticAction(dep56,val56);
@@ -403,12 +403,12 @@ switch (treeNode.ruleIndex)
                     let left20_57 = [];
                     let right20_57 = [];
 
-                    left20_57.push(ts57_57[0].dependingVariables);
-                    left20_57.push(ts57_57[1].dependingVariables);
+                    MergeArrays(left20_57, ts57_57[0].dependingVariables);
+                    MergeArrays(left20_57, ts57_57[1].dependingVariables);
 
-                    right20_57.push(ts57_57[0].dependentOn);
-                    right20_57.push(ts57_57[1].dependingVariables);
-                    right20_57.push(ts57_57[1].dependentOn);
+                    MergeArrays(right20_57, ts57_57[0].dependentOn);
+                    MergeArrays(right20_57, ts57_57[1].dependingVariables);
+                    MergeArrays(right20_57, ts57_57[1].dependentOn);
 
                     return new SemanticAction(left20_57,right20_57);
                 }
@@ -418,11 +418,11 @@ switch (treeNode.ruleIndex)
                     let left21_57 = [];
                     let right21_57 = [];
 
-                    left21_57.push(ts57_57[0].dependingVariables);
-                    left21_57.push(ts57_57[1].dependingVariables);
+                    MergeArrays(left21_57, ts57_57[0].dependingVariables);
+                    MergeArrays(left21_57, ts57_57[1].dependingVariables);
 
-                    right21_57.push(ts57_57[0].dependentOn);
-                    right21_57.push(ts57_57[1].dependentOn);
+                    MergeArrays(right21_57, ts57_57[0].dependentOn);
+                    MergeArrays(right21_57, ts57_57[1].dependentOn);
 
                     return new SemanticAction(left21_57,right21_57);
                 }
@@ -433,8 +433,8 @@ switch (treeNode.ruleIndex)
                 for (const child of ts57_57)
                 {
                     let dep3_57 = TranslateRule(child);
-                    dependendencies3_57.push(dep3_57.dependingVariables);
-                    asigned3_57.push(dep3_57.dependentOn);
+                    MergeArrays(dependendencies3_57,dep3_57.dependingVariables);
+                    MergeArrays(asigned3_57,dep3_57.dependentOn);
                 }
                 return new SemanticAction(dependendencies3_57, asigned3_57)
         }
@@ -550,7 +550,15 @@ function ScanLiterals(treeNode, l = []) {
     return l;
 }
 
-class SemanticDefinition
+function MergeArrays(destination, source) {
+    for (var v of source) {
+        destination.push(v);
+    }
+    //destination.sort();
+    destination = Array.from( new Set([ 1, 1, 'a', 'a' ]) );
+}
+
+export class SemanticDefinition
 {
     constructor(paramList, localCode, definitionType, name) {
         this.paramList = paramList;
@@ -560,7 +568,7 @@ class SemanticDefinition
     }
 }
 
-class SemanticAction
+export class SemanticAction
 {
     constructor(dependingVariables, dependentOn)
     {
@@ -570,7 +578,7 @@ class SemanticAction
 
 }
 
-class SemanticDecision
+export class SemanticDecision
 {
     constructor(dependentOn, perConditionCode, conditionType)
     {

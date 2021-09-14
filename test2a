@@ -1,0 +1,8 @@
+a = 0;
+b = 0;
+
+c = a;
+d = 0;
+c = a + b;
+d = c + d;
+return a + b;
