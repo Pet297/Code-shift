@@ -10,16 +10,6 @@ const swapPenalty = 5;               // oabcde  => abcdeo counts as 1 swap, not 
 
 const innerCodeMultiplierPenalty = 2;
 
-// Something like this should be returned
-// For every "line" in input, mark its position in output
-// For every "line" in output, mark its position in output
-
-// "+" - add
-// "x" - delete
-// moving statements (possibly into functions):
-// [5]  - reachable by index [5] on the root list of statements
-// [0, 3] - reachable by indices [0], then [3] from the root list of statements
-
 export default function FindCodeChanges(codeBefore, codeAfter) {
 
     // SPECIAL CASE: Only 1 object in the input and output --> If same type of definition, assume they are related
@@ -30,17 +20,60 @@ export default function FindCodeChanges(codeBefore, codeAfter) {
     }
 
 
-    // GENERAL CASE:
-    // 0) Setup arrays to hold result
+    // 0) Setup variables to hold final or intermediate results
     var inputDestinations = {};
     var outputSources = {};
+    var dist = 0;
+    var unpairedBefore = [];
+    var unpairedAfter = [];
+
+    for (var i = 0; i < codeBefore.length; i++)
+    {
+        unpairedBefore.push(i);
+    }
+    for (var i = 0; i < codeAfter.length; i++)
+    {
+        unpairedAfter.push(i);
+    }
 
     // A) BRUTE FORCE SECTION - NO moving in and out
 
+    // A0) Assume definitions of the same name and type are related.
+    for (var i = 0; i < unpairedBefore.length; i++)
+    {
+        if (codeBefore[unpairedBefore[i]] instanceof SemanticDefinition)
+        {
+            for (var j = 0; j < unpairedAfter.length; j++)
+            {
+                if (codeAfter[unpairedAfter[j]] instanceof SemanticDefinition)
+                {
+                    if (codeBefore[unpairedBefore[i]].definitionType == codeAfter[unpairedAfter[j]].definitionType && codeBefore[unpairedBefore[i]].name == codeAfter[unpairedAfter[j]].name)
+                    {
+                        inputDestinations[unpairedBefore[i]] = [unpairedAfter[j]]
+                        outputSources[j] = [unpairedBefore[i]]
+
+                        var innerChanges = FindCodeChanges(codeBefore[unpairedBefore[i]].localCode, codeAfter[unpairedAfter[j]].localCode);
+                        dist += innerChanges.distance * innerCodeMultiplierPenalty;
+                        dist += listDistance(codeBefore[unpairedBefore[i]].paramList, codeAfter[unpairedAfter[j]].paramList) * missingParamPenalty;
+
+                        inputDestinations[unpairedBefore[i]] = new CodeChange(unpairedAfter[j],innerChanges.inputDestinations);
+                        outputSources[unpairedAfter[j]] = new CodeChange(unpairedBefore[i],innerChanges.outputSources);
+
+                        unpairedBefore.splice(i, 1);
+                        unpairedAfter.splice(j, 1);
+                        i--;
+                        j--;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
     // A1) List all pairs of the same blocks - supposedly unchanged code, though there could be new duplicities
     var equalPairs = [];
-    for (var i = 0; i < codeBefore.length; i++) {
-        for (var j = 0; j < codeAfter.length; j++) {
+    for (var i of unpairedBefore) {
+        for (var j of unpairedAfter) {
             if (checkStatementsForEquality(codeBefore[i], codeAfter[j]) == true)
             {
                 equalPairs.push([i,j]);
@@ -48,7 +81,7 @@ export default function FindCodeChanges(codeBefore, codeAfter) {
         }
     }
 
-    // A2) If any number appears on just once on 1 side, assume that's the unchanged part
+    // A2) If any number appears just once on 1 side, assume that's the unchanged part
 
     var equalPairsLeft = equalPairs.length;
     do {
@@ -64,9 +97,13 @@ export default function FindCodeChanges(codeBefore, codeAfter) {
                 }
             }
             if (appearances == 1) {
-                inputDestinations[equalPairs[index][0]] = [equalPairs[index][1]];
-                outputSources[equalPairs[index][1]] = [equalPairs[index][0]];
-                equalPairs.splice(index, 1);
+                inputDestinations[equalPairs[index][0]] = new CodeChange(equalPairs[index][1], []);
+                outputSources[equalPairs[index][1]] = new CodeChange(equalPairs[index][0], []);
+
+                unpairedBefore = unpairedBefore.filter(id => id != equalPairs[index][0]);
+                unpairedAfter = unpairedAfter.filter(id => id != equalPairs[index][1]);
+
+                equalPairs = equalPairs.filter(pair => pair[1] != equalPairs[index][1]);
             }
         }
 
@@ -80,9 +117,13 @@ export default function FindCodeChanges(codeBefore, codeAfter) {
                 }
             }
             if (appearances == 1) {
-                inputDestinations[equalPairs[index][0]] = [equalPairs[index][1]];
-                outputSources[equalPairs[index][1]] = [equalPairs[index][0]];
-                equalPairs.splice(index, 1);
+                inputDestinations[equalPairs[index][0]] = new CodeChange(equalPairs[index][1], []);
+                outputSources[equalPairs[index][1]] = new CodeChange(equalPairs[index][0], []);
+                
+                unpairedBefore = unpairedBefore.filter(id => id != equalPairs[index][0]);
+                unpairedAfter = unpairedAfter.filter(id => id != equalPairs[index][1]);
+
+                equalPairs = equalPairs.filter(pair => pair[0] != equalPairs[index][0]);
             }
         }
     } while (equalPairsLeft != equalPairs.length)
@@ -104,58 +145,47 @@ export default function FindCodeChanges(codeBefore, codeAfter) {
     // C) AUTO DELETIONS AND ADDITIONS
     for (var i = 0; i < codeBefore.length; i++) {
         if (!(i in inputDestinations)) {
-            inputDestinations[i] = 'x';
+            inputDestinations[i] = new CodeChange('x', []);
         }
     }
 
     for (var i = 0; i < codeAfter.length; i++) {
         if (!(i in outputSources)) {
-            outputSources[i] = '+';
+            outputSources[i] = new CodeChange('+', []);
         }
     }
 
-    // TODO: Not 0
-    return new ListOfChanges(inputDestinations, outputSources, 0);
+    // TODO: proper distance
+    return new ListOfChanges(inputDestinations, outputSources, dist);
 }
 
 function FindCodeChanges_Special_OneBlock(codeBefore, codeAfter) {
-    return FindCodeChanges(codeBefore[0].localCode, codeAfter[0].localCode).moveUp(0);
+    var localChanges = FindCodeChanges(codeBefore[0].localCode, codeAfter[0].localCode);
+    var inputDestinations = {};
+    var outputSources = {};
+    inputDestinations[0] = new CodeChange(0, localChanges.inputDestinations);
+    outputSources[0] = new CodeChange(0, localChanges.outputSources);
+    return new ListOfChanges(inputDestinations, outputSources, localChanges.distance);
+}
+
+export class CodeChange {
+
+    constructor (address, children) {
+        this.address = address;
+        this.children = children;
+    }
+
 }
 
 export class ListOfChanges {
 
-    constructor (inputDestinations, outputSources, distance, address = []) {
+    constructor (inputDestinations, outputSources, distance) {
         this.inputDestinations = inputDestinations;
         this.outputSources = outputSources;
         this.distance = distance;
-        this.address = address;
     }
 
-    moveUp (outerAddress) {
-        var newInputDestinations = {};
-        var newOutputSources = {};
-        var newAddress = [];
-
-        // Push outerAddress into every adresing list eq. if outer a. is 3 and inner a. is 5, turn [5] into [5,3]
-        for (var v of this.address) newAddress.push(v);
-        newAddress.push(outerAddress);
-
-        for (var i in this.inputDestinations) {
-            newInputDestinations[i] = [];
-            for (var a of this.inputDestinations[i]) newInputDestinations[i].push(a);
-            newInputDestinations[i].push(outerAddress)
-        }
-
-        for (var i in this.outputSources) {
-            newOutputSources[i] = [];
-            for (var a of this.outputSources[i]) newOutputSources[i].push(a);
-            newOutputSources[i].push(outerAddress)
-        }
-
-        return new ListOfChanges(newInputDestinations, newOutputSources, this.distance, newAddress);
-    }
 }
-
 
 // Checks 2 generic lists for equality
 function checkListsEqual(list1, list2) {

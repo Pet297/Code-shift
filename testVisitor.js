@@ -116,7 +116,7 @@ switch (treeNode.ruleIndex)
         let asigned17 = ScanLiterals(FindChild(treeNode, 58));
         let dependent17 = ScanLiterals(FindChild(treeNode, 57));
         if (dependent17 == null) dependent17 = [];
-        return new SemanticAction(asigned17, dependent17);
+        return new SemanticDefinition(dependent17, [], "variable", asigned17[0]);
     case 18: // emptyStatement(18) -> ';'
         return null;
     case 19: // expressionStatement(19) -> (!!)? (56) (74)
@@ -224,7 +224,7 @@ switch (treeNode.ruleIndex)
         let params39 = TranslateRule(FindChild(treeNode,44));
         let body39 = TranslateRule(FindChild(treeNode,47));
         if (params39 == null) params39 = [];
-        return new SemanticDefinition(params39,body39,"function", funcName39);
+        return new SemanticDefinition(params39,body39.localCode,"function", funcName39[0]);
     case 40: // classDeclaration(40) -> 'Class' (70) (41)
         let className40 = ScanLiterals(FindChild(treeNode, 70));
         let body40 = TranslateRule(FindChild(treeNode, 41));
@@ -293,7 +293,11 @@ switch (treeNode.ruleIndex)
         let children44 = FindChildren(treeNode, 45);
         for (const child of children44)
         {
-            params44.push(TranslateRule(child));
+            var params = TranslateRule(child);
+            for (const child2 of params)
+            {
+                params44.push(child2);
+            }
         }
         let lastparam44 = FindChildren(treeNode, 46);
         if (lastparam44 != null) params44.push(lastparam44);
@@ -312,7 +316,17 @@ switch (treeNode.ruleIndex)
         for (const child of children48)
         {
             let block48 = TranslateRule(child);
-            if (block48 != null) blocks48.push(block48);
+            if (block48 != null)
+            {
+                if (Array.isArray(block48)) {
+                    for (const block of block48) {
+                        blocks48.push(block);
+                    }
+                }
+                else {
+                    blocks48.push(block48);
+                }
+            }
         }
         return new SemanticDefinition([], blocks48, "program", null);
     case 49: // arrayLiteral(49) -> '[' (50) ']'

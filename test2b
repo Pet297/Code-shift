@@ -1,8 +1,18 @@
-a = 0;
-b = 0;
+var a = 0;
+var b = 0;
 
 c = a;
 c = a + b;
 d = 0;
 a = c + d;
 d = c + d;
+
+function A(d,e) {
+    d = e;
+    e = d * d;
+    return d + e;
+}
+
+function B(d,e) {
+    return e;
+}
