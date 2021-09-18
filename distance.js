@@ -1,13 +1,14 @@
 import {SemanticDefinition, SemanticAction, SemanticDecision} from './testVisitor.js';
 
 // The smaller the number, the more severe the penalty
-const missingDependingVariablePenalty = -100;
-const missingParamPenalty = -10;
-const differentDefinitionType = -2;
-const differentDefinitionName = -5;
-const swapPenalty = -5;               // oabcde  => abcdeo counts as 1 swap, not 5
+const missingDependingVariablePenalty = 100;
+const missingParamPenalty = 10;
+const differentDefinitionTypePenalty = 2;
+const differentNamePenalty = 20;
+const differentDefinitionNamePenalty = 5;
+const swapPenalty = 5;               // oabcde  => abcdeo counts as 1 swap, not 5
 
-const codeDifferenceMultiplier = 2;
+const innerCodeMultiplierPenalty = 2;
 
 // Something like this should be returned
 // For every "line" in input, mark its position in output
@@ -31,8 +32,8 @@ export default function FindCodeChanges(codeBefore, codeAfter) {
 
     // GENERAL CASE:
     // 0) Setup arrays to hold result
-    var inputDestinations = {}
-    var outputSources = {}
+    var inputDestinations = {};
+    var outputSources = {};
 
     // A) BRUTE FORCE SECTION - NO moving in and out
 
@@ -86,7 +87,19 @@ export default function FindCodeChanges(codeBefore, codeAfter) {
         }
     } while (equalPairsLeft != equalPairs.length)
 
-    // TODO: HEURISTIC SECTION
+    // B) Heuristic section - compare all pairs of statements and rate their distances [dist, before, after]
+    // TODO: (?) Cap max distance in code to avoid O(n^2) and prevent crazy O(exp) algorithms down the line (?)
+    var distances = [];
+    for (var i = 0; i < codeBefore.length; i++) {
+        for (var j = 0; j < codeAfter.length; j++) {
+            distances.push([statementDistance(codeBefore[i], codeAfter[j]),i,j]);
+        }
+    }
+
+    distances.sort((la, lb) => la - lb);
+
+    // TODO: Keep removing low ones
+
 
     // C) AUTO DELETIONS AND ADDITIONS
     for (var i = 0; i < codeBefore.length; i++) {
@@ -101,7 +114,8 @@ export default function FindCodeChanges(codeBefore, codeAfter) {
         }
     }
 
-    return new ListOfChanges(inputDestinations, outputSources);
+    // TODO: Not 0
+    return new ListOfChanges(inputDestinations, outputSources, 0);
 }
 
 function FindCodeChanges_Special_OneBlock(codeBefore, codeAfter) {
@@ -110,9 +124,10 @@ function FindCodeChanges_Special_OneBlock(codeBefore, codeAfter) {
 
 export class ListOfChanges {
 
-    constructor (inputDestinations, outputSources, address = []) {
+    constructor (inputDestinations, outputSources, distance, address = []) {
         this.inputDestinations = inputDestinations;
         this.outputSources = outputSources;
+        this.distance = distance;
         this.address = address;
     }
 
@@ -137,7 +152,7 @@ export class ListOfChanges {
             newOutputSources[i].push(outerAddress)
         }
 
-        return new ListOfChanges(newInputDestinations, newOutputSources, newAddress);
+        return new ListOfChanges(newInputDestinations, newOutputSources, this.distance, newAddress);
     }
 }
 
@@ -146,6 +161,20 @@ export class ListOfChanges {
 function checkListsEqual(list1, list2) {
     if (list1.length === list2.length) return list1.every((l, i) => l === list2[i]);
     return false;
+}
+
+// Count distance of 2 generic lists, using unit penalty
+function listDistance(list1, list2) {
+    var dist = 0;
+    for (var x in list1)
+    {
+        if (!list2.includes(x)) dist++;
+    }
+    for (var x in list2)
+    {
+        if (!list1.includes(x)) dist++;
+    }
+    return dist;
 }
 
 // Checks 2 lists of statements (codes) for equality
@@ -183,7 +212,27 @@ function checkStatementsForEquality(block1, block2) {
 }
 
 // Compares 2 simple statements and returns their distance based on how different they are
-function compareForDistance(block1, block2) {
-    // TODO: implement
-    return 0;
+function statementDistance(block1, block2) {
+    if (block1 instanceof SemanticDefinition && block2 instanceof SemanticDefinition) {
+        var dist = 0;
+        if (block1.definitionType != block2.definitionType) dist += differentDefinitionTypePenalty;
+        if (block1.name != block2.name) dist += differentNamePenalty;
+        dist += missingParamPenalty * listDistance(block1.paramList, block2.paramList);
+        dist += innerCodeMultiplierPenalty * FindCodeChanges(block1.localCode, block2.localCode).distance;
+        return dist;
+    }
+    else if (block1 instanceof SemanticAction && block2 instanceof SemanticAction) {
+        var dist = 0;
+        dist += missingParamPenalty * listDistance(block1.dependentOn, block2.dependentOn);
+        dist += missingDependingVariablePenalty * listDistance(block1.dependingVariables, block2.dependingVariables);
+        return dist;
+    }
+    else if (block1 instanceof SemanticDecision && block2 instanceof SemanticDecision) {
+        //TODO: Lists of lists
+        var dist = 0;
+        dist += missingParamPenalty * listDistance(block1.dependentOn, block2.dependentOn);
+        return 1000;
+    }
+    //TODO: more
+    return 1000;
 }
