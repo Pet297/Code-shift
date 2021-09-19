@@ -39,4 +39,3 @@ console.log(l1);
 
 var result = FindCodeChanges([l], [l1]);
 console.log("");
-
