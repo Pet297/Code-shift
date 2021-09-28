@@ -1,4 +1,4 @@
-import {SemanticDefinition, SemanticAction, SemanticDecision} from './testVisitor.js';
+import {SemanticDefinition, SemanticAction, SemanticDecision} from './ruleTranslator.js';
 
 // The smaller the number, the more severe the penalty
 const missingDependingVariablePenalty = 100.0;

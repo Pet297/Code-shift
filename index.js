@@ -1,12 +1,13 @@
 import antlr4 from 'antlr4';
 import JavaScriptLexer from './grammars/JavaScriptLexer.js';
 import JavaScriptParser from './grammars/JavaScriptParser.js';
-import testVisitor from './testVisitor.js';
-import TranslateRule from './testVisitor.js';
+import testVisitor from './ruleTranslator.js';
+import TranslateRule from './ruleTranslator.js';
 import fs from 'fs';
 import FindCodeChanges from './distance.js'
 import {ListOfChanges} from './distance.js'
 import { Console } from 'console';
+import { StatementPositionManager } from './statementPosition.js'
 
 const input = fs.readFileSync('./test2a').toString()
 
@@ -33,6 +34,8 @@ const tree1 = parser1.program();
 testVisitor(tree1,0);
 
 let l1 = TranslateRule(tree1);
+
+var test = new StatementPositionManager(tree.start.source[1].strdata);
 
 console.log(l);
 console.log(l1);
