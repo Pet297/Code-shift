@@ -1,49 +1,4 @@
-function VisitRules1(tree, depth = 0, func_num = -1, prev = -1, l = [])
-{
-    if (typeof tree.children === 'undefined')
-    {
-        //console.log("#" + tree.symbol.type + " - " + tree.symbol.text + " - Rule " + prev);
-        if (tree.symbol.type == 117)
-        {
-            l.push({id: prev, name: tree.symbol.text});
-            //console.log();
-        }
-    }
-    else
-    {
-        tree.children.forEach(element => {VisitRules(element, depth + 1, tree.ruleIndex, func_num, l);});
-    }
-}
-    
-export default function VisitRules(tree, depth)
-{
-        if (typeof tree.children === 'undefined')
-        {
-            console.log(('--'.repeat(depth)) + " : #" + tree.symbol.type + " - " + tree.symbol.text);
-        }
-        else
-        {
-
-        var str = ('--'.repeat(depth)) + '( ' + tree.ruleIndex + " : ";
-        var first = true;
-
-        tree.children.forEach(element => {
-            if (first) str += element.ruleIndex 
-            else str += ", " + element.ruleIndex
-            first = false;
-        });
-        str += " )";
-
-        console.log(str);
-        
-            tree.children.forEach(element => {
-                VisitRules(element, depth + 1);               
-                });
-        }
-    
-}
-
-export function TranslateRule(treeNode) {
+export default function TranslateRule(treeNode) {
 if (treeNode == null) return null;
 switch (treeNode.ruleIndex)
 {
@@ -53,7 +8,14 @@ switch (treeNode.ruleIndex)
         return TranslateRule(FindChild(treeNode, 2));
     case 2: // statement(2) -> (3)|(15)|(5)|(12)|(18)|(40)|(19)|(20)|(21)|(23)|(24)|(25)|
             //                    -> (26)|(27)|(33)|(28)|(34)|(35)|(38)|(39)
-        return TranslateRule(treeNode.children[0]);
+        var st2 = TranslateRule(treeNode.children[0]);
+        st2['startLine'] = treeNode.start.line;
+        st2['startColumn'] = treeNode.start.column;
+        st2['stopLine'] = treeNode.stop.line;
+        st2['stopColumn'] = treeNode.stop.column;
+        st2['sourceStream'] = treeNode.start.source[1];
+
+        return st2;
     case 3: // block(3) -> '{' (4) '}'
         return TranslateRule(FindChild(treeNode, 4));
     case 4: // statementList(4) -> (2)+

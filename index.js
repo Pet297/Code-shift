@@ -2,7 +2,7 @@ import antlr4 from 'antlr4';
 import JavaScriptLexer from './grammars/JavaScriptLexer.js';
 import JavaScriptParser from './grammars/JavaScriptParser.js';
 import testVisitor from './testVisitor.js';
-import {TranslateRule} from './testVisitor.js';
+import TranslateRule from './testVisitor.js';
 import fs from 'fs';
 import FindCodeChanges from './distance.js'
 import {ListOfChanges} from './distance.js'
