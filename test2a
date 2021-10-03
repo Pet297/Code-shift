@@ -5,6 +5,7 @@ function A(d,e) {
 
 var a = 0;
 var b = 0;
+// Comment
 
 c = a;
 d = 0;

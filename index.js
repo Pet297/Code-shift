@@ -7,7 +7,7 @@ import fs from 'fs';
 import FindCodeChanges from './distance.js'
 import {ListOfChanges} from './distance.js'
 import { Console } from 'console';
-import { StatementPositionManager } from './statementPosition.js'
+import { AddComments } from './statementPosition.js'
 
 const input = fs.readFileSync('./test2a').toString()
 
@@ -35,7 +35,8 @@ testVisitor(tree1,0);
 
 let l1 = TranslateRule(tree1);
 
-var test = new StatementPositionManager(tree.start.source[1].strdata);
+AddComments(l, tree.start.source[1].strdata);
+AddComments(l1, tree1.start.source[1].strdata);
 
 console.log(l);
 console.log(l1);
