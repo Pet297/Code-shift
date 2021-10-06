@@ -8,6 +8,7 @@ import FindCodeChanges from './distance.js'
 import {ListOfChanges} from './distance.js'
 import { Console } from 'console';
 import { AddComments } from './statementPosition.js'
+import { GetAnimationSequence } from './animationSequence.js'
 
 const input = fs.readFileSync('./test2a').toString()
 
@@ -42,4 +43,5 @@ console.log(l);
 console.log(l1);
 
 var result = FindCodeChanges([l], [l1]);
+var result2 = GetAnimationSequence(result.inputDestinations, result.outputSources);
 console.log("");
