@@ -1,6 +1,27 @@
 import {SemanticDefinition, SemanticAction, SemanticDecision, NonsemanticText} from './ruleTranslator.js';
+import {DeletingAnimation, AddingAnimation, MovingUpAnimation, ChangingAnimation, InternalAnimationSequence} from './animationSequence';
 
-export function GetStillText(sourceChanges, destinationChanges, currentBlocks)
+export function EnumerateStillTexts(sourceChanges, destinationChanges, animationSequence)
+{
+    // keep the list of intermediate texts
+    var results = [];
+
+    // Build the list of elements at the begining. Keep processed part and unprocessed part
+    var proccessedList = [];
+    var unproccessedList = [];
+    var currentAddress = [];
+    BuildInitialArray(sourceChanges, [], unproccessedList);
+
+    while (animationSequence.length > 0)
+    {
+        results.push(GetStillText(sourceChanges, destinationChanges, unproccessedList));
+        var anim = animationSequence.shift();
+    }
+
+    return results;
+}
+
+function GetStillText(sourceChanges, destinationChanges, currentBlocks)
 {
     var stillText = "";
 
@@ -24,12 +45,28 @@ export function GetStillText(sourceChanges, destinationChanges, currentBlocks)
     return stillText;
 }
 
+function BuildInitialArray(sourceChanges, addressArray, unproccessedList) {
+    for (var index in sourceChanges)
+    {
+        var na = [...addressArray];
+        na.push(index);
+        if (sourceChanges[index].children.length != 0)
+        {
+            BuildInitialArray(sourceChanges[index].children, na, unproccessedList);
+        }
+        else
+        {
+            unproccessedList.push([na,'o']);
+        }
+    }
+}
+
 function FindByAddress(listOfChanges, address) {
 
-    var currentList = listOfChanges[0];
+    var currentList = listOfChanges[address[0]];
 
-    for (var a of address) {
-        currentList = currentList.children[a];
+    for (var a in address) {
+        if (a != 0) currentList = currentList.children[address[a]];
     }
 
     return currentList.rawText;

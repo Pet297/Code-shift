@@ -9,7 +9,7 @@ import {ListOfChanges} from './distance.js'
 import { Console } from 'console';
 import { AddText } from './statementPosition.js'
 import { GetAnimationSequence } from './animationSequence.js'
-import { GetStillText } from './frameDescriptor.js'
+import { EnumerateStillTexts } from './frameDescriptor.js'
 
 const input = fs.readFileSync('./test2a').toString()
 
@@ -45,4 +45,4 @@ console.log(l1);
 
 var result = FindCodeChanges([l], [l1], tree.start.source[1].strdata, tree1.start.source[1].strdata);
 var result2 = GetAnimationSequence(result.inputDestinations, result.outputSources);
-console.log(GetStillText(result.inputDestinations, result.outputSources, [[[0,0],'o'],[[0,1],'o'],[[0,2],'o'],[[0,3],'o'],[[0,4],'o']]));
+console.log(EnumerateStillTexts(result.inputDestinations, result.outputSources, result2));
