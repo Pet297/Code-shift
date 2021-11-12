@@ -18,7 +18,7 @@ const innerCodeMultiplierBonus = 2.0;
 
 const changeTreshold = 2.0;
 
-export default function FindCodeChanges(codeBefore, codeAfter) {
+export default function FindCodeChanges(codeBefore, codeAfter, rawBefore, rawAfter) {
 
     // SPECIAL CASE: Only 1 object in the input and output --> If same type of definition, assume they are related
     if (codeBefore.length == 1 && codeAfter.length == 1
@@ -176,6 +176,18 @@ export default function FindCodeChanges(codeBefore, codeAfter) {
     for (var i = 0; i < codeAfter.length; i++) {
         if (!(i in outputSources)) {
             outputSources[i] = new CodeChange('+', []);
+        }
+    }
+
+    // Z) ADD RAW TEXT
+    for (var index in inputDestinations) {
+        if ('rawText' in codeBefore[index]) {
+            inputDestinations[index].rawText = codeBefore[index].rawText;
+        }
+    }
+    for (var index in outputSources) {
+        if ('rawText' in codeAfter[index]) {
+            outputSources[index].rawText = codeAfter[index].rawText;
         }
     }
 

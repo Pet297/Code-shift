@@ -1,52 +1,36 @@
 import {SemanticDefinition, SemanticAction, SemanticDecision, NonsemanticText} from './ruleTranslator.js';
 
-export class StructuredText {
+export function GetStillText(sourceChanges, destinationChanges, currentBlocks)
+{
+    var stillText = "";
 
-    constructor(parts) {
-        this.parts = parts;
-    }
-
-    getText() {
-        result = '';
-        for (var part of parts) {
-            if (part instanceof StructuredText) {
-                result2 = part.getText();
-                result += result2;
-            }
-            // If it isn't Structured text, then it is a raw string.
-            else result2 += part;
+    for (var block of currentBlocks)
+    {
+        if (block[1] == 'o') {
+            stillText += FindByAddress(sourceChanges,block[0]);
         }
-        return result;
+        else if (block[1] == '+') {
+            stillText += FindByAddress(destinationChanges,block[0]);
+        }
+        else if (block[1] == 'x') {
+            stillText += FindByAddress(sourceChanges,block[0]);
+        }
+        else if (block[1] == '*') {
+            // TODO: In destination
+            stillText += "Edited";
+        }
     }
+
+    return stillText;
 }
 
-function TextFromStatementList(rawText, statementList, sl, sc, pl, pc)
-{
-    //TODO: Line break type?
-    lines = rawText.split('\r\n');
-    parts = [];
+function FindByAddress(listOfChanges, address) {
 
-    currentLine = sl;
-    currentColumn = sc;
+    var currentList = listOfChanges[0];
 
-    for (statement of statementList)
-    {
-        if (statement.startLine != currentLine || statement.startColumn != currentColumn) 
-        {
-            // There is a raw text.
-            // TODO: Calculate raw text based on current column and line
-            parts.push(' ');
-        }
-        
-        // TODO: Semantic decision
-        if (statement instanceof SemanticDefinition) {
-            parts.push(TextFromStatementList(' ', statement.statementList, statement.startLine, statement.startColumn, statement.stopLine, statement.stopColumn));
-        }
-        else if (statement instanceof SemanticAction) {
-
-        }
-        else if (statement instanceof NonsemanticText) {
-
-        }
+    for (var a of address) {
+        currentList = currentList.children[a];
     }
+
+    return currentList.rawText;
 }

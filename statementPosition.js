@@ -1,6 +1,6 @@
 import {SemanticDefinition, SemanticAction, SemanticDecision, NonsemanticText} from './ruleTranslator.js';
 
-export class StatementPositionManager {
+class StatementPositionManager {
 
     constructor(rawText, sl, sc, pl, pc) {
         //TODO: Line break type?
@@ -93,7 +93,7 @@ export class StatementPositionManager {
     }
 }
 
-export function AddComments(rootDefinition, sourceCode) {
+export function AddText(rootDefinition, sourceCode) {
    
     var defStartLine = rootDefinition.startLine;
     var defStartColumn = rootDefinition.startColumn;
@@ -115,7 +115,7 @@ export function AddComments(rootDefinition, sourceCode) {
     // Do recursively at all levels:
     for (var lc of rootDefinition.localCode) {
         if (lc instanceof SemanticDefinition) {
-            AddComments(lc, sourceCode);
+            AddText(lc, sourceCode);
         }
         else if (lc instanceof SemanticDecision) {
             //TODO: sd
@@ -124,4 +124,26 @@ export function AddComments(rootDefinition, sourceCode) {
 
     // Sort comments
     rootDefinition.localCode = rootDefinition.localCode.sort((c1,c2) => (c1.startLine == c2.startLine) ? c1.startColumn - c2.startColumn : c1.startLine - c2.startLine);
+
+    // Add rawtext to all leaf code
+    AddText0(rootDefinition, sourceCode, manager);
+}
+
+function AddText0(rootDefinition, sourceCode, manager) {
+
+    // Do recursively at all levels:
+    for (var lc of rootDefinition.localCode) {
+        if (lc instanceof SemanticDefinition) {
+        }
+        else if (lc instanceof SemanticDecision) {
+            //TODO: sd
+        }
+        else if (lc instanceof SemanticAction) {
+            //TODO: FINISH
+            lc.rawText = "SA\r\n"
+        }
+        else {
+            lc.rawText = "CMT\r\n"
+        }
+    }
 }
