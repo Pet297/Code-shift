@@ -1,73 +1,65 @@
+import {SemanticDefinition, SemanticAction, SemanticDecision, NonsemanticText} from './ruleTranslator.js';
+
 export function GetAnimationSequence(sourceChanges, destinationChanges)
 {
+    var animationList = [];
+
     // Step 1 - List removals
-    var removals = FilterRemovals(sourceChanges);
-
-    // Step 2 - Movement and stationary code
-    // TODO: Based on order in destination, keep track of the sorted part. One at a time,
-    //       move a piece of original source code to its destination, so that the sorted
-    //       part expands from top to bottom
-
-    // Step 3 - List what was re-written
-    // TODO: Take note of all pieces of related code, that were changed between the versions.
-
-    // Step 4 - List what was added
-    var additions = FilterAddtions(destinationChanges);
-
-    // TODO: Remove irrelevant animations related to "adding" whitespace or similar.
-
-    return [removals, additions];
-}
-
-export class ListOfAnimations
-{
-    constructor(stationaryCode, initialPositions, operations)
-    {
-        this.stationaryCode = stationaryCode;
-        this.initialPositions = initialPositions;
-        this.operations = operations;
-    }
-}
-
-function FilterAddtions(destinationChanges)
-{
-    var listA = [];
-
-    for (var index in destinationChanges)
-    {
-        if (destinationChanges[index].address == '+') listA.push([index]);
-
-        var listAR = FilterAddtions(destinationChanges[index].children);
-        for (var array of listAR)
-        {
-            array.push(index);
-            listA.push(array);
-        }
-    }
-
-    return listA;
-}
-
-function FilterRemovals(sourceChanges)
-{
-    var listR = [];
-
     for (var index in sourceChanges)
     {
-        if (sourceChanges[index].address == 'x') listR.push([index]);
+        if (sourceChanges[index].address == 'x') animationList.push(new DeletingAnimation(index));
+    }
 
-        var listRR = FilterRemovals(sourceChanges[index].children);
-        for (var array of listRR)
+    // Step 2 - From top to bottom - move things up (or add them) at each step, check recursively
+    for (var index in destinationChanges)
+    {
+        if (destinationChanges[index].address == '+') animationList.push(new AddingAnimation(index));
+        else
         {
-            array.push(index);
-            listR.push(array);
+            var srcaddress = destinationChanges[index].address;
+            animationList.push(new MovingUpAnimation(srcaddress));
+            animationList.push(new ChangingAnimation(srcaddress));
+            animationList.push(new InternalAnimationSequence(srcaddress, GetAnimationSequence(sourceChanges[srcaddress].children, destinationChanges[index].children)));
         }
     }
 
-    return listR;
+    // TODO: Remove irrelevant animations related to "adding" whitespace or similar.
+    // TODO: Reduce number of animations by grouping related ones.
+    return animationList;
 }
 
-function FilterPairedCode(sourceChanges)
-{
+export class DeletingAnimation {
+    constructor (sourceAddress)
+    {
+        this.sourceAddress = sourceAddress;
+    }
+}
 
+export class MovingUpAnimation {
+    constructor (sourceAddress)
+    {
+        this.sourceAddress = sourceAddress;
+    }
+}
+
+export class ChangingAnimation {
+    constructor (sourceAddress)
+    {
+        this.sourceAddress = sourceAddress;
+    }
+}
+
+export class InternalAnimationSequence {
+    constructor (sourceAddress, animationSequence)
+    {
+        this.sourceAddress = sourceAddress;
+        this.animationSequence = animationSequence;
+    }
+}
+
+export class AddingAnimation {
+    constructor (destinationAddress)
+    {
+        this.destinationAddress = destinationAddress;
+    }
 }
