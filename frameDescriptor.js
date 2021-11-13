@@ -1,24 +1,53 @@
 import {SemanticDefinition, SemanticAction, SemanticDecision, NonsemanticText} from './ruleTranslator.js';
-import {DeletingAnimation, AddingAnimation, MovingUpAnimation, ChangingAnimation, InternalAnimationSequence} from './animationSequence';
+import {DeletingAnimation, AddingAnimation, MovingUpAnimation, ChangingAnimation, InternalAnimationSequence} from './animationSequence.js';
 
-export function EnumerateStillTexts(sourceChanges, destinationChanges, animationSequence)
+export class IntermediateTextEnumerator
 {
-    // keep the list of intermediate texts
-    var results = [];
-
-    // Build the list of elements at the begining. Keep processed part and unprocessed part
-    var proccessedList = [];
-    var unproccessedList = [];
-    var currentAddress = [];
-    BuildInitialArray(sourceChanges, [], unproccessedList);
-
-    while (animationSequence.length > 0)
+    constructor(sourceChanges, destinationChanges, animationSequence)
     {
-        results.push(GetStillText(sourceChanges, destinationChanges, unproccessedList));
-        var anim = animationSequence.shift();
+        this.unproccessedList = [];
+        this.proccessedList = [];
+        this.currentAddress = [];
+        this.sourceChanges = sourceChanges;
+        this.destinationChanges = destinationChanges;
+        this.animationSequence = animationSequence;
+
+        BuildInitialArray(this.sourceChanges, [], this.unproccessedList);
     }
 
-    return results;
+    GetNextStillText()
+    {
+        while (this.animationSequence.length != 0 || 'currentChild' in this) {
+            //Recursion
+            if ('currentChild' in this) {
+                var childText = this.currentChild.GetNextStillText();
+                if (childText !== undefined) return GetStillText(this.sourceChanges, this.destinationChanges, this.proccessedList) + childText + GetStillText(this.sourceChanges, this.destinationChanges, this.unproccessedList);
+                else
+                {
+                    this.proccessedList.push([this.currentChildIndex,'*']);
+                    delete this.currentChild;
+                    delete this.currentChildIndex;
+                }
+            }
+
+            //Base
+            var anim = this.animationSequence.shift();
+            if (anim instanceof InternalAnimationSequence) {
+                this.currentChild = new IntermediateTextEnumerator(
+                    this.sourceChanges[anim.sourceAddress].children,
+                    this.destinationChanges[this.sourceChanges[anim.sourceAddress].address].children,
+                    anim.animationSequence);
+                this.currentChildIndex = anim.sourceAddress;
+                this.proccessedList
+            }
+            else
+            {
+                ApplySimpleAnimation(this.proccessedList, this.unproccessedList, anim);
+                return GetStillText(this.sourceChanges, this.destinationChanges, this.proccessedList) + GetStillText(this.sourceChanges, this.destinationChanges, this.unproccessedList);
+            }
+        }
+        return undefined;
+    }
 }
 
 function GetStillText(sourceChanges, destinationChanges, currentBlocks)
@@ -37,8 +66,7 @@ function GetStillText(sourceChanges, destinationChanges, currentBlocks)
             stillText += FindByAddress(sourceChanges,block[0]);
         }
         else if (block[1] == '*') {
-            // TODO: In destination
-            stillText += "Edited";
+            stillText += FindByAddress(destinationChanges,sourceChanges[block[0]].address);
         }
     }
 
@@ -48,26 +76,67 @@ function GetStillText(sourceChanges, destinationChanges, currentBlocks)
 function BuildInitialArray(sourceChanges, addressArray, unproccessedList) {
     for (var index in sourceChanges)
     {
-        var na = [...addressArray];
-        na.push(index);
-        if (sourceChanges[index].children.length != 0)
-        {
-            BuildInitialArray(sourceChanges[index].children, na, unproccessedList);
+        unproccessedList.push([index,'o']);
+    }
+}
+
+function ApplySimpleAnimation(proccessedList, unproccessedList, animation) {
+    if (animation instanceof DeletingAnimation) {
+        for (var key in unproccessedList) {
+            if (unproccessedList[key][0] == animation.sourceAddress) {
+                unproccessedList.splice(key, 1);
+                break;
+            }
         }
-        else
-        {
-            unproccessedList.push([na,'o']);
+    }
+    else if (animation instanceof AddingAnimation) {
+        proccessedList.push([animation.destinationAddress,'+']);
+    }
+    else if (animation instanceof MovingUpAnimation) {
+        for (var key in unproccessedList) {
+            if (unproccessedList[key][0] == animation.sourceAddress) {
+                unproccessedList.splice(key, 1);
+                break;
+            }
+        }
+        proccessedList.push([animation.sourceAddress,'o']);
+    }
+    else if (animation instanceof ChangingAnimation) {
+        for (var key in proccessedList) {
+            if (proccessedList[key][0] == animation.sourceAddress) {
+                proccessedList[key] = [animation.sourceAddress, '*']
+                break;
+            }
+        }
+    }
+    else if (animation instanceof InternalAnimationSequence) {
+        for (var key in proccessedList) {
+            if (proccessedList[key][0] == animation.sourceAddress) {
+                proccessedList.splice(key, 1);
+                break;
+            }
         }
     }
 }
 
 function FindByAddress(listOfChanges, address) {
 
-    var currentList = listOfChanges[address[0]];
-
-    for (var a in address) {
-        if (a != 0) currentList = currentList.children[address[a]];
+    if ('rawText' in listOfChanges[address]) return listOfChanges.rawText;
+    else
+    {
+        return GetAllText(listOfChanges[address]);
     }
+}
 
-    return currentList.rawText;
+function GetAllText(change) {
+    var text = '';
+    for (var index in change.children) {
+        if ('rawText' in change.children[index]) {
+            text += change.children[index].rawText;
+        }
+        else {
+            text += GetAllText(change.children[index]);
+        }
+    }
+    return text;
 }

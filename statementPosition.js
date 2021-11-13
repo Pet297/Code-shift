@@ -91,6 +91,20 @@ class StatementPositionManager {
 
         return commentList;
     }
+
+    getRawText(startLine, startColumn, stopLine, stopColumn) {
+        var rawText = "";
+        for (var i = startLine; i <= stopLine; i++) {
+            var start = 0;
+            var stop = this.lines[i].length - 1;
+            if (i == startLine) start = startColumn - 1;
+            if (i == stopLine) stop = stopColumn + 1;
+            rawText += this.lines[i].substring(start, stop);
+
+            if (stopLine == this.lines[i].length - 1) rawText += '\r\n';
+        }
+        return rawText;
+    }
 }
 
 export function AddText(rootDefinition, sourceCode) {
@@ -140,10 +154,10 @@ function AddText0(rootDefinition, sourceCode, manager) {
         }
         else if (lc instanceof SemanticAction) {
             //TODO: FINISH
-            lc.rawText = "SA\r\n"
+            lc.rawText = manager.getRawText(lc.startLine, lc.startColumn, lc.stopLine, lc.stopColumn);
         }
         else {
-            lc.rawText = "CMT\r\n"
+            lc.rawText = manager.getRawText(lc.startLine, lc.startColumn, lc.stopLine, lc.stopColumn);
         }
     }
 }
