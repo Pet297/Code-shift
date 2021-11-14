@@ -38,7 +38,7 @@ export class IntermediateTextEnumerator
                     this.destinationChanges[this.sourceChanges[anim.sourceAddress].address].children,
                     anim.animationSequence);
                 this.currentChildIndex = anim.sourceAddress;
-                this.proccessedList
+                ApplySimpleAnimation(this.proccessedList, this.unproccessedList, anim);
             }
             else
             {
@@ -121,7 +121,7 @@ function ApplySimpleAnimation(proccessedList, unproccessedList, animation) {
 
 function FindByAddress(listOfChanges, address) {
 
-    if ('rawText' in listOfChanges[address]) return listOfChanges.rawText;
+    if ('rawText' in listOfChanges[address]) return listOfChanges[address].rawText;
     else
     {
         return GetAllText(listOfChanges[address]);

@@ -96,12 +96,12 @@ class StatementPositionManager {
         var rawText = "";
         for (var i = startLine; i <= stopLine; i++) {
             var start = 0;
-            var stop = this.lines[i].length - 1;
+            var stop = this.lines[i].length;
             if (i == startLine) start = startColumn - 1;
             if (i == stopLine) stop = stopColumn + 1;
             rawText += this.lines[i].substring(start, stop);
 
-            if (stopLine == this.lines[i].length - 1) rawText += '\r\n';
+            if (stop == this.lines[i].length) rawText += '\r\n';
         }
         return rawText;
     }

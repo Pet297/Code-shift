@@ -18,8 +18,8 @@ export function GetAnimationSequence(sourceChanges, destinationChanges)
         {
             var srcaddress = destinationChanges[index].address;
             animationList.push(new MovingUpAnimation(srcaddress));
-            animationList.push(new ChangingAnimation(srcaddress));
-            animationList.push(new InternalAnimationSequence(srcaddress, GetAnimationSequence(sourceChanges[srcaddress].children, destinationChanges[index].children)));
+            if (sourceChanges[srcaddress].children.length == 0 && destinationChanges[index].children == 0)animationList.push(new ChangingAnimation(srcaddress));
+            if (sourceChanges[srcaddress].children.length != 0 || destinationChanges[index].children != 0) animationList.push(new InternalAnimationSequence(srcaddress, GetAnimationSequence(sourceChanges[srcaddress].children, destinationChanges[index].children)));
         }
     }
 
