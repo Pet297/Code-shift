@@ -1,15 +1,16 @@
 import antlr4 from 'antlr4';
 import JavaScriptLexer from './grammars/JavaScriptLexer.js';
 import JavaScriptParser from './grammars/JavaScriptParser.js';
+import fs from 'fs';
 import testVisitor from './ruleTranslator.js';
 import TranslateRule from './ruleTranslator.js';
-import fs from 'fs';
 import FindCodeChanges from './distance.js'
 import {ListOfChanges} from './distance.js'
 import { Console } from 'console';
 import { AddText } from './statementPosition.js'
 import { GetAnimationSequence } from './animationSequence.js'
 import { IntermediateTextEnumerator } from './frameDescriptor.js'
+import { WriteTestFile } from './gifWriter.js'
 
 const input = fs.readFileSync('./test2a').toString()
 
@@ -57,3 +58,5 @@ while (true)
         console.log('###########');
     }
 }
+
+WriteTestFile();
