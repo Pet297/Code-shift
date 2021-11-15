@@ -10,7 +10,7 @@ import { Console } from 'console';
 import { AddText } from './statementPosition.js'
 import { GetAnimationSequence } from './animationSequence.js'
 import { IntermediateTextEnumerator } from './frameDescriptor.js'
-import { WriteTestFile } from './gifWriter.js'
+import { WriteMovingAnimationFile, WriteGifFile } from './gifWriter.js'
 
 const input = fs.readFileSync('./test2a').toString()
 
@@ -59,4 +59,15 @@ while (true)
     }
 }
 
-WriteTestFile();
+for (var i = 0; i < 40; i++)
+{
+    WriteMovingAnimationFile(
+        'var a = 0;\r\n',
+        'function A(d,e) {\r\n    d = e + e;\r\n    return d + e;\r\n}\r\n',
+        'c = a;\r\nd = 0;\r\nc = a + b;\r\nd = c + d;\r\nreturn a + b;\r\n',
+        'var b = 0;\r\n',
+        i/39.0,
+        '.output\\frame' + (i+1001).toString() + '.gif'
+    );
+}
+WriteGifFile('.output/frame*.gif', '.output/result.gif')
