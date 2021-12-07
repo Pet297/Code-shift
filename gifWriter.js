@@ -1,17 +1,17 @@
 import fs from 'fs';
 import gm from 'gm';
 
-export function WriteGifFile(inputFilenames, outputFilename) {
+export function WriteGifFile(inputFilenames, outputFilename, resolve) {
     let imageMagick = gm.subClass({imageMagick: true});
 
-    let gms = imageMagick().delay(50).loop(-1).in(inputFilenames).write(outputFilename, function (err) {console.log(err)});
+    imageMagick().delay(50).loop(-1).in(inputFilenames).write(outputFilename, ()=>{resolve()});
 }
 
 export function WriteStationaryAnimationFile(text,filename) {
     //TODO
 }
 
-export function WriteMovingAnimationFile(textStat0,textStat1,textStat2,movingText,percentage,filename) {
+export function WriteMovingAnimationFile(textStat0,textStat1,textStat2,movingText,percentage,filename,resolve) {
     let imageMagick = gm.subClass({imageMagick: true});
 
     let gms = imageMagick(400,400,'#000F')
@@ -68,5 +68,5 @@ export function WriteMovingAnimationFile(textStat0,textStat1,textStat2,movingTex
         gms.drawText(-10,pyaM + 20 * i,'. ' + linesM[i]);
     }
 
-    gms.write(filename, function (err) {console.log(err)});
+    gms.write(filename, ()=>{resolve()});
 }
