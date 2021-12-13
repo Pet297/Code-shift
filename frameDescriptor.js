@@ -5,8 +5,12 @@ export class IntermediateTextEnumerator
 {
     constructor(sourceChanges, destinationChanges, animationSequence)
     {
+        this.unproccessedList2 = [];
         this.unproccessedList = [];
         this.proccessedList = [];
+        this.changedList = [];
+        this.changedType = {};
+
         this.currentAddress = [];
         this.sourceChanges = sourceChanges;
         this.destinationChanges = destinationChanges;
@@ -19,9 +23,19 @@ export class IntermediateTextEnumerator
     {
         while (this.animationSequence.length != 0 || 'currentChild' in this) {
             //Recursion
+            CollapseAnimation(this);
             if ('currentChild' in this) {
                 var childText = this.currentChild.GetNextStillText();
-                if (childText !== undefined) return GetStillText(this.sourceChanges, this.destinationChanges, this.proccessedList) + childText + GetStillText(this.sourceChanges, this.destinationChanges, this.unproccessedList);
+                if (childText !== undefined)
+                {
+                    return [
+                        'I',
+                        GetStillText(this.sourceChanges, this.destinationChanges, this.proccessedList),
+                        childText,
+                        GetStillText(this.sourceChanges, this.destinationChanges, this.unproccessedList),
+                        ""
+                    ];
+                }
                 else
                 {
                     this.proccessedList.push([this.currentChildIndex,'*']);
@@ -38,12 +52,19 @@ export class IntermediateTextEnumerator
                     this.destinationChanges[this.sourceChanges[anim.sourceAddress].address].children,
                     anim.animationSequence);
                 this.currentChildIndex = anim.sourceAddress;
-                ApplySimpleAnimation(this.proccessedList, this.unproccessedList, anim);
+                ApplySimpleAnimation(this, anim);
             }
             else
             {
-                ApplySimpleAnimation(this.proccessedList, this.unproccessedList, anim);
-                return GetStillText(this.sourceChanges, this.destinationChanges, this.proccessedList) + GetStillText(this.sourceChanges, this.destinationChanges, this.unproccessedList);
+                ApplySimpleAnimation(this, anim);
+
+                return [
+                    this.changedType.type,
+                    GetStillText(this.sourceChanges, this.destinationChanges, this.proccessedList),
+                    GetStillText(this.sourceChanges, this.destinationChanges, this.changedList),
+                    GetStillText(this.sourceChanges, this.destinationChanges, this.unproccessedList),
+                    GetStillText(this.sourceChanges, this.destinationChanges, this.unproccessedList2)
+                ];
             }
         }
         return undefined;
@@ -80,43 +101,94 @@ function BuildInitialArray(sourceChanges, addressArray, unproccessedList) {
     }
 }
 
-function ApplySimpleAnimation(proccessedList, unproccessedList, animation) {
+function ApplySimpleAnimation(enumerator, animation) {
     if (animation instanceof DeletingAnimation) {
-        for (var key in unproccessedList) {
-            if (unproccessedList[key][0] == animation.sourceAddress) {
-                unproccessedList.splice(key, 1);
+        for (var key in enumerator.unproccessedList) {
+            if (enumerator.unproccessedList[key][0] == animation.sourceAddress) {
+                enumerator.changedList = enumerator.unproccessedList.slice(Number(key), Number(key) + 1);
+                enumerator.changedType.type = 'x';
+                enumerator.unproccessedList2 = enumerator.unproccessedList.slice(Number(key) + 1, enumerator.unproccessedList.length);
+                enumerator.unproccessedList = enumerator.unproccessedList.slice(0, Number(key));
                 break;
             }
         }
     }
     else if (animation instanceof AddingAnimation) {
-        proccessedList.push([animation.destinationAddress,'+']);
+        enumerator.changedList = [[animation.destinationAddress,'+']];
+        enumerator.changedType.type = '+';
     }
     else if (animation instanceof MovingUpAnimation) {
-        for (var key in unproccessedList) {
-            if (unproccessedList[key][0] == animation.sourceAddress) {
-                unproccessedList.splice(key, 1);
+        for (var key in enumerator.unproccessedList) {
+            if (enumerator.unproccessedList[key][0] == animation.sourceAddress) {
+                enumerator.changedList = [[animation.sourceAddress,'o']];
+                enumerator.changedType.type = '^';
+                enumerator.unproccessedList2 = enumerator.unproccessedList.slice(Number(key) + 1, enumerator.unproccessedList.length);
+                enumerator.unproccessedList = enumerator.unproccessedList.slice(0, Number(key));
                 break;
             }
         }
-        proccessedList.push([animation.sourceAddress,'o']);
     }
     else if (animation instanceof ChangingAnimation) {
-        for (var key in proccessedList) {
-            if (proccessedList[key][0] == animation.sourceAddress) {
-                proccessedList[key] = [animation.sourceAddress, '*']
+        for (var key in enumerator.proccessedList) {
+            if (enumerator.proccessedList[key][0] == animation.sourceAddress) {
+                //TODO: change
+                enumerator.proccessedList[key] = [animation.sourceAddress, '*']
                 break;
             }
         }
     }
     else if (animation instanceof InternalAnimationSequence) {
-        for (var key in proccessedList) {
-            if (proccessedList[key][0] == animation.sourceAddress) {
-                proccessedList.splice(key, 1);
+        for (var key in enumerator.proccessedList) {
+            if (enumerator.proccessedList[key][0] == animation.sourceAddress) {
+                //TODO: change
+                enumerator.proccessedList.splice(key, 1);
                 break;
             }
         }
     }
+}
+
+function CollapseAnimation(enumerator) {
+    if (enumerator.changedType.type == 'x')
+    {
+        enumerator.unproccessedList = enumerator.unproccessedList.concat(enumerator.unproccessedList2);
+        enumerator.changedList = [];
+    }
+    else if (enumerator.changedType.type == '+')
+    {
+        enumerator.proccessedList = enumerator.proccessedList.concat(enumerator.changedList);
+        enumerator.changedList = [];
+    }
+    else if (enumerator.changedType.type == '^')
+    {
+        enumerator.proccessedList = enumerator.proccessedList.concat(enumerator.changedList);
+        enumerator.unproccessedList = enumerator.unproccessedList.concat(enumerator.unproccessedList2);
+        enumerator.changedList = [];
+    }
+    else if (enumerator.changedType.type == '*')
+    {
+        enumerator.proccessedList = enumerator.proccessedList.concat(changedList);
+        enumerator.changedList = [];
+    }
+    else if (enumerator.changedType.type == 'I')
+    {
+        //TODO: change
+    }
+}
+
+export function CollapseIntermediateText(intermediateText) {
+    while (intermediateText[0] == 'I') {
+        intermediateText[0] = intermediateText[2][0];
+
+        intermediateText[1] += intermediateText[2][1];
+
+        intermediateText[3] = intermediateText[2][3];
+
+        intermediateText[4] = intermediateText[2][4] + intermediateText[3] + intermediateText[4];
+
+        intermediateText[2] = intermediateText[2][2];
+    }
+    return intermediateText;
 }
 
 function FindByAddress(listOfChanges, address) {

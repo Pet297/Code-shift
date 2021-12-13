@@ -9,7 +9,7 @@ import {ListOfChanges} from './distance.js'
 import { Console } from 'console';
 import { AddText } from './statementPosition.js'
 import { GetAnimationSequence } from './animationSequence.js'
-import { IntermediateTextEnumerator } from './frameDescriptor.js'
+import { IntermediateTextEnumerator, CollapseIntermediateText } from './frameDescriptor.js'
 import { WriteMovingAnimationFile, WriteGifFile } from './gifWriter.js'
 
 const input = fs.readFileSync('./test2a').toString()
@@ -54,12 +54,12 @@ while (true)
     var text = resenum.GetNextStillText();
     if (text === undefined) break;
     else {
-        console.log(text);
+        console.log(CollapseIntermediateText(text));
         console.log('###########');
     }
 }
 
-let promise = null;
+/*let promise = null;
 for (var i=0; i<40; i++)
 {
     promise = new Promise(
@@ -78,4 +78,4 @@ for (var i=0; i<40; i++)
 promise = new Promise(
     resolve => WriteGifFile('.output/frame*.gif', '.output/result.gif', resolve)
     )
-await promise;
+await promise;*/
