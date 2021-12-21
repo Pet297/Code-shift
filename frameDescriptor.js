@@ -132,7 +132,8 @@ function ApplySimpleAnimation(enumerator, animation) {
         for (var key in enumerator.proccessedList) {
             if (enumerator.proccessedList[key][0] == animation.sourceAddress) {
                 //TODO: change
-                enumerator.proccessedList[key] = [animation.sourceAddress, '*']
+                enumerator.proccessedList[key] = [animation.sourceAddress, '*'];
+                enumerator.changedType.type = '*';
                 break;
             }
         }
@@ -152,6 +153,7 @@ function CollapseAnimation(enumerator) {
     if (enumerator.changedType.type == 'x')
     {
         enumerator.unproccessedList = enumerator.unproccessedList.concat(enumerator.unproccessedList2);
+        enumerator.unproccessedList2 = [];
         enumerator.changedList = [];
     }
     else if (enumerator.changedType.type == '+')
@@ -163,11 +165,12 @@ function CollapseAnimation(enumerator) {
     {
         enumerator.proccessedList = enumerator.proccessedList.concat(enumerator.changedList);
         enumerator.unproccessedList = enumerator.unproccessedList.concat(enumerator.unproccessedList2);
+        enumerator.unproccessedList2 = [];
         enumerator.changedList = [];
     }
     else if (enumerator.changedType.type == '*')
     {
-        enumerator.proccessedList = enumerator.proccessedList.concat(changedList);
+        enumerator.proccessedList = enumerator.proccessedList.concat(enumerator.changedList);
         enumerator.changedList = [];
     }
     else if (enumerator.changedType.type == 'I')
@@ -184,7 +187,7 @@ export function CollapseIntermediateText(intermediateText) {
 
         intermediateText[3] = intermediateText[2][3];
 
-        intermediateText[4] = intermediateText[2][4] + intermediateText[3] + intermediateText[4];
+        intermediateText[4] = intermediateText[2][4] + intermediateText[4];
 
         intermediateText[2] = intermediateText[2][2];
     }

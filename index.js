@@ -6,13 +6,13 @@ import testVisitor from './ruleTranslator.js';
 import TranslateRule from './ruleTranslator.js';
 import FindCodeChanges from './distance.js'
 import {ListOfChanges} from './distance.js'
-import { Console } from 'console';
+import { Console, debug } from 'console';
 import { AddText } from './statementPosition.js'
 import { GetAnimationSequence } from './animationSequence.js'
 import { IntermediateTextEnumerator, CollapseIntermediateText } from './frameDescriptor.js'
-import { WriteMovingAnimationFile, WriteGifFile } from './gifWriter.js'
+import { WriteMovingAnimationFile, WriteAddingAnimationFile, WriteDeletingAnimationFile, WriteGifFile } from './gifWriter.js'
 
-const input = fs.readFileSync('./test2a').toString()
+const input = fs.readFileSync('./test3a').toString()
 
 const chars = new antlr4.InputStream(input);
 const lexer = new JavaScriptLexer(chars);
@@ -25,7 +25,7 @@ testVisitor(tree,0);
 
 let l = TranslateRule(tree);
 
-const input1 = fs.readFileSync('./test2b').toString()
+const input1 = fs.readFileSync('./test3b').toString()
 
 const chars1 = new antlr4.InputStream(input1);
 const lexer1 = new JavaScriptLexer(chars1);
@@ -49,33 +49,87 @@ var result2 = GetAnimationSequence(result.inputDestinations, result.outputSource
 
 var resenum = new IntermediateTextEnumerator(result.inputDestinations, result.outputSources, result2);
 
+var gifnumber = 0;
 while (true)
 {
     var text = resenum.GetNextStillText();
     if (text === undefined) break;
     else {
-        console.log(CollapseIntermediateText(text));
-        console.log('###########');
+        text = CollapseIntermediateText(text);
+
+        console.log(text[0]);
+        console.log(text[1]);
+        console.log(text[2]);
+        console.log(text[3]);
+        console.log(text[4]);
+
+        if (text[0]=='^')
+        {
+            var promises = [];
+            for (var i=0; i<20; i++)
+            {
+                let promise = new Promise(
+                    resolve => WriteMovingAnimationFile(
+                        text[1],
+                        text[3],
+                        text[4],
+                        text[2],
+                        i/19.0,
+                        '.output\\frame' + (gifnumber+1001).toString() + '.gif',
+                        resolve)
+                );
+                promises.push(promise);
+                gifnumber++;
+            }
+            await Promise.all(promises);
+        }
+
+        if (text[0]=='+')
+        {
+            var promises = [];
+            for (var i=0; i<20; i++)
+            {
+                let promise = new Promise(
+                    resolve => WriteAddingAnimationFile(
+                        text[1],
+                        text[3],
+                        text[4],
+                        text[2],
+                        i/19.0,
+                        '.output\\frame' + (gifnumber+1001).toString() + '.gif',
+                        resolve)
+                );
+                promises.push(promise);
+                gifnumber++;
+            }
+            await Promise.all(promises);
+        }
+
+        if (text[0]=='x')
+        {
+            var promises = [];
+            for (var i=0; i<20; i++)
+            {
+                let promise = new Promise(
+                    resolve => WriteDeletingAnimationFile(
+                        text[1],
+                        text[3],
+                        text[4],
+                        text[2],
+                        i/19.0,
+                        '.output\\frame' + (gifnumber+1001).toString() + '.gif',
+                        resolve)
+                );
+                promises.push(promise);
+                gifnumber++;
+            }
+            await Promise.all(promises);
+        }
     }
+
 }
 
-/*let promise = null;
-for (var i=0; i<40; i++)
-{
-    promise = new Promise(
-        resolve => WriteMovingAnimationFile(
-            'var a = 0;\r\n',
-            'function A(d,e) {\r\n    d = e + e;\r\n    return d + e;\r\n}\r\n',
-            'c = a;\r\nd = 0;\r\nc = a + b;\r\nd = c + d;\r\nreturn a + b;\r\n',
-            'var b = 0;\r\n',
-            i/39.0,
-            '.output\\frame' + (i+1001).toString() + '.gif',
-            resolve)
-    );
-    await promise;
-}
-
-promise = new Promise(
+let promise = new Promise(
     resolve => WriteGifFile('.output/frame*.gif', '.output/result.gif', resolve)
     )
-await promise;*/
+await promise;
