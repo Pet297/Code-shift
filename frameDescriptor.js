@@ -185,7 +185,8 @@ export function CollapseIntermediateText(intermediateText) {
 
         intermediateText[1] += intermediateText[2][1];
 
-        intermediateText[3] = intermediateText[2][3];
+        //TODO: fix bug
+        intermediateText[3] = intermediateText[2][3] + intermediateText[3];
 
         intermediateText[4] = intermediateText[2][4] + intermediateText[4];
 

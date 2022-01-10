@@ -1,3 +1,7 @@
+function A(d,e) {
+    d = e + e;
+    return d + e;
+}
 c = a;
 d = 0;
 c = a + b;

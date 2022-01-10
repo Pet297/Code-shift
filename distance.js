@@ -326,6 +326,14 @@ function statementDistance(block1, block2) {
         dist += missingParamPenalty * listDistance(block1.dependentOn, block2.dependentOn);
         return [0.0, 1000.0];
     }
-    //TODO: more
+    else
+    {
+        var dist = 0.0;
+        if (block1.rawText === undefined) return [0.0, 1000.0];
+        if (block2.rawText === undefined) return [0.0, 1000.0];
+        if (block1.rawText.length == block2.rawText.length) return [100.0, 0.0];
+        //TODO: Else leven
+        else return [0.0, 1000.0];
+    }
     return [0.0, 1000.0];
 }

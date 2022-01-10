@@ -1,6 +1,10 @@
 d = c + d;
 c = a;
 //CMT
+function A(d,e) {
+    d = e + e;
+    return d + e;
+}
 c = a + b;
 //CMT
 d = 0;
