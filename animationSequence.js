@@ -10,7 +10,10 @@ export function GetAnimationSequence(sourceChanges, destinationChanges)
         if (sourceChanges[index].address == 'x') animationList.push(new DeletingAnimation(index));
     }
 
-    // Step 2 - From top to bottom - move things up (or add them) at each step, check recursively
+    // Step 2.0 - Find groups of blocks to move at once and determine redudant movement
+    // TODO
+
+    // Step 2.1 - From top to bottom - move things up (or add them) at each step, check recursively
     for (var index in destinationChanges)
     {
         if (destinationChanges[index].address == '+') animationList.push(new AddingAnimation(index));

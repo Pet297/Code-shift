@@ -123,11 +123,11 @@ export function WriteAddingAnimationFile(textStat0,textStat1,textStat2,movingTex
     {
         for(i = 0;i<lcM;i++)
         {
-            var opac = Math.round(percOpac * 10);
+            var color = MixColors(0,64,0,255,255,255,percOpac);
 
             gms.fill('#004000');
             gms.drawRectangle(0, py1 + 20 * i + 5, 400, py1 + 20 * i - 15);
-            gms.fill('#' + opac + opac + opac + opac + opac + opac);
+            gms.fill('#' + color);
             gms.drawText(-10,py1 + 20 * i,'. ' + linesM[i]);
         }
     }
@@ -185,14 +185,28 @@ export function WriteDeletingAnimationFile(textStat0,textStat1,textStat2,movingT
     {
         for(i = 0;i<lcM;i++)
         {
-            var opac = Math.round(percOpac * 10);
+            var color = MixColors(0,64,0,255,255,255,percOpac);
 
             gms.fill('#004000');
             gms.drawRectangle(0, py2 + 20 * i + 5, 400, py2 + 20 * i - 15);
-            gms.fill('#' + opac + opac + opac + opac + opac + opac);
+            gms.fill('#' + color);
             gms.drawText(-10,py2 + 20 * i,'. ' + linesM[i]);
         }
     }
 
     gms.write(filename, ()=>{resolve()});
+}
+
+function MixColors(r0,g0,b0,r1,g1,b1,percentage) {
+    let r = r0 + (r1 - r0) * percentage;
+    let g = g0 + (g1 - g0) * percentage;
+    let b = b0 + (b1 - b0) * percentage;
+    return ToHexadecimal(r) + ToHexadecimal(g) + ToHexadecimal(b)
+}
+
+let hexit = ['0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F']
+function ToHexadecimal(num) {
+    let byte1 = Math.trunc(num / 16)
+    let byte2 = Math.trunc(num % 16)
+    return hexit[byte1] + hexit[byte2]
 }
