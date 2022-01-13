@@ -33,7 +33,8 @@ export class IntermediateTextEnumerator
                         GetStillText(this.sourceChanges, this.destinationChanges, this.proccessedList),
                         childText,
                         GetStillText(this.sourceChanges, this.destinationChanges, this.unproccessedList),
-                        ""
+                        "",
+                        true
                     ];
                 }
                 else
@@ -58,12 +59,16 @@ export class IntermediateTextEnumerator
             {
                 ApplySimpleAnimation(this, anim);
 
+                var exec = true;
+                if (anim !== undefined && 'execute' in anim) exec = anim.execute;
+
                 return [
                     this.changedType.type,
                     GetStillText(this.sourceChanges, this.destinationChanges, this.proccessedList),
                     GetStillText(this.sourceChanges, this.destinationChanges, this.changedList),
                     GetStillText(this.sourceChanges, this.destinationChanges, this.unproccessedList),
-                    GetStillText(this.sourceChanges, this.destinationChanges, this.unproccessedList2)
+                    GetStillText(this.sourceChanges, this.destinationChanges, this.unproccessedList2),
+                    exec
                 ];
             }
         }
@@ -191,6 +196,8 @@ export function CollapseIntermediateText(intermediateText) {
         intermediateText[4] = intermediateText[2][4] + intermediateText[4];
 
         intermediateText[2] = intermediateText[2][2];
+
+        intermediateText[5] = intermediateText[2][5];
     }
     return intermediateText;
 }

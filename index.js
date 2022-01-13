@@ -57,13 +57,7 @@ while (true)
     else {
         text = CollapseIntermediateText(text);
 
-        console.log(text[0]);
-        console.log(text[1]);
-        console.log(text[2]);
-        console.log(text[3]);
-        console.log(text[4]);
-
-        if (text[0]=='^')
+        if (text[0]=='^' && text[5])
         {
             var promises = [];
             for (var i=0; i<20; i++)
@@ -84,7 +78,7 @@ while (true)
             await Promise.all(promises);
         }
 
-        if (text[0]=='+')
+        if (text[0]=='+' && text[5])
         {
             var promises = [];
             for (var i=0; i<20; i++)
@@ -105,7 +99,7 @@ while (true)
             await Promise.all(promises);
         }
 
-        if (text[0]=='x')
+        if (text[0]=='x' && text[5])
         {
             var promises = [];
             for (var i=0; i<20; i++)
