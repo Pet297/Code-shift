@@ -136,8 +136,8 @@ function ApplySimpleAnimation(enumerator, animation) {
     else if (animation instanceof ChangingAnimation) {
         for (var key in enumerator.proccessedList) {
             if (enumerator.proccessedList[key][0] == animation.sourceAddress) {
-                //TODO: change
-                enumerator.proccessedList[key] = [animation.sourceAddress, '*'];
+                //TODO changing anim
+                enumerator.changedList = [[animation.sourceAddress,'*']];
                 enumerator.changedType.type = '*';
                 break;
             }

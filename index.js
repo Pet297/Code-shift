@@ -10,7 +10,7 @@ import { Console, debug } from 'console';
 import { AddText } from './statementPosition.js'
 import { GetAnimationSequence } from './animationSequence.js'
 import { IntermediateTextEnumerator, CollapseIntermediateText } from './frameDescriptor.js'
-import { WriteMovingAnimationFile, WriteAddingAnimationFile, WriteDeletingAnimationFile, WriteGifFile } from './gifWriter.js'
+import { WriteMovingAnimationFile, WriteAddingAnimationFile, WriteDeletingAnimationFile, WriteChangingAnimationFile, WriteGifFile } from './gifWriter.js'
 
 const input = fs.readFileSync('./test2a').toString()
 
@@ -106,6 +106,27 @@ while (true)
             {
                 let promise = new Promise(
                     resolve => WriteDeletingAnimationFile(
+                        text[1],
+                        text[3],
+                        text[4],
+                        text[2],
+                        i/19.0,
+                        '.output\\frame' + (gifnumber+1001).toString() + '.gif',
+                        resolve)
+                );
+                promises.push(promise);
+                gifnumber++;
+            }
+            await Promise.all(promises);
+        }
+
+        if (text[0]=='*' && text[5])
+        {
+            var promises = [];
+            for (var i=0; i<20; i++)
+            {
+                let promise = new Promise(
+                    resolve => WriteChangingAnimationFile(
                         text[1],
                         text[3],
                         text[4],

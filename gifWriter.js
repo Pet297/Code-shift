@@ -197,6 +197,74 @@ export function WriteDeletingAnimationFile(textStat0,textStat1,textStat2,movingT
     gms.write(filename, ()=>{resolve()});
 }
 
+export function WriteChangingAnimationFile(textStat0,textStat1,changingText0,changingText1,percentage,filename,resolve) {
+    let imageMagick = gm.subClass({imageMagick: true});
+
+    let gms = imageMagick(400,400,'#000F')
+    .setFormat('gif')
+    .fill('#ffffff')
+    .font('Consolas')
+    .fontSize(15);
+
+    var lines0 = textStat0.split('\r\n');
+    var lines1 = textStat1.split('\r\n');
+    var linesM0 = changingText0.split('\r\n');
+    var linesM1 = changingText1.split('\r\n');
+
+    var lc0 = lines0.length-1;
+    var lc1 = lines1.length-1;
+    var lcM0 = linesM0.length-1;
+    var lcM1 = linesM1.length-1;
+
+    var lcMa = lcM0 * (1-percentage) + lcM1 * percentage;
+
+    var py0 = 25;
+    var pyM = (lc0) * 20 + 25;
+    var py10 = (lc0 + lcM0) * 20 + 25;
+    var py11 = (lc0 + lcM1) * 20 + 25;
+
+    var pya1 = py10 * (1-percentage) + py11 * percentage;
+
+    var i = 0;
+
+    var perc0 = 1 - Math.min(1 - percentage * 2, 1);
+    var perc1 = Math.max(percentage * 2 - 1, 0);
+
+    for(var s of lines0)
+    {
+        gms.drawText(-10,py0 + 20 * i,'. ' + s);
+        i++;
+    }
+    i = 0;
+        var bgcolor = MixColors(0,64,0,32,64,0,percentage);
+        gms.fill('#' + bgcolor);
+        gms.drawRectangle(0, pyM + 20 * i - 15 + lcMa * 20, 400, pyM + 20 * i - 15);
+
+        var color0 = MixColors(16,64,0,255,255,255,perc0);
+        var color1 = MixColors(16,64,0,255,255,255,perc1);
+
+        if (perc0 > 1) for(i=0;i<lcM0;i++)
+        {
+            gms.fill('#' + color0);
+            gms.drawText(-10,pyM + 20 * i,'. ' + linesM0[i]);
+        }
+        if (perc1 > 1) for(i=0;i<lcM1;i++)
+        {
+            gms.fill('#' + color1);
+            gms.drawText(-10,pyM + 20 * i,'. ' + linesM1[i]);
+        }
+    
+    i = 0;
+    for(var s of lines1)
+    {
+        gms.fill('#ffffff');
+        gms.drawText(-10,pya1 + 20 * i,'. ' + s);
+        i++;
+    }
+
+    gms.write(filename, ()=>{resolve()});
+}
+
 function MixColors(r0,g0,b0,r1,g1,b1,percentage) {
     let r = r0 + (r1 - r0) * percentage;
     let g = g0 + (g1 - g0) * percentage;

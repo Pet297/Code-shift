@@ -40,7 +40,7 @@ export function GetAnimationSequence(sourceChanges, destinationChanges)
             sourceBlocks = sourceBlocks.filter(function(e){return e != destinationChanges[index].address;});
 
             // Apply changes
-            if (sourceChanges[srcaddress].children.length == 0 && destinationChanges[index].children == 0)animationList.push(new ChangingAnimation(srcaddress));
+            if (sourceChanges[srcaddress].children.length == 0 && destinationChanges[index].children == 0)animationList.push(new ChangingAnimation(srcaddress, true));
             // TODO: but only if there are any to apply
 
             if (sourceChanges[srcaddress].children.length != 0 || destinationChanges[index].children != 0) animationList.push(new InternalAnimationSequence(srcaddress, GetAnimationSequence(sourceChanges[srcaddress].children, destinationChanges[index].children)));
