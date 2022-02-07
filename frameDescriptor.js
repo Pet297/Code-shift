@@ -21,6 +21,7 @@ export class IntermediateTextEnumerator
 
     GetNextStillText()
     {
+        //console.log("-------------------GET NEXT STILL TEXT-----------------------");
         while (this.animationSequence.length != 0 || 'currentChild' in this) {
             //Recursion
             CollapseAnimation(this);
@@ -28,6 +29,14 @@ export class IntermediateTextEnumerator
                 var childText = this.currentChild.GetNextStillText();
                 if (childText !== undefined)
                 {
+                    /*console.log("-------------------TOTAL RESULT-----------------------");
+                    console.log("0: I");
+                    console.log("1: ") + GetStillText(this.sourceChanges, this.destinationChanges, this.proccessedList);
+                    console.log("2: ") + childText;
+                    console.log("3: ") + GetStillText(this.sourceChanges, this.destinationChanges, this.unproccessedList);
+                    console.log("4: ");
+                    console.log("5: true");
+                    console.log("------------------------------------------------------");*/
                     return [
                         'I',
                         GetStillText(this.sourceChanges, this.destinationChanges, this.proccessedList),
@@ -61,6 +70,15 @@ export class IntermediateTextEnumerator
 
                 var exec = true;
                 if (anim !== undefined && 'execute' in anim) exec = anim.execute;
+                
+                /*console.log("-------------------TOTAL RESULT-----------------------");
+                    console.log("0: ") + this.changedType.type;
+                    console.log("1: ") + GetStillText(this.sourceChanges, this.destinationChanges, this.proccessedList);
+                    console.log("2: ") + GetStillText(this.sourceChanges, this.destinationChanges, this.changedList);
+                    console.log("3: ") + GetStillText(this.sourceChanges, this.destinationChanges, this.unproccessedList);
+                    console.log("4: ") + GetStillText(this.sourceChanges, this.destinationChanges, this.unproccessedList2);
+                    console.log("5: ???");
+                    console.log("------------------------------------------------------");*/
 
                 return [
                     this.changedType.type,
@@ -186,23 +204,38 @@ function CollapseAnimation(enumerator) {
 
 export function CollapseIntermediateText(intermediateText) {
     while (intermediateText[0] == 'I') {
+        /*
+        1   |2    |3     |4
+        Proc|Chang|Unproc|Unproc2
+
+        I = Interior, E = Exterior
+        1            |2     |3      |4
+        ProcE + ProcI|ChangI|UnprocI|Unproc2I + UnprocE + Unproc2I
+        */
+
+        //0: Change Type
         intermediateText[0] = intermediateText[2][0];
 
-        intermediateText[1] += intermediateText[2][1];
+        //1: ProcE + ProcI
+        intermediateText[1] = intermediateText[1] + intermediateText[2][1];
 
-        //TODO: fix bug
-        intermediateText[3] = intermediateText[2][3] + intermediateText[3];
+        //4: Unproc2I + UnprocE + Unproc2I
+        intermediateText[4] = intermediateText[2][4] + intermediateText[3] + intermediateText[4];
 
-        intermediateText[4] = intermediateText[2][4] + intermediateText[4];
+        //3: UnprocI
+        intermediateText[3] = intermediateText[2][3];
 
+        //2: ChangI
         intermediateText[2] = intermediateText[2][2];
 
+        //5: Visauly execute?
         intermediateText[5] = intermediateText[2][5];
     }
     return intermediateText;
 }
 
 function FindByAddress(listOfChanges, address) {
+    //console.log("Find by address " + address[0]);
 
     if ('rawText' in listOfChanges[address]) return listOfChanges[address].rawText;
     else
@@ -212,6 +245,7 @@ function FindByAddress(listOfChanges, address) {
 }
 
 function GetAllText(change) {
+    //console.log("Go deeper");
     var text = '';
     for (var index in change.children) {
         if ('rawText' in change.children[index]) {
@@ -221,5 +255,8 @@ function GetAllText(change) {
             text += GetAllText(change.children[index]);
         }
     }
+    //console.log("------------RESULT OF GET ALL TEXT--------------");
+    //console.log(text);
+    //console.log("Go out");
     return text;
 }

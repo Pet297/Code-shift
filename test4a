@@ -1,0 +1,7 @@
+d = c + d;
+c = a;
+//CMT
+c = a + b;
+//CMT
+d = 0;
+return a + b;

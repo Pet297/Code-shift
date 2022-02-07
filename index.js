@@ -12,7 +12,7 @@ import { GetAnimationSequence } from './animationSequence.js'
 import { IntermediateTextEnumerator, CollapseIntermediateText } from './frameDescriptor.js'
 import { WriteMovingAnimationFile, WriteAddingAnimationFile, WriteDeletingAnimationFile, WriteChangingAnimationFile, WriteGifFile } from './gifWriter.js'
 
-const input = fs.readFileSync('./test2a').toString()
+const input = fs.readFileSync('./test3a').toString()
 
 const chars = new antlr4.InputStream(input);
 const lexer = new JavaScriptLexer(chars);
@@ -25,7 +25,7 @@ testVisitor(tree,0);
 
 let l = TranslateRule(tree);
 
-const input1 = fs.readFileSync('./test2b').toString()
+const input1 = fs.readFileSync('./test3b').toString()
 
 const chars1 = new antlr4.InputStream(input1);
 const lexer1 = new JavaScriptLexer(chars1);
