@@ -10,6 +10,7 @@ import { AddText } from './statementPosition.js'
 import { GetAnimationSequence } from './animationSequence.js'
 import { IntermediateTextEnumerator, CollapseIntermediateText } from './frameDescriptor.js'
 import { WriteMovingAnimationFile, WriteAddingAnimationFile, WriteDeletingAnimationFile, WriteChangingAnimationFile, WriteGifFile } from './gifWriter.js'
+import { debug } from 'console';
 
 function CallbackMove(callback)
 {
@@ -170,30 +171,114 @@ async function Exec1F(code1, code2, output, resolve) {
 
 async function RunTests() {
 
-    console.log("#2 start");
     var promise = new Promise(
         resolve => Exec1F('./test2a', './test2b', './.output/z02.gif', resolve)
         );
     await promise;
-    console.log("#2 done");
 
     //TODO proc ne 2 a 3
     var promise2 = new Promise(
         resolve => Exec1F('./test3a', './test3b', './.output/z03.gif', resolve)
         );
     await promise2;
-    console.log("#3 done");
 
     var promise3 = new Promise(
         resolve => Exec1F('./test4a', './test4b', './.output/z04.gif', resolve)
         );
     await promise3;
-    console.log("#4 done");
 }
 
-async function UserInput() {
+const recognizedFlags = ['-i', '-o', '-c', '-l', '-n', '-f', '-h']
+function IsRecognizedFlag(flag)
+{
+    for (var flag0 of recognizedFlags) {
+        if (flag == flag0) return true;
+    }
+    return true;
+}
+
+function ShowHelp() {
     //TODO
 }
 
-RunTests();
-//UserInput();
+async function UserInput() {
+    console.log(process.argv);
+
+    var outputGif = true;
+    var outputIntermediateFile = false;
+    var inputFiles = [];
+    var outputFiles = [];
+    var intermediateFiles = [];
+    var language = 'JS'; //TODO[15]: JS-independent
+    var showHelp = false;
+    var intermediateFilesUsed = false;
+
+    // 1) Parse CMD arguments
+    for(var i = 2; i < process.argv.length; i++) {
+
+        // Expected flag
+        if (IsRecognizedFlag(process.argv[i])) {
+
+            // No-param flags
+            if (process.argv[i] == '-h') showHelp = true;
+            else if (process.argv[i] == '-n') outputGif = false;
+            else if (process.argv[i] == '-f') outputIntermediateFile = true;
+
+            // Single-param flags
+            else {
+
+                // Next argument is param for the flag
+                if (i + 1 < process.argv.length) {
+                    if (process.argv[i] == '-i') inputFiles.push(process.argv[i+1]);
+                    if (process.argv[i] == '-o') outputFiles.push(process.argv[i+1]);
+                    if (process.argv[i] == '-c') intermediateFiles.push(process.argv[i+1]);
+                    if (process.argv[i] == '-l') language = process.argv[i+1];
+                    i++;
+                }
+
+                // There is no next argument
+                else {
+                    console.log('ERROR: Expected a parameter after flag ' + process.argv[i] + '.');
+                    return;
+                }
+            }
+        }
+
+        // Unrecognized flag
+        else {
+            if (process.argv[i].startsWith('-')) console.log('ERROR: Flag ' + process.argv[i] + ' is not recognized.');
+            else console.log('ERROR: Next Argument was expected to be a flag, not \"' + process.argv[i] + '\".');
+            return;
+        }
+    }
+
+    // 2) Show help, if instructed:
+    if (showHelp || inputFiles.length == 0) ShowHelp();
+
+    // 3) Check logical correctness:
+    if (intermediateFiles.length > 0) intermediateFilesUsed = true;
+    if (intermediateFilesUsed && (inputFiles.length != intermediateFiles.length + 1))
+    {
+        console.log('ERROR: The difference of input and intermediate files specified wasn\'t 1.');
+        return;
+    }
+    if (inputFiles.length != outputFiles.length + 1)
+    {
+        console.log('ERROR: The difference of input and output files specified wasn\'t 1.');
+        return;
+    }
+
+    // 4) Execute based on settings:
+    //TODO[15]: JS-independent
+    //TODO[07]: Intermediate file
+    const N = inputFiles.length - 1;
+    for (var i = 0; i < N; i++) {
+        var promise = new Promise(
+            resolve => Exec1F(inputFiles[i], inputFiles[i+1], outputFiles[i], resolve)
+            );
+        await promise;
+    }
+}
+
+//RunTests();
+UserInput();
