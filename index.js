@@ -21,7 +21,7 @@ function CallbackRemove(callback)
     //TODO
 }
 
-async function Exec1F(code1, code2, output) {
+async function Exec1F(code1, code2, output, resolve) {
     const input = fs.readFileSync(code1).toString()
 
     const chars = new antlr4.InputStream(input);
@@ -164,25 +164,31 @@ async function Exec1F(code1, code2, output) {
     //move result
     const outputPath = path.join(".", ".output", "result.gif");
     fs.rename(outputPath, output, CallbackMove);
+
+    resolve();
 }
 
 async function RunTests() {
 
+    console.log("#2 start");
     var promise = new Promise(
-        resolve => Exec1F('./test2a', './test2b', './.output/z02.gif')
+        resolve => Exec1F('./test2a', './test2b', './.output/z02.gif', resolve)
         );
     await promise;
+    console.log("#2 done");
 
     //TODO proc ne 2 a 3
     var promise2 = new Promise(
-        resolve => Exec1F('./test3a', './test3b', './.output/z03.gif')
+        resolve => Exec1F('./test3a', './test3b', './.output/z03.gif', resolve)
         );
     await promise2;
+    console.log("#3 done");
 
     var promise3 = new Promise(
-        resolve => Exec1F('./test4a', './test4b', './.output/z04.gif')
+        resolve => Exec1F('./test4a', './test4b', './.output/z04.gif', resolve)
         );
     await promise3;
+    console.log("#4 done");
 }
 
 async function UserInput() {
