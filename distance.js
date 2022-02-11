@@ -1,4 +1,4 @@
-import {SemanticDefinition, SemanticAction, SemanticDecision} from './testVisitor.js';
+import {SemanticDefinition, SemanticAction, SemanticDecision, NonsemanticText} from './ruleTranslator.js';
 
 // The smaller the number, the more severe the penalty
 const missingDependingVariablePenalty = 100.0;
@@ -18,7 +18,7 @@ const innerCodeMultiplierBonus = 2.0;
 
 const changeTreshold = 2.0;
 
-export default function FindCodeChanges(codeBefore, codeAfter) {
+export default function FindCodeChanges(codeBefore, codeAfter, rawBefore, rawAfter) {
 
     // SPECIAL CASE: Only 1 object in the input and output --> If same type of definition, assume they are related
     if (codeBefore.length == 1 && codeAfter.length == 1
@@ -58,8 +58,8 @@ export default function FindCodeChanges(codeBefore, codeAfter) {
                 {
                     if (codeBefore[unpairedBefore[i]].definitionType == codeAfter[unpairedAfter[j]].definitionType && codeBefore[unpairedBefore[i]].name == codeAfter[unpairedAfter[j]].name)
                     {
-                        inputDestinations[unpairedBefore[i]] = [unpairedAfter[j]]
-                        outputSources[j] = [unpairedBefore[i]]
+                        //inputDestinations[unpairedBefore[i]] = [unpairedAfter[j]]
+                        //outputSources[j] = [unpairedBefore[i]]
 
                         var innerChanges = FindCodeChanges(codeBefore[unpairedBefore[i]].localCode, codeAfter[unpairedAfter[j]].localCode);
                         difference += innerChanges.difference * innerCodeMultiplierPenalty;
@@ -67,8 +67,8 @@ export default function FindCodeChanges(codeBefore, codeAfter) {
                         sameness += innerChanges.sameness * innerCodeMultiplierBonus;
                         sameness += listSimilarity(codeBefore[unpairedBefore[i]].paramList, codeAfter[unpairedAfter[j]].paramList) * sharedParamBonus;
 
-                        inputDestinations[unpairedBefore[i]] = new CodeChange(unpairedAfter[j],innerChanges.inputDestinations);
-                        outputSources[unpairedAfter[j]] = new CodeChange(unpairedBefore[i],innerChanges.outputSources);
+                        inputDestinations[unpairedBefore[i]] = new CodeChange(unpairedAfter[j].toString(),innerChanges.inputDestinations);
+                        outputSources[unpairedAfter[j]] = new CodeChange(unpairedBefore[i].toString(),innerChanges.outputSources);
 
                         unpairedBefore.splice(i, 1);
                         unpairedAfter.splice(j, 1);
@@ -108,8 +108,8 @@ export default function FindCodeChanges(codeBefore, codeAfter) {
                 }
             }
             if (appearances == 1) {
-                inputDestinations[equalPairs[index][0]] = new CodeChange(equalPairs[index][1], []);
-                outputSources[equalPairs[index][1]] = new CodeChange(equalPairs[index][0], []);
+                inputDestinations[equalPairs[index][0]] = new CodeChange(equalPairs[index][1].toString(), []);
+                outputSources[equalPairs[index][1]] = new CodeChange(equalPairs[index][0].toString(), []);
 
                 unpairedBefore = unpairedBefore.filter(id => id != equalPairs[index][0]);
                 unpairedAfter = unpairedAfter.filter(id => id != equalPairs[index][1]);
@@ -128,8 +128,8 @@ export default function FindCodeChanges(codeBefore, codeAfter) {
                 }
             }
             if (appearances == 1) {
-                inputDestinations[equalPairs[index][0]] = new CodeChange(equalPairs[index][1], []);
-                outputSources[equalPairs[index][1]] = new CodeChange(equalPairs[index][0], []);
+                inputDestinations[equalPairs[index][0]] = new CodeChange(equalPairs[index][1].toString(), []);
+                outputSources[equalPairs[index][1]] = new CodeChange(equalPairs[index][0].toString(), []);
                 
                 unpairedBefore = unpairedBefore.filter(id => id != equalPairs[index][0]);
                 unpairedAfter = unpairedAfter.filter(id => id != equalPairs[index][1]);
@@ -157,8 +157,8 @@ export default function FindCodeChanges(codeBefore, codeAfter) {
     {
         var i = distances[0][2]; // Index before
         var j = distances[0][3]; // Index after
-        inputDestinations[i] = new CodeChange(j, []);
-        outputSources[j] = new CodeChange(i, []);
+        inputDestinations[i] = new CodeChange(j.toString(), []);
+        outputSources[j] = new CodeChange(i.toString(), []);
 
         distances = distances.filter(l => l[2] != i && l[3] != j);
         unpairedBefore = unpairedBefore.filter(id => id != i);
@@ -179,6 +179,18 @@ export default function FindCodeChanges(codeBefore, codeAfter) {
         }
     }
 
+    // Z) ADD RAW TEXT
+    for (var index in inputDestinations) {
+        if ('rawText' in codeBefore[index]) {
+            inputDestinations[index].rawText = codeBefore[index].rawText;
+        }
+    }
+    for (var index in outputSources) {
+        if ('rawText' in codeAfter[index]) {
+            outputSources[index].rawText = codeAfter[index].rawText;
+        }
+    }
+
     // TODO: proper distance
     return new ListOfChanges(inputDestinations, outputSources, difference, sameness);
 }
@@ -187,8 +199,8 @@ function FindCodeChanges_Special_OneBlock(codeBefore, codeAfter) {
     var localChanges = FindCodeChanges(codeBefore[0].localCode, codeAfter[0].localCode);
     var inputDestinations = {};
     var outputSources = {};
-    inputDestinations[0] = new CodeChange(0, localChanges.inputDestinations);
-    outputSources[0] = new CodeChange(0, localChanges.outputSources);
+    inputDestinations[0] = new CodeChange('0', localChanges.inputDestinations);
+    outputSources[0] = new CodeChange('0', localChanges.outputSources);
     return new ListOfChanges(inputDestinations, outputSources, localChanges.difference, localChanges.sameness);
 }
 
@@ -314,6 +326,14 @@ function statementDistance(block1, block2) {
         dist += missingParamPenalty * listDistance(block1.dependentOn, block2.dependentOn);
         return [0.0, 1000.0];
     }
-    //TODO: more
+    else
+    {
+        var dist = 0.0;
+        if (block1.rawText === undefined) return [0.0, 1000.0];
+        if (block2.rawText === undefined) return [0.0, 1000.0];
+        if (block1.rawText.length == block2.rawText.length) return [100.0, 0.0];
+        //TODO: Else leven
+        else return [0.0, 1000.0];
+    }
     return [0.0, 1000.0];
 }

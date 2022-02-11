@@ -9,9 +9,10 @@ switch (treeNode.ruleIndex)
     case 2: // statement(2) -> (3)|(15)|(5)|(12)|(18)|(40)|(19)|(20)|(21)|(23)|(24)|(25)|
             //                    -> (26)|(27)|(33)|(28)|(34)|(35)|(38)|(39)
         var st2 = TranslateRule(treeNode.children[0]);
-        st2['startLine'] = treeNode.start.line;
+
+        st2['startLine'] = treeNode.start.line - 1;
         st2['startColumn'] = treeNode.start.column;
-        st2['stopLine'] = treeNode.stop.line;
+        st2['stopLine'] = treeNode.stop.line - 1;
         st2['stopColumn'] = treeNode.stop.column;
         st2['sourceStream'] = treeNode.start.source[1];
 
@@ -71,9 +72,10 @@ switch (treeNode.ruleIndex)
         let children16 = FindChildren(treeNode, 17);
         for (const child of children16)
         {
-            variableActions16.push(TranslateRule(child));
+            var child16 = TranslateRule(child);
+            variableActions16.push(child16);
         }
-        return variableActions16;
+        return variableActions16[0];
     case 17: // variableDeclaration(17) -> (58) ['=' (57)]?
         let asigned17 = ScanLiterals(FindChild(treeNode, 58));
         let dependent17 = ScanLiterals(FindChild(treeNode, 57));
@@ -290,7 +292,15 @@ switch (treeNode.ruleIndex)
                 }
             }
         }
-        return new SemanticDefinition([], blocks48, "program", null);
+        
+        var st48 = new SemanticDefinition([], blocks48, "program", null);
+        st48['startLine'] = treeNode.start.line - 1;
+        st48['startColumn'] = treeNode.start.column;
+        st48['stopLine'] = treeNode.stop.line - 1;
+        st48['stopColumn'] = treeNode.stop.column;
+        st48['sourceStream'] = treeNode.start.source[1];
+        return st48;
+
     case 49: // arrayLiteral(49) -> '[' (50) ']'
         return null;
     case 50: // elementList(50) -> ','* (51)? [','+ (51)]* ','*
@@ -564,7 +574,7 @@ export class SemanticDecision
     }
 }
 
-class SemanticPlainText
+export class NonsemanticText
 {
     constructor()
     {
