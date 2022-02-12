@@ -306,5 +306,5 @@ async function UserInput() {
     }
 }
 
-//RunTests();
-UserInput();
+RunTests();
+//UserInput();

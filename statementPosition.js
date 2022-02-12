@@ -1,31 +1,30 @@
 import {SemanticDefinition, SemanticAction, SemanticDecision, NonsemanticText} from './ruleTranslator.js';
+import os from 'os';
 
+// Keeps track of what parts of code carry semantic meaning to determine what are the non-semantic parts.
 class StatementPositionManager {
 
-    constructor(rawText, sl, sc, pl, pc) {
-        //TODO: Line break type?
-        this.lines = rawText.split('\r\n');
+    constructor(rawText, startLine, startColumn, stopLine, stopColumn) {
+        this.lines = rawText.split(os.EOL);
         this.unoccupiedChars = [];
         this.unoccupiedChars.length = this.lines.length;
 
-        this.startLine = sl;
-        this.startColumn = sc;
-        this.stopLine = pl;
-        this.stopColumn = pc;
+        this.startLine = startLine;
+        this.startColumn = startColumn;
+        this.stopLine = stopLine;
+        this.stopColumn = stopColumn;
 
-        for (var i = 0; i < this.lines.length; i++)
-        {
+        for (var i = 0; i < this.lines.length; i++) {
             this.unoccupiedChars[i] = [];
             this.unoccupiedChars[i].length = this.lines[i].length;
-            for (var j = 0; j < this.lines[i].length; j++)
-            {
+            for (var j = 0; j < this.lines[i].length; j++) {
                 this.unoccupiedChars[i][j] = false;
             }
         }
     }
 
-    addStatement(startLine, startColumn, stopLine, stopColumn)
-    {
+    // Marks given range of source code as having semantic meaning
+    addStatement(startLine, startColumn, stopLine, stopColumn) {
         if (startLine == stopLine) {
             for (var i = startColumn; i <= stopColumn; i++) {
                 this.unoccupiedChars[startLine][i] = true;
@@ -48,8 +47,8 @@ class StatementPositionManager {
         }
     }
 
-    getComments()
-    {
+    // Lists unmarked ranges of original source code and returns them as collection of NonsemanticText's.
+    getComments() {
         var commentList = [];
 
         var inComment = false;
@@ -92,6 +91,7 @@ class StatementPositionManager {
         return commentList;
     }
 
+    // Given a range based on line and colum number
     getRawText(startLine, startColumn, stopLine, stopColumn) {
         var rawText = "";
         for (var i = startLine; i <= stopLine; i++) {
@@ -107,6 +107,8 @@ class StatementPositionManager {
     }
 }
 
+// Given list of simplified commands and the original source code, adds missing NonsemanticText's to the list
+//  and adds raw representation to all of them.
 export function AddText(rootDefinition, sourceCode) {
    
     var defStartLine = rootDefinition.startLine;
@@ -132,7 +134,7 @@ export function AddText(rootDefinition, sourceCode) {
             AddText(lc, sourceCode);
         }
         else if (lc instanceof SemanticDecision) {
-            //TODO: sd
+            //TODO[10]: Semantic decision
         }
     }
 
@@ -140,23 +142,16 @@ export function AddText(rootDefinition, sourceCode) {
     rootDefinition.localCode = rootDefinition.localCode.sort((c1,c2) => (c1.startLine == c2.startLine) ? c1.startColumn - c2.startColumn : c1.startLine - c2.startLine);
 
     // Add rawtext to all leaf code
-    AddText0(rootDefinition, sourceCode, manager);
+    AddTextToLeafs(rootDefinition, manager);
 }
 
-function AddText0(rootDefinition, sourceCode, manager) {
-
-    // Do recursively at all levels:
+// Helper function for AddText
+function AddTextToLeafs(rootDefinition, manager) {
     for (var lc of rootDefinition.localCode) {
-        if (lc instanceof SemanticDefinition) {
-        }
-        else if (lc instanceof SemanticDecision) {
-            //TODO: sd
-        }
-        else if (lc instanceof SemanticAction) {
-            //TODO: FINISH
+        if (lc instanceof SemanticAction) {
             lc.rawText = manager.getRawText(lc.startLine, lc.startColumn, lc.stopLine, lc.stopColumn);
         }
-        else {
+        else if (lc instanceof NonsemanticText) {
             lc.rawText = manager.getRawText(lc.startLine, lc.startColumn, lc.stopLine, lc.stopColumn);
         }
     }
