@@ -194,11 +194,34 @@ function IsRecognizedFlag(flag)
     for (var flag0 of recognizedFlags) {
         if (flag == flag0) return true;
     }
-    return true;
+    return false;
 }
 
 function ShowHelp() {
-    //TODO
+    console.log("Code shift pre-release v0.3");
+    console.log("Tool for automatic comparison of different varisons of source code");
+    console.log("and generating animation of its possible intermediate states.");
+    console.log("---------------------------");
+    console.log("Author: Petr Martinek");
+    console.log("Licence: ISC");
+    console.log("---------------------------");
+    console.log("Command line arguments:");
+    console.log("");
+    console.log("-i <filename>     : Input file with source code");
+    console.log("-o <filename>     : Output file for GIF animation");
+    console.log("-c <filename>     : Input file with manual list of changes");
+    console.log("-l <language name>: Language of the source code");
+    console.log("-n                : Do not generate GIF");
+    console.log("-f                : Generate XML file with changes instead of GIF");
+    console.log("-h                : Show this help");
+    console.log("---------------------------");
+    console.log("Notes:");
+    console.log("-The number of input files must be 1 more than the number of output files.");
+    console.log("-If lists of animations are present,");
+    console.log(" there must be as much of them as output files.");
+    console.log("-If flag -f is present, output files are XML files.");
+    console.log("-If no language option is specified,");
+    console.log(" it is assumed based on filename of 1st input file.");
 }
 
 async function UserInput() {
@@ -238,7 +261,7 @@ async function UserInput() {
 
                 // There is no next argument
                 else {
-                    console.log('ERROR: Expected a parameter after flag ' + process.argv[i] + '.');
+                    console.error('ERROR: Expected a parameter after flag ' + process.argv[i] + '.');
                     return;
                 }
             }
@@ -246,25 +269,28 @@ async function UserInput() {
 
         // Unrecognized flag
         else {
-            if (process.argv[i].startsWith('-')) console.log('ERROR: Flag ' + process.argv[i] + ' is not recognized.');
-            else console.log('ERROR: Next Argument was expected to be a flag, not \"' + process.argv[i] + '\".');
+            if (process.argv[i].startsWith('-')) console.error('ERROR: Flag ' + process.argv[i] + ' is not recognized.');
+            else console.error('ERROR: Next Argument was expected to be a flag, not \"' + process.argv[i] + '\".');
             return;
         }
     }
 
     // 2) Show help, if instructed:
-    if (showHelp || inputFiles.length == 0) ShowHelp();
+    if (showHelp || inputFiles.length == 0) {
+        ShowHelp();
+        return;
+    }
 
     // 3) Check logical correctness:
     if (intermediateFiles.length > 0) intermediateFilesUsed = true;
     if (intermediateFilesUsed && (inputFiles.length != intermediateFiles.length + 1))
     {
-        console.log('ERROR: The difference of input and intermediate files specified wasn\'t 1.');
+        console.error('ERROR: The difference of input and intermediate files specified wasn\'t 1.');
         return;
     }
     if (inputFiles.length != outputFiles.length + 1)
     {
-        console.log('ERROR: The difference of input and output files specified wasn\'t 1.');
+        console.error('ERROR: The difference of input and output files specified wasn\'t 1.');
         return;
     }
 
