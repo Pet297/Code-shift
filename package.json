@@ -18,7 +18,8 @@
   "homepage": "https://github.com/Pet297/Code-shift#readme",
   "dependencies": {
     "antlr4": "^4.9.2",
-    "gm": "^1.23.1"
+    "gm": "^1.23.1",
+    "js-levenshtein": "^1.1.6"
   },
   "type": "module"
 }

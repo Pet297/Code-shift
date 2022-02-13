@@ -1,21 +1,24 @@
 import {SemanticDefinition, SemanticAction, SemanticDecision, NonsemanticText} from './ruleTranslator.js';
+import leven from 'js-levenshtein';
 
-// The smaller the number, the more severe the penalty
+// Penalties for difference: The smaller the number, the more severe the penalty
 const missingDependingVariablePenalty = 100.0;
 const missingParamPenalty = 10.0;
 const differentDefinitionTypePenalty = 20.0;
 const differentNamePenalty = 20.0;
 const swapPenalty = 5.0;               // TODO: implement
-
 const innerCodeMultiplierPenalty = 2.0;
+const levenDifferencePenalty = 10.0;
 
+// Bonuses for simmilarity: The larger the number, the better
 const sharedDependingVariableBonus = 20.0;
 const sharedParamBonus = 10.0;
-const sameDefinitionTypeBonus = 0.0;
-const sameNameBonus = 0.0;
-
+const sameDefinitionTypeBonus = 30.0;
+const sameNameBonus = 1000.0;
 const innerCodeMultiplierBonus = 2.0;
+const levenSimmilarityBonus = 2.0;
 
+// Decides, whether two statements with following simmilarity:difference ratio are considered related.
 const changeTreshold = 2.0;
 
 export default function FindCodeChanges(codeBefore, codeAfter, rawBefore, rawAfter) {
@@ -26,7 +29,6 @@ export default function FindCodeChanges(codeBefore, codeAfter, rawBefore, rawAft
         && codeBefore[0].definitionType == codeAfter[0].definitionType) {
         return FindCodeChanges_Special_OneBlock(codeBefore, codeAfter);
     }
-
 
     // 0) Setup variables to hold final or intermediate results
     var inputDestinations = {};
@@ -58,9 +60,6 @@ export default function FindCodeChanges(codeBefore, codeAfter, rawBefore, rawAft
                 {
                     if (codeBefore[unpairedBefore[i]].definitionType == codeAfter[unpairedAfter[j]].definitionType && codeBefore[unpairedBefore[i]].name == codeAfter[unpairedAfter[j]].name)
                     {
-                        //inputDestinations[unpairedBefore[i]] = [unpairedAfter[j]]
-                        //outputSources[j] = [unpairedBefore[i]]
-
                         var innerChanges = FindCodeChanges(codeBefore[unpairedBefore[i]].localCode, codeAfter[unpairedAfter[j]].localCode);
                         difference += innerChanges.difference * innerCodeMultiplierPenalty;
                         difference += listDistance(codeBefore[unpairedBefore[i]].paramList, codeAfter[unpairedAfter[j]].paramList) * missingParamPenalty;
@@ -93,7 +92,6 @@ export default function FindCodeChanges(codeBefore, codeAfter, rawBefore, rawAft
     }
 
     // A2) If any number appears just once on 1 side, assume that's the unchanged part
-    // TODO: + similarity
     var equalPairsLeft = equalPairs.length;
     do {
         equalPairsLeft = equalPairs.length;
@@ -140,7 +138,7 @@ export default function FindCodeChanges(codeBefore, codeAfter, rawBefore, rawAft
     } while (equalPairsLeft != equalPairs.length)
 
     // B) Heuristic section - compare all pairs of statements and rate their distances [dist, before, after]
-    // TODO: (?) Cap max distance in code to avoid O(n^2) and prevent crazy O(exp) algorithms down the line (?)
+    // TODO[12]: (?) Cap max distance in code to avoid O(n^2) and prevent crazy O(exp) algorithms down the line
     var distances = [];
     for (var i of unpairedBefore) {
         for (var j of unpairedAfter) {
@@ -312,7 +310,6 @@ function statementDistance(block1, block2) {
         var dist = 0.0;
         var sim = 0.0;
 
-        //TODO: fix dependencies
         dist += missingParamPenalty * listDistance(block1.dependentOn, block2.dependentOn);
         sim += sharedParamBonus * listSimilarity(block1.dependentOn, block2.dependentOn);
         dist += missingParamPenalty * listDistance(block1.dependingVariables, block2.dependingVariables);
@@ -321,19 +318,22 @@ function statementDistance(block1, block2) {
         return [sim, dist];
     }
     else if (block1 instanceof SemanticDecision && block2 instanceof SemanticDecision) {
-        //TODO: Lists of lists
+        //TODO[10]: Lists of lists
         var dist = 0.0;
         dist += missingParamPenalty * listDistance(block1.dependentOn, block2.dependentOn);
         return [0.0, 1000.0];
     }
     else
     {
-        var dist = 0.0;
         if (block1.rawText === undefined) return [0.0, 1000.0];
         if (block2.rawText === undefined) return [0.0, 1000.0];
-        if (block1.rawText.length == block2.rawText.length) return [100.0, 0.0];
-        //TODO: Else leven
-        else return [0.0, 1000.0];
+        else
+        {
+            var ld = leven(block1.rawText, block2.rawText);
+            var long = Math.max(block1.rawText.length, block2.rawText.length);
+            var dist = 1 + levenDifferencePenalty * ld;
+            var sim = 1 + levenSimmilarityBonus * (long - ld);
+            return [sim, dist];
+        }
     }
-    return [0.0, 1000.0];
 }

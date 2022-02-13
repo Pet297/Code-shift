@@ -9,7 +9,7 @@ import FindCodeChanges from './distance.js'
 import { AddText } from './statementPosition.js'
 import { GetAnimationSequence } from './animationSequence.js'
 import { IntermediateTextEnumerator, CollapseIntermediateText } from './frameDescriptor.js'
-import { WriteMovingAnimationFile, WriteAddingAnimationFile, WriteDeletingAnimationFile, WriteChangingAnimationFile, WriteGifFile } from './gifWriter.js'
+import { WriteStationaryAnimationFile, WriteMovingAnimationFile, WriteAddingAnimationFile, WriteDeletingAnimationFile, WriteChangingAnimationFile, WriteGifFile } from './gifWriter.js'
 import { debug } from 'console';
 
 function CallbackMove(callback)
@@ -58,8 +58,11 @@ async function Exec1F(code1, code2, output, resolve) {
     var resenum = new IntermediateTextEnumerator(result.inputDestinations, result.outputSources, result2);
 
     var gifnumber = 0;
+    var prevText;
+    var text;
     while (true) {
-        var text = resenum.GetNextStillText();
+        prevText = text;
+        text = resenum.GetNextStillText();
         if (text === undefined) break;
         else {
             text = CollapseIntermediateText(text);
@@ -151,6 +154,20 @@ async function Exec1F(code1, code2, output, resolve) {
 
     }
 
+    var promises = [];
+                for (var i=0; i<20; i++)
+                {
+                    let promise = new Promise(
+                        resolve => WriteStationaryAnimationFile(
+                            prevText[1] + prevText[3] + prevText[4] + prevText[2],
+                            '.output\\frame' + (gifnumber+1001).toString() + '.gif',
+                            resolve)
+                    );
+                    promises.push(promise);
+                    gifnumber++;
+                }
+                await Promise.all(promises);
+
     let promise = new Promise(
         resolve => WriteGifFile('.output/frame*.gif', '.output/result.gif', resolve)
         )
@@ -171,21 +188,20 @@ async function Exec1F(code1, code2, output, resolve) {
 
 async function RunTests() {
 
-    var promise = new Promise(
-        resolve => Exec1F('./test2a', './test2b', './.output/z02.gif', resolve)
-        );
-    await promise;
+    const tests = [
+        './tests/test_F1_0', './tests/test_F1_1', '../F1.gif',
+        './tests/test_F2_0', './tests/test_F2_1', '../F2.gif',
+        './tests/test_F3_0', './tests/test_F3_1', '../F3.gif',
+        './tests/test_C1_0', './tests/test_C1_1', '../C1.gif',
+        './tests/test_C2_0', './tests/test_C2_1', '../C2.gif', 
+    ]
 
-    //TODO proc ne 2 a 3
-    var promise2 = new Promise(
-        resolve => Exec1F('./test3a', './test3b', './.output/z03.gif', resolve)
-        );
-    await promise2;
-
-    var promise3 = new Promise(
-        resolve => Exec1F('./test4a', './test4b', './.output/z04.gif', resolve)
-        );
-    await promise3;
+    for (var i = 0; i < tests.length; i+=3) {
+        var promise = new Promise(
+            resolve => Exec1F(tests[i+0], tests[i+1], tests[i+2], resolve)
+            );
+        await promise;
+    }
 }
 
 const recognizedFlags = ['-i', '-o', '-c', '-l', '-n', '-f', '-h']

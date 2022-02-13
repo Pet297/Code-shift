@@ -46,7 +46,7 @@ export function WriteGifFile(inputFilenames, outputFilename, resolve) {
 }
 
 // Writes single GIF image with no animation
-export function WriteStationaryAnimationFile(text,filename) {
+export function WriteStationaryAnimationFile(text,filename,resolve) {
     var lines = text.split(os.EOL);
     var gms = StartNewGIF();
 

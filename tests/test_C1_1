@@ -1,0 +1,14 @@
+function A(d,e) {
+    d = e + e;
+    return d + e;
+}
+
+var a = 0;
+var b = 0;
+// Comment
+
+c = a;
+d = 0;
+// c = a + b;
+d = c + d;
+return a + b;
