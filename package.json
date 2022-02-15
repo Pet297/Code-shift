@@ -19,7 +19,8 @@
   "dependencies": {
     "antlr4": "^4.9.2",
     "gm": "^1.23.1",
-    "js-levenshtein": "^1.1.6"
+    "js-levenshtein": "^1.1.6",
+    "xml2js": "^0.4.23"
   },
   "type": "module"
 }

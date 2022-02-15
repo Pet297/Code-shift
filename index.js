@@ -11,6 +11,7 @@ import { GetAnimationSequence } from './animationSequence.js'
 import { IntermediateTextEnumerator, CollapseIntermediateText } from './frameDescriptor.js'
 import { WriteStationaryAnimationFile, WriteMovingAnimationFile, WriteAddingAnimationFile, WriteDeletingAnimationFile, WriteChangingAnimationFile, WriteGifFile } from './gifWriter.js'
 import { debug } from 'console';
+import { ListOfChangesToFile } from './intermediateOutput.js';
 
 function CallbackMove(callback)
 {
@@ -20,6 +21,40 @@ function CallbackMove(callback)
 function CallbackRemove(callback)
 {
     //TODO
+}
+
+async function Exec1N(code1, code2, output, resolve) {
+    const input = fs.readFileSync(code1).toString()
+
+    const chars = new antlr4.InputStream(input);
+    const lexer = new JavaScriptLexer(chars);
+    const tokens = new antlr4.CommonTokenStream(lexer);
+    const parser = new JavaScriptParser(tokens);
+    parser.buildParseTrees = true;
+    const tree = parser.program();
+
+    testVisitor(tree,0);
+
+    let l = TranslateRule(tree);
+
+    const input1 = fs.readFileSync(code2).toString()
+
+    const chars1 = new antlr4.InputStream(input1);
+    const lexer1 = new JavaScriptLexer(chars1);
+    const tokens1 = new antlr4.CommonTokenStream(lexer1);
+    const parser1 = new JavaScriptParser(tokens1);
+    parser1.buildParseTrees = true;
+    const tree1 = parser1.program();
+
+    testVisitor(tree1,0);
+
+    let l1 = TranslateRule(tree1);
+
+    AddText(l, tree.start.source[1].strdata);
+    AddText(l1, tree1.start.source[1].strdata);
+
+    var result = FindCodeChanges([l], [l1], tree.start.source[1].strdata, tree1.start.source[1].strdata);
+    ListOfChangesToFile(result.inputDestinations, result.outputSources, output, resolve);
 }
 
 async function Exec1F(code1, code2, output, resolve) {
@@ -189,18 +224,28 @@ async function Exec1F(code1, code2, output, resolve) {
 async function RunTests() {
 
     const tests = [
-        './tests/test_F1_0', './tests/test_F1_1', '../F1.gif',
-        './tests/test_F2_0', './tests/test_F2_1', '../F2.gif',
-        './tests/test_F3_0', './tests/test_F3_1', '../F3.gif',
-        './tests/test_C1_0', './tests/test_C1_1', '../C1.gif',
-        './tests/test_C2_0', './tests/test_C2_1', '../C2.gif', 
+        './tests/test_F1_0', './tests/test_F1_1', '../F1',
+        './tests/test_F2_0', './tests/test_F2_1', '../F2',
+        './tests/test_F3_0', './tests/test_F3_1', '../F3',
+        './tests/test_C1_0', './tests/test_C1_1', '../C1',
+        './tests/test_C2_0', './tests/test_C2_1', '../C2', 
     ]
+    const fullExecution = false;
+    const intermediateFileGen = true;
 
     for (var i = 0; i < tests.length; i+=3) {
-        var promise = new Promise(
-            resolve => Exec1F(tests[i+0], tests[i+1], tests[i+2], resolve)
-            );
-        await promise;
+        if (fullExecution) {
+            var promise = new Promise(
+                resolve => Exec1F(tests[i+0], tests[i+1], tests[i+2] + '.gif', resolve)
+                );
+            await promise;
+        }
+        if (intermediateFileGen) {
+            var promise = new Promise(
+                resolve => Exec1N(tests[i+0], tests[i+1], tests[i+2] + '.xml', resolve)
+                );
+            await promise;
+        }
     }
 }
 
