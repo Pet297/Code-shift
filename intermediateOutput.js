@@ -7,14 +7,24 @@ export function ListOfChangesToFile(sourceChanges, destinationChanges, outputFil
     var srcc = ChangesToSimpleObject(sourceChanges);
     var dstc = ChangesToSimpleObject(destinationChanges);
 
-    //TODO[!!]: Add all 3 modes of execution and add text to the thing bellow.
-    var src2 = SimpleObjectToChanges(srcc);
-
     var obj = {src: srcc, dst: dstc}
     var builder = new xmljs.Builder();
     var xml = builder.buildObject(obj);
 
     fs.writeFile(outputFile, xml, 'utf8', ()=>{resolve()})
+}
+
+export function FileToListOfChanges(file) {
+    var xml = fs.readFileSync(file).toString();
+    var obj = undefined;
+    xmljs.parseString(xml, (err, result) => {
+        obj = result;
+    });
+
+    var srcc = SimpleObjectToChanges(obj.root.src);
+    var dstc = SimpleObjectToChanges(obj.root.dst);
+
+    return {src:srcc, dst:dstc};
 }
 
 function ChangesToSimpleObject(listOfChanges) {
@@ -30,10 +40,11 @@ function ChangesToSimpleObject(listOfChanges) {
 }
 
 function SimpleObjectToChanges(obj) {
+    if (obj[0] == '') return[];
     var output = [];
-    for (var key in obj) {
-        var index = key.substring(1);
-        output[parseInt(index)] = new CodeChange(obj[key].address, SimpleObjectToChanges(obj[key].children));
+    for (var key in obj[0]) {
+        var pos = key.substring(1);
+        output[pos] = new CodeChange(obj[0][key][0].address[0], SimpleObjectToChanges(obj[0][key][0].children));
     }
     return output;
 }

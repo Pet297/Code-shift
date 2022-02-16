@@ -21,7 +21,7 @@ const levenSimmilarityBonus = 2.0;
 // Decides, whether two statements with following simmilarity:difference ratio are considered related.
 const changeTreshold = 2.0;
 
-export default function FindCodeChanges(codeBefore, codeAfter, rawBefore, rawAfter) {
+export function FindCodeChanges(codeBefore, codeAfter, rawBefore, rawAfter) {
 
     // SPECIAL CASE: Only 1 object in the input and output --> If same type of definition, assume they are related
     if (codeBefore.length == 1 && codeAfter.length == 1
@@ -191,6 +191,31 @@ export default function FindCodeChanges(codeBefore, codeAfter, rawBefore, rawAft
 
     // TODO: proper distance
     return new ListOfChanges(inputDestinations, outputSources, difference, sameness);
+}
+
+export function SupplyCodeChanges(codeBefore, codeAfter, changesBefore, changesAfter) {
+    
+    // Z) ADD RAW TEXT
+    AddRawText(codeBefore, changesBefore);
+    AddRawText(codeAfter, changesAfter);
+
+    // Return, as normally
+    return new ListOfChanges(changesBefore, changesAfter, 0, 1000);
+}
+
+function AddRawText(code, changes) {
+    for (var index in changes) {
+        if (code[index] instanceof SemanticAction) {
+            if ('rawText' in code[index]) changes[index].rawText = code[index].rawText;
+        }
+        else if (code[index] instanceof SemanticDefinition) {
+            AddRawText(code[index].localCode, changes[index].children);
+        }
+        else if (code[index] instanceof NonsemanticText) {
+            if ('rawText' in code[index]) changes[index].rawText = code[index].rawText;
+        }
+        //TODO[11]:Decision
+    }
 }
 
 function FindCodeChanges_Special_OneBlock(codeBefore, codeAfter) {
