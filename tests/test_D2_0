@@ -1,0 +1,7 @@
+var a = 0;
+var b = a;
+var c = a;
+
+c = a * 2;
+b = a * 3;
+a = c * 5;

@@ -9,6 +9,8 @@ const differentNamePenalty = 20.0;
 const swapPenalty = 5.0;               // TODO: implement
 const innerCodeMultiplierPenalty = 2.0;
 const levenDifferencePenalty = 10.0;
+const blockAddedPenalty = 5.0;
+const blockDeletedPenalty = 5.0;
 
 // Bonuses for simmilarity: The larger the number, the better
 const sharedDependingVariableBonus = 20.0;
@@ -138,6 +140,40 @@ export function FindCodeChanges(codeBefore, codeAfter, rawBefore, rawAfter) {
     } while (equalPairsLeft != equalPairs.length)
 
     // B) Heuristic section - compare all pairs of statements and rate their distances [dist, before, after]
+
+    // B1) List definitions so we can try to detect renames
+    var definitionsBefore = [];
+    var definitionsAfter = [];
+    for (var i of unpairedBefore) {
+        if (codeBefore[i] instanceof SemanticDefinition) {
+            definitionsBefore.push(codeBefore[i].name);
+        }
+    }
+    for (var j of unpairedAfter) {
+        if (codeAfter[j] instanceof SemanticDefinition) {
+            definitionsAfter.push(codeAfter[j].name);
+        }
+    }
+
+    // B2) Calculate distances for potential renames and build renaming tables
+    // TODO: Iteratively add more renames if successful
+    // TODO: Actually use the information
+    var norename = FindCodeChangesWithRename(codeBefore, codeAfter, unpairedBefore, unpairedAfter, {});
+    var renamesValues = [];
+
+    for (var origName of definitionsBefore) {
+        for (var newName of definitionsAfter) {
+            // Go through every input block and try to find matching output block
+            // To each renaming pair, asign a value of sameness and difference
+            // Based on large ratios, accept some changes      
+            var rename = {};
+            rename[origName] = newName;
+            var simDst = FindCodeChangesWithRename(codeBefore, codeAfter, unpairedBefore, unpairedAfter, rename);
+            renamesValues.push([simDst[0] / simDst[1], origName, newName, simDst[0], simDst[1]]);
+        }
+    }
+
+    // B3) Calculate distances between every block with renamings
     // TODO[12]: (?) Cap max distance in code to avoid O(n^2) and prevent crazy O(exp) algorithms down the line
     var distances = [];
     for (var i of unpairedBefore) {
@@ -150,13 +186,15 @@ export function FindCodeChanges(codeBefore, codeAfter, rawBefore, rawAfter) {
 
     distances.sort((la, lb) => (la[0] == lb[0] ? la[1] - lb[1] : la[0] - la[0])); // (Lexicographic based on entry 1 and 2 only)
 
-    // TODO: inner code
     while (distances.length > 0)
     {
         var i = distances[0][2]; // Index before
         var j = distances[0][3]; // Index after
         inputDestinations[i] = new CodeChange(j.toString(), []);
         outputSources[j] = new CodeChange(i.toString(), []);
+
+        difference += distances[0][1];
+        sameness += distances[0][0];
 
         distances = distances.filter(l => l[2] != i && l[3] != j);
         unpairedBefore = unpairedBefore.filter(id => id != i);
@@ -169,12 +207,14 @@ export function FindCodeChanges(codeBefore, codeAfter, rawBefore, rawAfter) {
         if (!(i in inputDestinations)) {
             inputDestinations[i] = new CodeChange('x', []);
         }
+        difference += blockDeletedPenalty;
     }
 
     for (var i = 0; i < codeAfter.length; i++) {
         if (!(i in outputSources)) {
             outputSources[i] = new CodeChange('+', []);
         }
+        difference += blockAddedPenalty;
     }
 
     // Z) ADD RAW TEXT
@@ -191,6 +231,68 @@ export function FindCodeChanges(codeBefore, codeAfter, rawBefore, rawAfter) {
 
     // TODO: proper distance
     return new ListOfChanges(inputDestinations, outputSources, difference, sameness);
+}
+
+function FindCodeChangesWithRename(codeBefore, codeAfter, unpairedBefore, unpairedAfter, renames = {}) {
+    var difference = 0.0;
+    var sameness = 0.0;
+    
+    var unpairedBeforeLocal = [];
+    var unpairedAfterLocal = [];
+    var inputDestinations = [];
+    var outputSources = [];
+
+    for (var x of unpairedBefore) unpairedBeforeLocal.push(x);
+    for (var x of unpairedAfter) unpairedAfterLocal.push(x);
+
+    var distances = [];
+    for (var i of unpairedBeforeLocal) {
+        for (var j of unpairedAfterLocal) {
+            var dist = OneLevelDistance(codeBefore[i], codeAfter[j], renames);
+            var rel = dist[1]/dist[0]; //Different / Same
+            if (rel !== Infinity && rel < changeTreshold) distances.push([rel,dist[1],i,j]);
+        }
+    }
+
+    distances.sort((la, lb) => (la[0] == lb[0] ? la[1] - lb[1] : la[0] - la[0])); // (Lexicographic based on entry 1 and 2 only)
+
+    while (distances.length > 0)
+    {
+        var i = distances[0][2]; // Index before
+        var j = distances[0][3]; // Index after
+        inputDestinations[i] = new CodeChange(j.toString(), []);
+        outputSources[j] = new CodeChange(i.toString(), []);
+
+        distances = distances.filter(l => l[2] != i && l[3] != j);
+        unpairedBeforeLocal = unpairedBeforeLocal.filter(id => id != i);
+        unpairedAfterLocal = unpairedAfterLocal.filter(id => id != j);
+    }
+
+    // C) AUTO DELETIONS AND ADDITIONS
+    for (var i = 0; i < codeBefore.length; i++) {
+        if (!(i in inputDestinations)) {
+            inputDestinations[i] = new CodeChange('x', []);
+        }
+    }
+
+    for (var i = 0; i < codeAfter.length; i++) {
+        if (!(i in outputSources)) {
+            outputSources[i] = new CodeChange('+', []);
+        }
+    }
+
+    // D) CALCULATE LOCAL DISTANCE
+    for (var i = 0; i < inputDestinations.length; i++) {
+        if (inputDestinations[i].address != 'x') {
+            var dist = OneLevelDistance(codeBefore[i], codeAfter[inputDestinations[i].address], renames);
+            sameness += dist[0];
+            difference += dist[1];
+        }
+    }
+    sameness += unpairedBeforeLocal.length * blockDeletedPenalty;
+    sameness += unpairedAfterLocal.length * blockAddedPenalty;
+
+    return [1 + sameness, 1 + difference];
 }
 
 export function SupplyCodeChanges(codeBefore, codeAfter, changesBefore, changesAfter) {
@@ -329,7 +431,7 @@ function statementDistance(block1, block2) {
         var changes = FindCodeChanges(block1.localCode, block2.localCode)
         dist += innerCodeMultiplierPenalty * changes.distance;
         sim += innerCodeMultiplierBonus * changes.sameness;
-        return [sim, dist];
+        return [sim + 1, dist + 1];
     }
     else if (block1 instanceof SemanticAction && block2 instanceof SemanticAction) {
         var dist = 0.0;
@@ -340,18 +442,18 @@ function statementDistance(block1, block2) {
         dist += missingParamPenalty * listDistance(block1.dependingVariables, block2.dependingVariables);
         sim += sharedParamBonus * listSimilarity(block1.dependingVariables, block2.dependingVariables);
 
-        return [sim, dist];
+        return [sim + 1, dist + 1];
     }
     else if (block1 instanceof SemanticDecision && block2 instanceof SemanticDecision) {
         //TODO[10]: Lists of lists
         var dist = 0.0;
         dist += missingParamPenalty * listDistance(block1.dependentOn, block2.dependentOn);
-        return [0.0, 1000.0];
+        return [1.0, 1000.0];
     }
     else
     {
-        if (block1.rawText === undefined) return [0.0, 1000.0];
-        if (block2.rawText === undefined) return [0.0, 1000.0];
+        if (block1.rawText === undefined) return [1.0, 1000.0];
+        if (block2.rawText === undefined) return [1.0, 1000.0];
         else
         {
             var ld = leven(block1.rawText, block2.rawText);
@@ -361,4 +463,37 @@ function statementDistance(block1, block2) {
             return [sim, dist];
         }
     }
+}
+
+function OneLevelDistance(block1, block2, renames = {}) {
+    return statementDistance(ConvertBlockToOneLevel(block1, renames), ConvertBlockToOneLevel(block2));
+}
+
+function ConvertBlockToOneLevel(block, renames = {}) {
+    //TODO:[12] Semantic decision
+    if (block instanceof SemanticDefinition) {
+        return new SemanticDefinition(RenameElementsOfList(block.paramList, renames), [], block.definitionType, Rename(block.name, renames));
+    }
+    else if (block instanceof SemanticAction) {
+        return new SemanticAction(RenameElementsOfList(block.dependingVariables, renames), RenameElementsOfList(block.dependentOn, renames));
+    }
+    else if (block instanceof NonsemanticText) {
+        return block;
+    }
+    else return undefined;
+}
+
+function RenameElementsOfList(original, renames = {}) {
+    var newList = [];
+    for (var element of original) {
+        newList.push(Rename(element, renames));
+    }
+    return newList;
+}
+
+function Rename(original, renames = {}) {
+    if (original in renames) {
+        return renames[original];
+    }
+    else return original;
 }
