@@ -439,8 +439,8 @@ function statementDistance(block1, block2) {
 
         dist += missingParamPenalty * listDistance(block1.dependentOn, block2.dependentOn);
         sim += sharedParamBonus * listSimilarity(block1.dependentOn, block2.dependentOn);
-        dist += missingParamPenalty * listDistance(block1.dependingVariables, block2.dependingVariables);
-        sim += sharedParamBonus * listSimilarity(block1.dependingVariables, block2.dependingVariables);
+        dist += missingDependingVariablePenalty * listDistance(block1.dependingVariables, block2.dependingVariables);
+        sim += sharedDependingVariableBonus * listSimilarity(block1.dependingVariables, block2.dependingVariables);
 
         return [sim + 1, dist + 1];
     }
