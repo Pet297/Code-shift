@@ -6,7 +6,7 @@ const missingDependingVariablePenalty = 100.0;
 const missingParamPenalty = 10.0;
 const differentDefinitionTypePenalty = 20.0;
 const differentNamePenalty = 20.0;
-const swapPenalty = 5.0;               // TODO: implement
+const swapPenalty = 5.0;
 const innerCodeMultiplierPenalty = 2.0;
 const levenDifferencePenalty = 10.0;
 const blockAddedPenalty = 5.0;
@@ -40,28 +40,21 @@ export function FindCodeChanges(codeBefore, codeAfter, rawBefore, rawAfter) {
     var unpairedBefore = [];
     var unpairedAfter = [];
 
-    for (var i = 0; i < codeBefore.length; i++)
-    {
+    for (var i = 0; i < codeBefore.length; i++) {
         unpairedBefore.push(i);
     }
-    for (var i = 0; i < codeAfter.length; i++)
-    {
+    for (var i = 0; i < codeAfter.length; i++) {
         unpairedAfter.push(i);
     }
 
     // A) BRUTE FORCE SECTION - NO moving in and out
 
     // A0) Assume definitions of the same name and type are related.
-    for (var i = 0; i < unpairedBefore.length; i++)
-    {
-        if (codeBefore[unpairedBefore[i]] instanceof SemanticDefinition)
-        {
-            for (var j = 0; j < unpairedAfter.length; j++)
-            {
-                if (codeAfter[unpairedAfter[j]] instanceof SemanticDefinition)
-                {
-                    if (codeBefore[unpairedBefore[i]].definitionType == codeAfter[unpairedAfter[j]].definitionType && codeBefore[unpairedBefore[i]].name == codeAfter[unpairedAfter[j]].name)
-                    {
+    for (var i = 0; i < unpairedBefore.length; i++) {
+        if (codeBefore[unpairedBefore[i]] instanceof SemanticDefinition) {
+            for (var j = 0; j < unpairedAfter.length; j++) {
+                if (codeAfter[unpairedAfter[j]] instanceof SemanticDefinition) {
+                    if (codeBefore[unpairedBefore[i]].definitionType == codeAfter[unpairedAfter[j]].definitionType && codeBefore[unpairedBefore[i]].name == codeAfter[unpairedAfter[j]].name) {
                         var innerChanges = FindCodeChanges(codeBefore[unpairedBefore[i]].localCode, codeAfter[unpairedAfter[j]].localCode);
                         difference += innerChanges.difference * innerCodeMultiplierPenalty;
                         difference += listDistance(codeBefore[unpairedBefore[i]].paramList, codeAfter[unpairedAfter[j]].paramList) * missingParamPenalty;
@@ -178,7 +171,7 @@ export function FindCodeChanges(codeBefore, codeAfter, rawBefore, rawAfter) {
     var distances = [];
     for (var i of unpairedBefore) {
         for (var j of unpairedAfter) {
-            var dist = statementDistance(codeBefore[i], codeAfter[j]);
+            var dist = StatementDistance(codeBefore[i], codeAfter[j]);
             var rel = dist[1]/dist[0]; //Different / Same
             if (rel !== Infinity && rel < changeTreshold) distances.push([rel,dist[1],i,j]);
         }
@@ -186,15 +179,11 @@ export function FindCodeChanges(codeBefore, codeAfter, rawBefore, rawAfter) {
 
     distances.sort((la, lb) => (la[0] == lb[0] ? la[1] - lb[1] : la[0] - la[0])); // (Lexicographic based on entry 1 and 2 only)
 
-    while (distances.length > 0)
-    {
+    while (distances.length > 0) {
         var i = distances[0][2]; // Index before
         var j = distances[0][3]; // Index after
         inputDestinations[i] = new CodeChange(j.toString(), []);
         outputSources[j] = new CodeChange(i.toString(), []);
-
-        difference += distances[0][1];
-        sameness += distances[0][0];
 
         distances = distances.filter(l => l[2] != i && l[3] != j);
         unpairedBefore = unpairedBefore.filter(id => id != i);
@@ -207,14 +196,48 @@ export function FindCodeChanges(codeBefore, codeAfter, rawBefore, rawAfter) {
         if (!(i in inputDestinations)) {
             inputDestinations[i] = new CodeChange('x', []);
         }
-        difference += blockDeletedPenalty;
     }
 
     for (var i = 0; i < codeAfter.length; i++) {
         if (!(i in outputSources)) {
             outputSources[i] = new CodeChange('+', []);
         }
-        difference += blockAddedPenalty;
+    }
+
+    // D) CALCULATE LOCAL DISTANCE
+    // For each paired code, add their sameness and difference to the total.
+    // For each removed or added line, add penalty.
+    for (var i in inputDestinations) {
+        if (inputDestinations[i].address != 'x') {
+            var dist = StatementDistance(codeBefore[i], codeAfter[inputDestinations[i].address]);
+            sameness += dist[0];
+            difference += dist[1];
+        }
+    }
+    difference += unpairedBefore.length * blockDeletedPenalty;
+    difference += unpairedAfter.length * blockAddedPenalty;
+
+    // E) CALCULATE PHYSICAL DISTANCE
+    // Based on how many swaps does it take to transform one code into the other,
+    // increase the measurre of difference.
+    var unordered = [];
+    var ordered = [];
+    for (var i in inputDestinations) {
+        if (inputDestinations[i].address != 'x') {
+            unordered.push(inputDestinations[i].address);
+            ordered.push(inputDestinations[i].address);
+        }
+    }
+    ordered.sort();
+
+    for (var x of ordered) {
+        for (var i = 0; i < unordered.length; i++) {
+            if (unordered[i] == x) {
+                difference += i * swapPenalty; // penalty for each swap.
+                unordered.splice(i, 1);
+                break;
+            }
+        }
     }
 
     // Z) ADD RAW TEXT
@@ -229,7 +252,7 @@ export function FindCodeChanges(codeBefore, codeAfter, rawBefore, rawAfter) {
         }
     }
 
-    // TODO: proper distance
+    // ZZ) FINISH
     return new ListOfChanges(inputDestinations, outputSources, difference, sameness);
 }
 
@@ -282,16 +305,41 @@ function FindCodeChangesWithRename(codeBefore, codeAfter, unpairedBefore, unpair
     }
 
     // D) CALCULATE LOCAL DISTANCE
-    for (var i = 0; i < inputDestinations.length; i++) {
+    // For each paired code, add their sameness and difference to the total.
+    // For each removed or added line, add penalty.
+    for (var i in inputDestinations) {
         if (inputDestinations[i].address != 'x') {
             var dist = OneLevelDistance(codeBefore[i], codeAfter[inputDestinations[i].address], renames);
             sameness += dist[0];
             difference += dist[1];
         }
     }
-    sameness += unpairedBeforeLocal.length * blockDeletedPenalty;
-    sameness += unpairedAfterLocal.length * blockAddedPenalty;
+    difference += unpairedBeforeLocal.length * blockDeletedPenalty;
+    difference += unpairedAfterLocal.length * blockAddedPenalty;
 
+    // E) CALCULATE PHYSICAL DISTANCE
+    // Based on how many swaps does it take to transform one code into the other,
+    // increase the measurre of difference.
+    var unordered = [];
+    var ordered = [];
+    for (var i in inputDestinations) {
+        if (inputDestinations[i].address != 'x') {
+            unordered.push(inputDestinations[i].address);
+            ordered.push(inputDestinations[i].address);
+        }
+    }
+    ordered.sort();
+
+    for (var x of ordered) {
+        for (var i = 0; i < unordered.length; i++) {
+            if (unordered[i] == x) {
+                difference += i * swapPenalty; // penalty for each swap.
+                unordered.splice(i, 1);
+            }
+        }
+    }
+
+    // ZZ) FINISH
     return [1 + sameness, 1 + difference];
 }
 
@@ -414,7 +462,7 @@ function checkStatementsForEquality(block1, block2) {
 }
 
 // Compares 2 simple statements and returns their distance based on how different they are
-function statementDistance(block1, block2) {
+function StatementDistance(block1, block2) {
     if (block1 instanceof SemanticDefinition && block2 instanceof SemanticDefinition) {
         var dist = 0.0;
         var sim = 0.0;
@@ -466,7 +514,7 @@ function statementDistance(block1, block2) {
 }
 
 function OneLevelDistance(block1, block2, renames = {}) {
-    return statementDistance(ConvertBlockToOneLevel(block1, renames), ConvertBlockToOneLevel(block2));
+    return StatementDistance(ConvertBlockToOneLevel(block1, renames), ConvertBlockToOneLevel(block2));
 }
 
 function ConvertBlockToOneLevel(block, renames = {}) {
