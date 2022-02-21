@@ -10,7 +10,6 @@ import { AddText } from './statementPosition.js'
 import { GetAnimationSequence } from './animationSequence.js'
 import { IntermediateTextEnumerator, CollapseIntermediateText } from './animationEnumerator.js'
 import { WriteStationaryAnimationFile, WriteMovingAnimationFile, WriteAddingAnimationFile, WriteDeletingAnimationFile, WriteChangingAnimationFile, WriteGifFile } from './gifWriter.js'
-import { debug } from 'console';
 import { ListOfChangesToFile, FileToListOfChanges } from './intermediateOutput.js';
 
 function CallbackMove(callback)
@@ -23,8 +22,8 @@ function CallbackRemove(callback)
     //TODO
 }
 
-async function Exec1N(code1, code2, output, resolve) {
-    const input = fs.readFileSync(code1).toString()
+function CodeToTree(codeFile) {
+    const input = fs.readFileSync(codeFile).toString()
 
     const chars = new antlr4.InputStream(input);
     const lexer = new JavaScriptLexer(chars);
@@ -35,356 +34,199 @@ async function Exec1N(code1, code2, output, resolve) {
 
     testVisitor(tree,0);
 
-    let l = TranslateRule(tree);
-
-    const input1 = fs.readFileSync(code2).toString()
-
-    const chars1 = new antlr4.InputStream(input1);
-    const lexer1 = new JavaScriptLexer(chars1);
-    const tokens1 = new antlr4.CommonTokenStream(lexer1);
-    const parser1 = new JavaScriptParser(tokens1);
-    parser1.buildParseTrees = true;
-    const tree1 = parser1.program();
-
-    testVisitor(tree1,0);
-
-    let l1 = TranslateRule(tree1);
-
-    AddText(l, tree.start.source[1].strdata);
-    AddText(l1, tree1.start.source[1].strdata);
-
-    var result = FindCodeChanges([l], [l1], tree.start.source[1].strdata, tree1.start.source[1].strdata);
-    ListOfChangesToFile(result.inputDestinations, result.outputSources, output, resolve);
+    return tree;
 }
 
+async function DoGifOutput(resenum, output, resolve) {
+    var gifnumber = 0;
+    var prevText;
+    var text;
+    while (true) {
+        prevText = text;
+        text = resenum.GetNextStillText();
+        if (text === undefined) break;
+        else {
+            text = CollapseIntermediateText(text);
+
+            if (text[0]=='^' && text[3] != '')
+            {
+                var promises = [];
+                for (var i=0; i<20; i++)
+                {
+                    let promise = new Promise(
+                        resolve => WriteMovingAnimationFile(
+                            text[1],
+                            text[3],
+                            text[4],
+                            text[2],
+                            i/19.0,
+                            '.output\\frame' + (gifnumber+1001).toString() + '.gif',
+                            resolve)
+                    );
+                    promises.push(promise);
+                    gifnumber++;
+                }
+                await Promise.all(promises);
+            }
+
+            if (text[0]=='+' && text[2] != '')
+            {
+                var promises = [];
+                for (var i=0; i<20; i++)
+                {
+                    let promise = new Promise(
+                        resolve => WriteAddingAnimationFile(
+                            text[1],
+                            text[3],
+                            text[4],
+                            text[2],
+                            i/19.0,
+                            '.output\\frame' + (gifnumber+1001).toString() + '.gif',
+                            resolve)
+                    );
+                    promises.push(promise);
+                    gifnumber++;
+                }
+                await Promise.all(promises);
+            }
+
+            if (text[0]=='x' && text[2] != '')
+            {
+                var promises = [];
+                for (var i=0; i<20; i++)
+                {
+                    let promise = new Promise(
+                        resolve => WriteDeletingAnimationFile(
+                            text[1],
+                            text[3],
+                            text[4],
+                            text[2],
+                            i/19.0,
+                            '.output\\frame' + (gifnumber+1001).toString() + '.gif',
+                            resolve)
+                    );
+                    promises.push(promise);
+                    gifnumber++;
+                }
+                await Promise.all(promises);
+            }
+
+            if (text[0]=='*' && text[5])
+            {
+                var promises = [];
+                for (var i=0; i<20; i++)
+                {
+                    let promise = new Promise(
+                        resolve => WriteChangingAnimationFile(
+                            text[1],
+                            text[3],
+                            text[4],
+                            text[2],
+                            i/19.0,
+                            '.output\\frame' + (gifnumber+1001).toString() + '.gif',
+                            resolve)
+                    );
+                    promises.push(promise);
+                    gifnumber++;
+                }
+                await Promise.all(promises);
+            }
+        }
+
+    }
+
+    var promises = [];
+                for (var i=0; i<20; i++)
+                {
+                    let promise = new Promise(
+                        resolve => WriteStationaryAnimationFile(
+                            prevText[1] + prevText[3] + prevText[4] + prevText[2],
+                            '.output\\frame' + (gifnumber+1001).toString() + '.gif',
+                            resolve)
+                    );
+                    promises.push(promise);
+                    gifnumber++;
+                }
+                await Promise.all(promises);
+
+    let promise = new Promise(
+        resolve => WriteGifFile('.output/frame*.gif', '.output/result.gif', resolve)
+        )
+    await promise;
+
+    //delete individual frames
+    for (var i=0; i < gifnumber;i++) {
+        var framePath = path.join(".", ".output", "frame"+ (i+1001).toString() +".gif");
+        fs.unlink(framePath, CallbackRemove);
+    }
+
+    //move result
+    const outputPath = path.join(".", ".output", "result.gif");
+    fs.rename(outputPath, output, CallbackMove);
+
+    resolve();
+}
+
+// Find differences between two source codes,
+//  output lists of changes to a file.
+async function Exec1N(code1, code2, output, resolve) {
+
+    const tree1 = CodeToTree(code1);
+    let root1 = TranslateRule(tree1);
+    const tree2 = CodeToTree(code2);
+    let root2 = TranslateRule(tree2);
+    AddText(root1, tree1.start.source[1].strdata);
+    AddText(root2, tree2.start.source[1].strdata);
+
+    var result = FindCodeChanges([root1], [root2], tree1.start.source[1].strdata, tree2.start.source[1].strdata);
+    ListOfChangesToFile(result.inputDestinations, result.outputSources, output, resolve)
+}
+
+// Find differences between two source codes,
+//  output resulting animation to a GIF.
+//  The list of changes is given.
 async function Exec1M(code1, code2, changes12, output, resolve) {
-    const input = fs.readFileSync(code1).toString()
 
-    const chars = new antlr4.InputStream(input);
-    const lexer = new JavaScriptLexer(chars);
-    const tokens = new antlr4.CommonTokenStream(lexer);
-    const parser = new JavaScriptParser(tokens);
-    parser.buildParseTrees = true;
-    const tree = parser.program();
-
-    testVisitor(tree,0);
-
-    let l = TranslateRule(tree);
-
-    const input1 = fs.readFileSync(code2).toString()
-
-    const chars1 = new antlr4.InputStream(input1);
-    const lexer1 = new JavaScriptLexer(chars1);
-    const tokens1 = new antlr4.CommonTokenStream(lexer1);
-    const parser1 = new JavaScriptParser(tokens1);
-    parser1.buildParseTrees = true;
-    const tree1 = parser1.program();
-
-    testVisitor(tree1,0);
-
-    let l1 = TranslateRule(tree1);
-
-    AddText(l, tree.start.source[1].strdata);
-    AddText(l1, tree1.start.source[1].strdata);
+    const tree1 = CodeToTree(code1);
+    let root1 = TranslateRule(tree1);
+    const tree2 = CodeToTree(code2);
+    let root2 = TranslateRule(tree2);
+    AddText(root1, tree1.start.source[1].strdata);
+    AddText(root2, tree2.start.source[1].strdata);
 
     var changes = FileToListOfChanges(changes12);
-
-    var result = SupplyCodeChanges([l], [l1], changes.src, changes.dst);
+    var result = SupplyCodeChanges([root1], [root2], changes.src, changes.dst);
     var result2 = GetAnimationSequence(result.inputDestinations, result.outputSources);
 
     var resenum = new IntermediateTextEnumerator(result.inputDestinations, result.outputSources, result2);
-
-    var gifnumber = 0;
-    var prevText;
-    var text;
-    while (true) {
-        prevText = text;
-        text = resenum.GetNextStillText();
-        if (text === undefined) break;
-        else {
-            text = CollapseIntermediateText(text);
-
-            if (text[0]=='^' && text[3] != '')
-            {
-                var promises = [];
-                for (var i=0; i<20; i++)
-                {
-                    let promise = new Promise(
-                        resolve => WriteMovingAnimationFile(
-                            text[1],
-                            text[3],
-                            text[4],
-                            text[2],
-                            i/19.0,
-                            '.output\\frame' + (gifnumber+1001).toString() + '.gif',
-                            resolve)
-                    );
-                    promises.push(promise);
-                    gifnumber++;
-                }
-                await Promise.all(promises);
-            }
-
-            if (text[0]=='+' && text[2] != '')
-            {
-                var promises = [];
-                for (var i=0; i<20; i++)
-                {
-                    let promise = new Promise(
-                        resolve => WriteAddingAnimationFile(
-                            text[1],
-                            text[3],
-                            text[4],
-                            text[2],
-                            i/19.0,
-                            '.output\\frame' + (gifnumber+1001).toString() + '.gif',
-                            resolve)
-                    );
-                    promises.push(promise);
-                    gifnumber++;
-                }
-                await Promise.all(promises);
-            }
-
-            if (text[0]=='x' && text[2] != '')
-            {
-                var promises = [];
-                for (var i=0; i<20; i++)
-                {
-                    let promise = new Promise(
-                        resolve => WriteDeletingAnimationFile(
-                            text[1],
-                            text[3],
-                            text[4],
-                            text[2],
-                            i/19.0,
-                            '.output\\frame' + (gifnumber+1001).toString() + '.gif',
-                            resolve)
-                    );
-                    promises.push(promise);
-                    gifnumber++;
-                }
-                await Promise.all(promises);
-            }
-
-            if (text[0]=='*' && text[5])
-            {
-                var promises = [];
-                for (var i=0; i<20; i++)
-                {
-                    let promise = new Promise(
-                        resolve => WriteChangingAnimationFile(
-                            text[1],
-                            text[3],
-                            text[4],
-                            text[2],
-                            i/19.0,
-                            '.output\\frame' + (gifnumber+1001).toString() + '.gif',
-                            resolve)
-                    );
-                    promises.push(promise);
-                    gifnumber++;
-                }
-                await Promise.all(promises);
-            }
-        }
-
-    }
-
-    var promises = [];
-                for (var i=0; i<20; i++)
-                {
-                    let promise = new Promise(
-                        resolve => WriteStationaryAnimationFile(
-                            prevText[1] + prevText[3] + prevText[4] + prevText[2],
-                            '.output\\frame' + (gifnumber+1001).toString() + '.gif',
-                            resolve)
-                    );
-                    promises.push(promise);
-                    gifnumber++;
-                }
-                await Promise.all(promises);
-
-    let promise = new Promise(
-        resolve => WriteGifFile('.output/frame*.gif', '.output/result.gif', resolve)
-        )
+    var promise = new Promise(
+        resolve => DoGifOutput(resenum, output, resolve)
+        );
+    promise.then(()=>resolve());
     await promise;
-
-    //delete individual frames
-    for (var i=0; i < gifnumber;i++) {
-        var framePath = path.join(".", ".output", "frame"+ (i+1001).toString() +".gif");
-        fs.unlink(framePath, CallbackRemove);
-    }
-
-    //move result
-    const outputPath = path.join(".", ".output", "result.gif");
-    fs.rename(outputPath, output, CallbackMove);
-
-    resolve();
 }
 
-async function Exec1F(code1, code2, output, resolve) {
-    const input = fs.readFileSync(code1).toString()
+// Find differences between two source codes,
+//  output resulting animation to a GIF.
+//  The list of changes is automatically generated.
+async function Exec1F(code1, code2, output, resolve) { 
 
-    const chars = new antlr4.InputStream(input);
-    const lexer = new JavaScriptLexer(chars);
-    const tokens = new antlr4.CommonTokenStream(lexer);
-    const parser = new JavaScriptParser(tokens);
-    parser.buildParseTrees = true;
-    const tree = parser.program();
+    const tree1 = CodeToTree(code1);
+    let root1 = TranslateRule(tree1);
+    const tree2 = CodeToTree(code2);
+    let root2 = TranslateRule(tree2);
+    AddText(root1, tree1.start.source[1].strdata);
+    AddText(root2, tree2.start.source[1].strdata);
 
-    testVisitor(tree,0);
-
-    let l = TranslateRule(tree);
-
-    const input1 = fs.readFileSync(code2).toString()
-
-    const chars1 = new antlr4.InputStream(input1);
-    const lexer1 = new JavaScriptLexer(chars1);
-    const tokens1 = new antlr4.CommonTokenStream(lexer1);
-    const parser1 = new JavaScriptParser(tokens1);
-    parser1.buildParseTrees = true;
-    const tree1 = parser1.program();
-
-    testVisitor(tree1,0);
-
-    let l1 = TranslateRule(tree1);
-
-    AddText(l, tree.start.source[1].strdata);
-    AddText(l1, tree1.start.source[1].strdata);
-
-    var result = FindCodeChanges([l], [l1], tree.start.source[1].strdata, tree1.start.source[1].strdata);
+    var result = FindCodeChanges([root1], [root2], tree1.start.source[1].strdata, tree2.start.source[1].strdata);
     var result2 = GetAnimationSequence(result.inputDestinations, result.outputSources);
 
     var resenum = new IntermediateTextEnumerator(result.inputDestinations, result.outputSources, result2);
-
-    var gifnumber = 0;
-    var prevText;
-    var text;
-    while (true) {
-        prevText = text;
-        text = resenum.GetNextStillText();
-        if (text === undefined) break;
-        else {
-            text = CollapseIntermediateText(text);
-
-            if (text[0]=='^' && text[3] != '')
-            {
-                var promises = [];
-                for (var i=0; i<20; i++)
-                {
-                    let promise = new Promise(
-                        resolve => WriteMovingAnimationFile(
-                            text[1],
-                            text[3],
-                            text[4],
-                            text[2],
-                            i/19.0,
-                            '.output\\frame' + (gifnumber+1001).toString() + '.gif',
-                            resolve)
-                    );
-                    promises.push(promise);
-                    gifnumber++;
-                }
-                await Promise.all(promises);
-            }
-
-            if (text[0]=='+' && text[2] != '')
-            {
-                var promises = [];
-                for (var i=0; i<20; i++)
-                {
-                    let promise = new Promise(
-                        resolve => WriteAddingAnimationFile(
-                            text[1],
-                            text[3],
-                            text[4],
-                            text[2],
-                            i/19.0,
-                            '.output\\frame' + (gifnumber+1001).toString() + '.gif',
-                            resolve)
-                    );
-                    promises.push(promise);
-                    gifnumber++;
-                }
-                await Promise.all(promises);
-            }
-
-            if (text[0]=='x' && text[2] != '')
-            {
-                var promises = [];
-                for (var i=0; i<20; i++)
-                {
-                    let promise = new Promise(
-                        resolve => WriteDeletingAnimationFile(
-                            text[1],
-                            text[3],
-                            text[4],
-                            text[2],
-                            i/19.0,
-                            '.output\\frame' + (gifnumber+1001).toString() + '.gif',
-                            resolve)
-                    );
-                    promises.push(promise);
-                    gifnumber++;
-                }
-                await Promise.all(promises);
-            }
-
-            if (text[0]=='*' && text[5])
-            {
-                var promises = [];
-                for (var i=0; i<20; i++)
-                {
-                    let promise = new Promise(
-                        resolve => WriteChangingAnimationFile(
-                            text[1],
-                            text[3],
-                            text[4],
-                            text[2],
-                            i/19.0,
-                            '.output\\frame' + (gifnumber+1001).toString() + '.gif',
-                            resolve)
-                    );
-                    promises.push(promise);
-                    gifnumber++;
-                }
-                await Promise.all(promises);
-            }
-        }
-
-    }
-
-    var promises = [];
-                for (var i=0; i<20; i++)
-                {
-                    let promise = new Promise(
-                        resolve => WriteStationaryAnimationFile(
-                            prevText[1] + prevText[3] + prevText[4] + prevText[2],
-                            '.output\\frame' + (gifnumber+1001).toString() + '.gif',
-                            resolve)
-                    );
-                    promises.push(promise);
-                    gifnumber++;
-                }
-                await Promise.all(promises);
-
-    let promise = new Promise(
-        resolve => WriteGifFile('.output/frame*.gif', '.output/result.gif', resolve)
-        )
+    var promise = new Promise(
+        resolve => DoGifOutput(resenum, output, resolve)
+        );
+    promise.then(()=>resolve());
     await promise;
-
-    //delete individual frames
-    for (var i=0; i < gifnumber;i++) {
-        var framePath = path.join(".", ".output", "frame"+ (i+1001).toString() +".gif");
-        fs.unlink(framePath, CallbackRemove);
-    }
-
-    //move result
-    const outputPath = path.join(".", ".output", "result.gif");
-    fs.rename(outputPath, output, CallbackMove);
-
-    resolve();
 }
 
 async function RunTests() {
