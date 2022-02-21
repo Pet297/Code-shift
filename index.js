@@ -8,7 +8,7 @@ import TranslateRule from './ruleTranslator.js';
 import { FindCodeChanges, SupplyCodeChanges } from './distance.js'
 import { AddText } from './statementPosition.js'
 import { GetAnimationSequence } from './animationSequence.js'
-import { IntermediateTextEnumerator, CollapseIntermediateText } from './frameDescriptor.js'
+import { IntermediateTextEnumerator, CollapseIntermediateText } from './animationEnumerator.js'
 import { WriteStationaryAnimationFile, WriteMovingAnimationFile, WriteAddingAnimationFile, WriteDeletingAnimationFile, WriteChangingAnimationFile, WriteGifFile } from './gifWriter.js'
 import { debug } from 'console';
 import { ListOfChangesToFile, FileToListOfChanges } from './intermediateOutput.js';

@@ -1,8 +1,10 @@
-import {SemanticDefinition, SemanticAction, SemanticDecision, NonsemanticText} from './ruleTranslator.js';
 import {DeletingAnimation, AddingAnimation, MovingUpAnimation, ChangingAnimation, InternalAnimationSequence} from './animationSequence.js';
+
+//TODO: Renaming Animation
 
 export class IntermediateTextEnumerator
 {
+    // Prepares everething to enumerate intermediate code states between the versions.
     constructor(sourceChanges, destinationChanges, animationSequence)
     {
         this.unproccessedList2 = [];
@@ -19,24 +21,28 @@ export class IntermediateTextEnumerator
         BuildInitialArray(this.sourceChanges, [], this.unproccessedList);
     }
 
+    // Returns a quintuple of form [c, p, m, u1, u2], where
+    //  -c is the performed animation.
+    //  -p is stationary processed text.
+    //  -m is the text which is moving, or changing.
+    //  -u1 and u2 are unprocessed parts of the text.
+    //  In case of swapping 'm' is moving up and 'u1' is moving down.
     GetNextStillText()
     {
-        //console.log("-------------------GET NEXT STILL TEXT-----------------------");
+        // If there is anything to do, do it. (Either do local animation if there is no nested animation, or do the nested animation)
         while (this.animationSequence.length != 0 || 'currentChild' in this) {
-            //Recursion
+
+            // A) Clear state after the previous animation
             CollapseAnimation(this);
+
+            // B) If there is a nested animation to do, do it.
             if ('currentChild' in this) {
+
                 var childText = this.currentChild.GetNextStillText();
+
+                // B1) The child animation was performed, so return it.
                 if (childText !== undefined)
                 {
-                    /*console.log("-------------------TOTAL RESULT-----------------------");
-                    console.log("0: I");
-                    console.log("1: ") + GetStillText(this.sourceChanges, this.destinationChanges, this.proccessedList);
-                    console.log("2: ") + childText;
-                    console.log("3: ") + GetStillText(this.sourceChanges, this.destinationChanges, this.unproccessedList);
-                    console.log("4: ");
-                    console.log("5: true");
-                    console.log("------------------------------------------------------");*/
                     return [
                         'I',
                         GetStillText(this.sourceChanges, this.destinationChanges, this.proccessedList),
@@ -46,6 +52,8 @@ export class IntermediateTextEnumerator
                         true
                     ];
                 }
+
+                // B2) The child animation has ended, time to step out and continue to C.
                 else
                 {
                     this.proccessedList.push([this.currentChildIndex,'*']);
@@ -54,46 +62,49 @@ export class IntermediateTextEnumerator
                 }
             }
 
-            //Base
+            // C) There is no nested animation, so do next animation on the list.
             var anim = this.animationSequence.shift();
+
+            // D) The next animation is nested, start it in a child object.
             if (anim instanceof InternalAnimationSequence) {
+
+                // D1) Start the child object
                 this.currentChild = new IntermediateTextEnumerator(
                     this.sourceChanges[anim.sourceAddress].children,
                     this.destinationChanges[this.sourceChanges[anim.sourceAddress].address].children,
                     anim.animationSequence);
                 this.currentChildIndex = anim.sourceAddress;
+
+                // D2) Update state to reflect D1
                 ApplySimpleAnimation(this, anim);
+
+                // D3) Start the while cycle again to perform the child animation
             }
+
+            // E) There is no nested animation and next animation isn't nested either
             else
             {
+                // E1) Update state
                 ApplySimpleAnimation(this, anim);
 
-                var exec = true;
-                if (anim !== undefined && 'execute' in anim) exec = anim.execute;
-                
-                /*console.log("-------------------TOTAL RESULT-----------------------");
-                    console.log("0: ") + this.changedType.type;
-                    console.log("1: ") + GetStillText(this.sourceChanges, this.destinationChanges, this.proccessedList);
-                    console.log("2: ") + GetStillText(this.sourceChanges, this.destinationChanges, this.changedList);
-                    console.log("3: ") + GetStillText(this.sourceChanges, this.destinationChanges, this.unproccessedList);
-                    console.log("4: ") + GetStillText(this.sourceChanges, this.destinationChanges, this.unproccessedList2);
-                    console.log("5: ???");
-                    console.log("------------------------------------------------------");*/
-
+                // E2) Based on the updated state, return the text.
                 return [
                     this.changedType.type,
                     GetStillText(this.sourceChanges, this.destinationChanges, this.proccessedList),
                     GetStillText(this.sourceChanges, this.destinationChanges, this.changedList),
                     GetStillText(this.sourceChanges, this.destinationChanges, this.unproccessedList),
-                    GetStillText(this.sourceChanges, this.destinationChanges, this.unproccessedList2),
-                    exec
+                    GetStillText(this.sourceChanges, this.destinationChanges, this.unproccessedList2)
                 ];
             }
         }
+
+        // F) The animation ended, we've reached the final state of the code.
         return undefined;
     }
 }
 
+// Based on code block type (of form [adress, tye])\
+//  returns coresponding text from original or new source code.
 function GetStillText(sourceChanges, destinationChanges, currentBlocks)
 {
     var stillText = "";
@@ -117,6 +128,8 @@ function GetStillText(sourceChanges, destinationChanges, currentBlocks)
     return stillText;
 }
 
+// Builds array of blocks of code, representing the initial code,
+//  before it was changes
 function BuildInitialArray(sourceChanges, addressArray, unproccessedList) {
     for (var index in sourceChanges)
     {
@@ -124,6 +137,9 @@ function BuildInitialArray(sourceChanges, addressArray, unproccessedList) {
     }
 }
 
+// Edits code blocks and moves them around lists based on performed animation,
+//  so that intermediate code after the performed animation is drawn properly
+//  by the GIF writer.
 function ApplySimpleAnimation(enumerator, animation) {
     if (animation instanceof DeletingAnimation) {
         for (var key in enumerator.unproccessedList) {
@@ -164,7 +180,6 @@ function ApplySimpleAnimation(enumerator, animation) {
     else if (animation instanceof InternalAnimationSequence) {
         for (var key in enumerator.proccessedList) {
             if (enumerator.proccessedList[key][0] == animation.sourceAddress) {
-                //TODO: change
                 enumerator.proccessedList.splice(key, 1);
                 break;
             }
@@ -172,6 +187,7 @@ function ApplySimpleAnimation(enumerator, animation) {
     }
 }
 
+// Moves code blocks between list to prepare them for the next animation.
 function CollapseAnimation(enumerator) {
     if (enumerator.changedType.type == 'x')
     {
@@ -202,6 +218,10 @@ function CollapseAnimation(enumerator) {
     }
 }
 
+// TODO: Do this here, not export.
+
+// Converts nested representation of code blocks positions to flat representation,
+//  to work with the GIF animator.
 export function CollapseIntermediateText(intermediateText) {
     while (intermediateText[0] == 'I') {
         /*
@@ -234,9 +254,8 @@ export function CollapseIntermediateText(intermediateText) {
     return intermediateText;
 }
 
+// Given a list of changes and an adress, returns part of one of the original source codes.
 function FindByAddress(listOfChanges, address) {
-    //console.log("Find by address " + address[0]);
-
     if ('rawText' in listOfChanges[address]) return listOfChanges[address].rawText;
     else
     {
@@ -244,8 +263,8 @@ function FindByAddress(listOfChanges, address) {
     }
 }
 
+// Gets all text from a non-leaf block of code.
 function GetAllText(change) {
-    //console.log("Go deeper");
     var text = '';
     for (var index in change.children) {
         if ('rawText' in change.children[index]) {
@@ -255,8 +274,5 @@ function GetAllText(change) {
             text += GetAllText(change.children[index]);
         }
     }
-    //console.log("------------RESULT OF GET ALL TEXT--------------");
-    //console.log(text);
-    //console.log("Go out");
     return text;
 }
