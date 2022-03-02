@@ -22,6 +22,7 @@ const levenSimmilarityBonus = 2.0;
 
 // Decides, whether two statements with following simmilarity:difference ratio are considered related.
 const changeTreshold = 2.0;
+const renameTreshold = 0.9;
 
 export function FindCodeChanges(codeBefore, codeAfter, rawBefore, rawAfter) {
 
@@ -148,32 +149,52 @@ export function FindCodeChanges(codeBefore, codeAfter, rawBefore, rawAfter) {
         }
     }
 
-    // B2) Calculate distances for potential renames and build renaming tables
-    // TODO: Iteratively add more renames if successful
-    // TODO: Actually use the information
-    var norename = FindCodeChangesWithRename(codeBefore, codeAfter, unpairedBefore, unpairedAfter, {});
-    var renamesValues = [];
+    var renamesList = {};
+    while (true)
+    {
+        // B2) Calculate distances for potential renames and build renaming tables
+        var norename = FindCodeChangesWithRename(codeBefore, codeAfter, unpairedBefore, unpairedAfter, renamesList);
+        var norenameRel = norename[1]/norename[0];
+        if (norenameRel === Infinity) break;
+        var renamesValues = [];
+        var minDist = Infinity;
+        var minRename = null;
 
-    for (var origName of definitionsBefore) {
-        for (var newName of definitionsAfter) {
-            // Go through every input block and try to find matching output block
-            // To each renaming pair, asign a value of sameness and difference
-            // Based on large ratios, accept some changes      
-            var rename = {};
-            rename[origName] = newName;
-            var simDst = FindCodeChangesWithRename(codeBefore, codeAfter, unpairedBefore, unpairedAfter, rename);
-            renamesValues.push([simDst[0] / simDst[1], origName, newName, simDst[0], simDst[1]]);
+        for (var origName of definitionsBefore) {
+            for (var newName of definitionsAfter) {
+                // Go through every input block and try to find matching output block
+                // To each renaming pair, asign a value of sameness and difference
+                // Based on large ratios, accept some changes      
+                var renamesList0 = Object.assign({}, renamesList);;
+                renamesList0[origName] = newName;
+                var simDst = FindCodeChangesWithRename(codeBefore, codeAfter, unpairedBefore, unpairedAfter, renamesList0);
+                //renamesValues.push([simDst[0] / simDst[1], origName, newName, simDst[0], simDst[1]]);
+
+                var rel = simDst[1]/simDst[0]; //Different / Same
+                if (rel !== Infinity && (rel < minDist || minDist === Infinity)) {
+                    minDist = rel;
+                    minRename = [origName, newName];
+                }
+            }
+        }
+
+        // B3) Pick lowest distance, if low enough, or stop
+        if (minRename !== null && minDist < renameTreshold * norenameRel) {
+            renamesList[minRename[0]] = minRename[1];
+            //TODO: Definitions before remove
+            //TODO: Definitions after remove
+        }
+        else {
+            break;
         }
     }
 
-    // B3) Calculate distances between every block with renamings
+    // B4) Calculate distances between every block with renamings
     // TODO[12]: (?) Cap max distance in code to avoid O(n^2) and prevent crazy O(exp) algorithms down the line
     var distances = [];
-    for (var i of unpairedBefore) {
-        for (var j of unpairedAfter) {
+    for (var i in codeBefore) {
+        for (var j in codeAfter) {
             var dist = StatementDistance(codeBefore[i], codeAfter[j]);
-            var rel = dist[1]/dist[0]; //Different / Same
-            if (rel !== Infinity && rel < changeTreshold) distances.push([rel,dist[1],i,j]);
         }
     }
 
@@ -253,7 +274,7 @@ export function FindCodeChanges(codeBefore, codeAfter, rawBefore, rawAfter) {
     }
 
     // ZZ) FINISH
-    return new ListOfChanges(inputDestinations, outputSources, difference, sameness);
+    return new ListOfChanges(inputDestinations, outputSources, renamesList, difference, sameness);
 }
 
 function FindCodeChangesWithRename(codeBefore, codeAfter, unpairedBefore, unpairedAfter, renames = {}) {
@@ -343,14 +364,14 @@ function FindCodeChangesWithRename(codeBefore, codeAfter, unpairedBefore, unpair
     return [1 + sameness, 1 + difference];
 }
 
-export function SupplyCodeChanges(codeBefore, codeAfter, changesBefore, changesAfter) {
+export function SupplyCodeChanges(codeBefore, codeAfter, renames, changesBefore, changesAfter) {
     
     // Z) ADD RAW TEXT
     AddRawText(codeBefore, changesBefore);
     AddRawText(codeAfter, changesAfter);
 
     // Return, as normally
-    return new ListOfChanges(changesBefore, changesAfter, 0, 1000);
+    return new ListOfChanges(changesBefore, changesAfter, renames, 0, 1000);
 }
 
 function AddRawText(code, changes) {
@@ -374,7 +395,7 @@ function FindCodeChanges_Special_OneBlock(codeBefore, codeAfter) {
     var outputSources = {};
     inputDestinations[0] = new CodeChange('0', localChanges.inputDestinations);
     outputSources[0] = new CodeChange('0', localChanges.outputSources);
-    return new ListOfChanges(inputDestinations, outputSources, localChanges.difference, localChanges.sameness);
+    return new ListOfChanges(inputDestinations, outputSources, {}, localChanges.difference, localChanges.sameness);
 }
 
 export class CodeChange {
@@ -388,9 +409,10 @@ export class CodeChange {
 
 export class ListOfChanges {
 
-    constructor (inputDestinations, outputSources, difference, sameness) {
+    constructor (inputDestinations, outputSources, renames, difference, sameness) {
         this.inputDestinations = inputDestinations;
         this.outputSources = outputSources;
+        this.renames = renames;
         this.difference = difference;
         this.sameness = sameness;
     }

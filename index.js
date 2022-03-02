@@ -11,6 +11,7 @@ import { GetAnimationSequence } from './animationSequence.js'
 import { IntermediateTextEnumerator, CollapseIntermediateText } from './animationEnumerator.js'
 import { WriteStationaryAnimationFile, WriteMovingAnimationFile, WriteAddingAnimationFile, WriteDeletingAnimationFile, WriteChangingAnimationFile, WriteGifFile } from './gifWriter.js'
 import { ListOfChangesToFile, FileToListOfChanges } from './intermediateOutput.js';
+import { LevenChanges } from './levenAnimator.js'
 
 function CallbackMove(callback)
 {
@@ -179,7 +180,7 @@ async function Exec1N(code1, code2, output, resolve) {
     AddText(root2, tree2.start.source[1].strdata);
 
     var result = FindCodeChanges([root1], [root2], tree1.start.source[1].strdata, tree2.start.source[1].strdata);
-    ListOfChangesToFile(result.inputDestinations, result.outputSources, output, resolve)
+    ListOfChangesToFile(result.inputDestinations, result.outputSources, result.renames, output, resolve)
 }
 
 // Find differences between two source codes,
@@ -195,7 +196,7 @@ async function Exec1M(code1, code2, changes12, output, resolve) {
     AddText(root2, tree2.start.source[1].strdata);
 
     var changes = FileToListOfChanges(changes12);
-    var result = SupplyCodeChanges([root1], [root2], changes.src, changes.dst);
+    var result = SupplyCodeChanges([root1], [root2], changes.renames, changes.src, changes.dst);
     var result2 = GetAnimationSequence(result.inputDestinations, result.outputSources);
 
     var resenum = new IntermediateTextEnumerator(result.inputDestinations, result.outputSources, result2);
@@ -232,13 +233,13 @@ async function Exec1F(code1, code2, output, resolve) {
 async function RunTests() {
 
     const tests = [
-        './tests/test_F1_0', './tests/test_F1_1', '../F1',
-        './tests/test_F2_0', './tests/test_F2_1', '../F2',
-        './tests/test_F3_0', './tests/test_F3_1', '../F3',
-        './tests/test_C1_0', './tests/test_C1_1', '../C1',
-        './tests/test_C2_0', './tests/test_C2_1', '../C2',
+        //'./tests/test_F1_0', './tests/test_F1_1', '../F1',
+        //'./tests/test_F2_0', './tests/test_F2_1', '../F2',
+        //'./tests/test_F3_0', './tests/test_F3_1', '../F3',
+        //'./tests/test_C1_0', './tests/test_C1_1', '../C1',
+        //'./tests/test_C2_0', './tests/test_C2_1', '../C2',
         './tests/test_D1_0', './tests/test_D1_1', '../D1',
-        './tests/test_D2_0', './tests/test_D2_1', '../D2',
+        //'./tests/test_D2_0', './tests/test_D2_1', '../D2',
     ]
     const fullExecution = true;
     const intermediateFileGen = false;
@@ -264,6 +265,12 @@ async function RunTests() {
             await promise;
         }
     }
+}
+
+function SimpleTest() {
+    //TODO: actually follow shortest path
+    var x = LevenChanges('among us', 'amogus');
+    debug.log(x);
 }
 
 const recognizedFlags = ['-i', '-o', '-c', '-l', '-n', '-f', '-h']
@@ -384,5 +391,6 @@ async function UserInput() {
     }
 }
 
-RunTests();
+SimpleTest();
+//RunTests();
 //UserInput();

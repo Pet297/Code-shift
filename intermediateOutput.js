@@ -3,12 +3,12 @@ import fs from 'fs';
 import { CodeChange } from './distance.js';
 
 // Given 2 lists of changes between source and destination, serializes them as XML into given file
-export function ListOfChangesToFile(sourceChanges, destinationChanges, outputFile, resolve) {
+export function ListOfChangesToFile(sourceChanges, destinationChanges, renames, outputFile, resolve) {
 
     // A) Convert list of changes to library-friendly representation
     var srcc = ChangesToSimpleObject(sourceChanges);
     var dstc = ChangesToSimpleObject(destinationChanges);
-    var obj = {src: srcc, dst: dstc}
+    var obj = {src: srcc, dst: dstc, renames: renames}
 
     // B) Convert the object to an XML string
     var builder = new xmljs.Builder();
@@ -33,8 +33,9 @@ export function FileToListOfChanges(file) {
     // C) Convert the simple object to 'CodeChange' type.
     var srcc = SimpleObjectToChanges(obj.root.src);
     var dstc = SimpleObjectToChanges(obj.root.dst);
+    var renc = SimpleObjectToChanges(obj.root.renames)
 
-    return {src:srcc, dst:dstc};
+    return {src:srcc, dst:dstc, renames:renc};
 }
 
 // Converts a list of changes into a different representation to work well with the XML library

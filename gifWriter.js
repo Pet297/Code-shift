@@ -5,8 +5,13 @@ import os from 'os';
 // CONSTANTS
 const lineSpacing = 20;
 const firstLineY = 25;
+const firstCharX = 10;
 const lineWidth = 400;
 const lineHighlightOffset = 5;
+
+const fontSize = 15;
+const fontWidth = 8; // Specific for Consolas at 15
+const tabSpaces = 4;
 
 // IMPORTANT FUNCTIONS
 function StartNewGIF() {
@@ -15,24 +20,64 @@ function StartNewGIF() {
     .setFormat('gif')
     .fill('#ffffff')
     .font('Consolas')
-    .fontSize(15);
+    .fontSize(fontSize);
     return gms;
 }
-function DrawLines(gms, lines, y0) {
+function DrawLines(gms, lines, y0, xoffset = 0) {
     var i = 0;
     for(var s of lines)
     {
-        // of-screen '. ' is added, because image magick seems to trim initial spaces
-        gms.drawText(-10, y0 + lineSpacing * i, '. ' + s);
+        var spaces = 0;
+        var s0 = s;
+
+        while(true)
+        {
+            if (s0.charAt(0) == ' ')
+            {
+                spaces++;
+                s0 = s0.substring(1);
+            }
+            else if (s0.charAt(0) == '\t')
+            {
+                spaces += tabSpaces;
+                s0 = s0.substring(1);
+            }
+            else break;
+        }
+        spaces += xoffset;
+
+        gms.drawText(xoffset * fontWidth + firstCharX, y0 + lineSpacing * i, s0);
         i++;
     }
 }
-function DrawHighlitedLines(gms, lines, highlightColor, textColor, y0) {
+function DrawHighlitedLines(gms, lines, highlightColor, textColor, y0, xoffset = 0) {
     for(var i = 0; i < lines.length - 1; i++) {
+
         gms.fill(highlightColor);
         gms.drawRectangle(0, y0 + lineSpacing * i + lineHighlightOffset, lineWidth, y0 + lineSpacing * i + lineHighlightOffset - lineSpacing);
         gms.fill(textColor);
-        gms.drawText(-10, y0 + lineSpacing * i,'. ' + lines[i]);
+
+        var spaces = 0;
+        var s0 = lines[i];
+
+        while(true)
+        {
+            if (s0.charAt(0) == ' ')
+            {
+                spaces++;
+                s0 = s0.substring(1);
+            }
+            else if (s0.charAt(0) == '\t')
+            {
+                spaces += tabSpaces;
+                s0 = s0.substring(1);
+            }
+            else break;
+        }
+        spaces += xoffset;
+
+        gms.drawText(xoffset * fontWidth + firstCharX, y0 + lineSpacing * i, s0);
+        i++;
     }
 }
 
