@@ -269,7 +269,7 @@ async function RunTests() {
 
 function SimpleTest() {
     //TODO: actually follow shortest path
-    var x = LevenChanges('among us', 'amogus');
+    var x = LevenChanges('lorem ipsum', 'XYYZXXZXZXlo__mpppp ipsum  ');
     debug.log(x);
 }
 

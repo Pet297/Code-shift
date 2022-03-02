@@ -35,45 +35,43 @@ export function LevenChanges(inputString, outputString)
 
     // Shortest path extraction
     var retList = [];
-    var posI = 0;
-    var posJ = 0;
-    while (posI != height - 1 || posJ != width - 1) {
-        if (posI == height - 1) {
-            // add tail of output word
-            posJ++;
-            retList.push(['+', outputString[posJ-1]]);
+    var posI = height - 1;
+    var posJ = width - 1;
+    while (posI != 0 || posJ != 0) {
+        // auto-add prefix
+        if (posI == 0) {
+            posJ--;
+            retList.push(['+', outputString[posJ]]);
         }
-        else if (posJ == width - 1) {
-            // remove tail of input word
-            posI++;
-            retList.push(['x', inputString[posI-1]]);
+        // auto-remove prefix
+        else if (posJ == 0) {
+            posI--;
+            retList.push(['x', inputString[posI]]);
+        }
+        // substitution
+        else if (matrix[posI][posJ] == matrix[posI-1][posJ-1] + 1) {
+            posI--;
+            posJ--;
+            retList.push(['C', inputString[posI], outputString[posJ]]);
+        }
+        // addition
+        else if (matrix[posI][posJ] == matrix[posI][posJ-1] + 1) {
+            posJ--;
+            retList.push(['+', outputString[posJ]]);
+        }
+        // deletion
+        else if (matrix[posI][posJ] == matrix[posI-1][posJ] + 1) {
+            posI--;
+            retList.push(['x', inputString[posI]]);
+        }
+        // no change
+        else if (matrix[posI][posJ] == matrix[posI-1][posJ-1]) {
+            posI--;
+            posJ--;
+            retList.push(['o', inputString[posI]]);
         }
         else {
-            // no change
-            if (matrix[posI][posJ] == matrix[posI+1][posJ+1]) {
-                posI++;
-                posJ++;
-                retList.push(['o', inputString[posI-1]]);
-            }
-            // substitution
-            else if (matrix[posI][posJ] == matrix[posI+1][posJ+1] - 1) {
-                posI++;
-                posJ++;
-                retList.push(['C', inputString[posI-1], outputString[posJ-1]]);
-            }
-            // addition
-            else if (matrix[posI][posJ] == matrix[posI][posJ+1] - 1) {
-                posJ++;
-                retList.push(['+', outputString[posJ-1]]);
-            }
-            // deletion
-            else if (matrix[posI][posJ] == matrix[posI+1][posJ] - 1) {
-                posI++;
-                retList.push(['x', inputString[posI-1]]);
-            }
-            else {
-                debug.log("This shouldn't happen. Something is wrong with function LevenChanges.")
-            }
+            console.error("Implementation of LevenChanges in levenAnimator.js is wrong. This shouldn't happen.");
         }
     }
 
