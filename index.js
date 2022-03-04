@@ -11,7 +11,7 @@ import { GetAnimationSequence } from './animationSequence.js'
 import { IntermediateTextEnumerator, CollapseIntermediateText } from './animationEnumerator.js'
 import { WriteStationaryAnimationFile, WriteMovingAnimationFile, WriteAddingAnimationFile, WriteDeletingAnimationFile, WriteChangingAnimationFile, WriteGifFile } from './gifWriter.js'
 import { ListOfChangesToFile, FileToListOfChanges } from './intermediateOutput.js';
-import { LevenChanges } from './levenAnimator.js'
+import LevenChanges from './levenAnimator.js'
 
 function CallbackMove(callback)
 {
@@ -270,7 +270,7 @@ async function RunTests() {
 function SimpleTest() {
     //TODO: actually follow shortest path
     var x = LevenChanges('lorem ipsum', 'XYYZXXZXZXlo__mpppp ipsum  ');
-    debug.log(x);
+    console.log(x);
 }
 
 const recognizedFlags = ['-i', '-o', '-c', '-l', '-n', '-f', '-h']

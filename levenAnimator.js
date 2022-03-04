@@ -1,7 +1,7 @@
 // Executes matrix-form of Levenshtein distance calculation in O(n^2)
 // and extracts individual changes for animation
 
-export function LevenChanges(inputString, outputString)
+export default function LevenChanges(inputString, outputString)
 {
     // TODO: String length 0
 
@@ -119,5 +119,5 @@ export function LevenChanges(inputString, outputString)
     }
 
     // Return
-    return retList2;
+    return retlist2;
 }
