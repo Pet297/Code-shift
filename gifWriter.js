@@ -52,9 +52,36 @@ function DrawLines(gms, lines, y0, xoffset = 0) {
         i++;
     }
 }
-function DrawHighlitedLines(gms, lines, highlightColor, textColor, y0, xoffset = 0) {
-    for(var i = 0; i < lines.length - 1; i++) {
+function DrawColoredLines(gms, lines, textColor, y0, xoffset = 0) {
+    for(var i = 0; i <= lines.length - 1; i++) {
+        gms.fill(textColor);
 
+        var spaces = 0;
+        var s0 = lines[i];
+
+        while(true)
+        {
+            if (s0.charAt(0) == ' ')
+            {
+                spaces++;
+                s0 = s0.substring(1);
+            }
+            else if (s0.charAt(0) == '\t')
+            {
+                spaces += tabSpaces;
+                s0 = s0.substring(1);
+            }
+            else break;
+        }
+        spaces += xoffset;
+
+        gms.drawText(xoffset * fontWidth + firstCharX, y0 + lineSpacing * i, s0);
+        i++;
+    }
+}
+function DrawHighlitedLines(gms, lines, highlightColor, textColor, y0, xoffset = 0) {
+    for(var i = 0; i <= lines.length - 1; i++) {
+        //TODO: chyba?
         gms.fill(highlightColor);
         gms.drawRectangle(0, y0 + lineSpacing * i + lineHighlightOffset, lineWidth, y0 + lineSpacing * i + lineHighlightOffset - lineSpacing);
         gms.fill(textColor);
@@ -241,20 +268,24 @@ export function WriteChangingAnimationFile(textStat0,textStat1,changingText0,cha
     // TODO: refactor, opacity of changed text
     for (var part of changingTextFull) {
         positions.push([posX0, posY0, posX1, posY1]);
-        if (part instanceof String) for (var char of part) {
+        if (typeof part === "string") for (var char of part) {
             if (char == '\n') {
                 posX0 = 0;
                 posX1 = 0;
                 posY0++;
                 posY1++;
+                //TODO: Spravne separator
             }
             else if (char == '\t') {
                 posX0 += tabSpaces;
-                posY0 += tabSpaces;
+                posX1 += tabSpaces;
+            }
+            else if (char == '\r') {
+
             }
             else {
-                posX0 ++;
-                posY0 ++;
+                posX0++;
+                posX1++;
             }
         }
         else if (part instanceof Array) {
@@ -266,8 +297,11 @@ export function WriteChangingAnimationFile(textStat0,textStat1,changingText0,cha
                 else if (char == '\t') {
                     posX0 += tabSpaces;
                 }
+                else if (char == '\r') {
+                
+                }
                 else {
-                    posX0 ++;
+                    posX0++;
                 }
             }
             for (var char of part[1]) {
@@ -278,8 +312,11 @@ export function WriteChangingAnimationFile(textStat0,textStat1,changingText0,cha
                 else if (char == '\t') {
                     posX1 += tabSpaces;
                 }
+                else if (char == '\r') {
+                
+                }
                 else {
-                    posX1 ++;
+                    posX1++;
                 }
             }
         }
@@ -287,24 +324,27 @@ export function WriteChangingAnimationFile(textStat0,textStat1,changingText0,cha
 
     // 2B) Calculate percentage of animation: |Part1|Part2| = |movement + disapearence|appearence|
     var percMove = Math.min(percentage * 2, 1);
-    var opac = Math.max(0, 1 - percentage * 2) + Math.min(0, percentage * 2 - 1);
+    var opac = Math.max(0, 1 - percentage * 3) + Math.max(0, percentage * 3 - 2);
 
-    // 2C) Draw all the strings necessary at expected postions at expected opacities.
+    // 2C) Draw background
+    var textColor = MixColors(0,0,0,255,255,255,opac);
+    
+    // 2D) Draw all the strings necessary at expected postions at expected opacities.
     for (var i = 0; i < changingTextFull.length; i++) {
-        var posx = (1-percMove) * positions[0] + percMove * positions[2];
-        var lineNo = (1-percMove) * positions[1] + percMove * positions[3];
+        var posx = (1-percMove) * positions[i][0] + percMove * positions[i][2];
+        var lineNo = (1-percMove) * positions[i][1] + percMove * positions[i][3];
         var posy = (lineNo) * lineSpacing + firstLineY;
 
-        if (changingTextFull[i] instanceof String) DrawLines(gms, changingTextFull[i], posy, posx);
+        if (typeof changingTextFull[i] === "string") DrawColoredLines(gms, [changingTextFull[i]], '#FFFFFF', posy, posx);
         else if (changingTextFull[i] instanceof Array) {
-            if (percentage > 0.5) DrawLines(gms, changingTextFull[i][1], posy, posx);
-            else DrawLines(gms, changingTextFull[i][0], posy, posx);
+            if (percentage > 0.5) DrawColoredLines(gms, [changingTextFull[i][1]], textColor, posy, posx);
+            else DrawColoredLines(gms, [changingTextFull[i][0]], textColor, posy, posx);
         }
     }
 
 
     // OLD CODE TO BE REMOVED
-    /*var textColor = MixColors(0,64,0,255,255,255,percOpac);
+    /*
     if (percOpac > 0) DrawHighlitedLines(linesM, '#004000', textColor, py2);
 
     var i = 0;

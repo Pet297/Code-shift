@@ -267,10 +267,40 @@ async function RunTests() {
     }
 }
 
-function SimpleTest() {
-    //TODO: actually follow shortest path
-    var x = LevenChanges('lorem ipsum', 'XYYZXXZXZXlo__mpppp ipsum  ');
-    console.log(x);
+async function SimpleTest() {
+    var promises = [];
+    var gifnumber = 0;
+    for (var i=0; i<20; i++)
+    {
+        let promise = new Promise(
+            resolve => WriteChangingAnimationFile(
+                "Text 1\r\nText 2\r\n",
+                "Text 3\r\nText 4\r\n",
+                "Lorem ipsum dolor sit amet\r\nLorem ipsum\r\n",
+                "Nunc mi ipsum faucibus vitae\r\n",
+                i/19.0,
+                '.output\\frame' + (gifnumber+1001).toString() + '.gif',
+                resolve)
+        );
+        promises.push(promise);
+        gifnumber++;
+    }
+    await Promise.all(promises);
+    
+    let promise = new Promise(
+        resolve => WriteGifFile('.output/frame*.gif', '.output/result.gif', resolve)
+        )
+    await promise;
+
+    //delete individual frames
+    for (var i=0; i < gifnumber;i++) {
+        var framePath = path.join(".", ".output", "frame"+ (i+1001).toString() +".gif");
+        fs.unlink(framePath, CallbackRemove);
+    }
+
+    //move result
+    const outputPath = path.join(".", ".output", "result.gif");
+    fs.rename(outputPath, '../TT.gif', CallbackMove);
 }
 
 const recognizedFlags = ['-i', '-o', '-c', '-l', '-n', '-f', '-h']
@@ -391,6 +421,6 @@ async function UserInput() {
     }
 }
 
-//SimpleTest();
-RunTests();
+SimpleTest();
+//RunTests();
 //UserInput();
