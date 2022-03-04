@@ -103,7 +103,7 @@ export default function LevenChanges(inputString, outputString)
         if (unchangedRegion) tempString0 += entry[1];
         else if (!unchangedRegion) {
             if (entry[0] == '+') tempString1 += entry[1];
-            else if (entry[0] == 'x') tempString0 += entry[0];
+            else if (entry[0] == 'x') tempString0 += entry[1];
             else if (entry[0] == 'C') {
                 tempString0 += entry[1];
                 tempString1 += entry[2];

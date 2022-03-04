@@ -170,8 +170,10 @@ function ApplySimpleAnimation(enumerator, animation) {
     else if (animation instanceof ChangingAnimation) {
         for (var key in enumerator.proccessedList) {
             if (enumerator.proccessedList[key][0] == animation.sourceAddress) {
-                //TODO changing anim
-                enumerator.changedList = [[animation.sourceAddress,'*']];
+                //TODO changing anim (done?)
+                enumerator.proccessedList.splice(key, 1);
+                enumerator.changedList = [[animation.sourceAddress,'o']];
+                enumerator.unproccessedList2 = [[animation.sourceAddress,'*']];
                 enumerator.changedType.type = '*';
                 break;
             }
@@ -209,13 +211,15 @@ function CollapseAnimation(enumerator) {
     }
     else if (enumerator.changedType.type == '*')
     {
-        enumerator.proccessedList = enumerator.proccessedList.concat(enumerator.changedList);
+        //TODO: change
+        enumerator.proccessedList = enumerator.proccessedList.concat(enumerator.unproccessedList2);
         enumerator.changedList = [];
+        enumerator.unproccessedList2 = [];
     }
     else if (enumerator.changedType.type == 'I')
     {
-        //TODO: change
     }
+    //TODO: rename
 }
 
 // TODO: Do this here, not export.

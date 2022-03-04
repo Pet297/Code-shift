@@ -195,6 +195,8 @@ export function FindCodeChanges(codeBefore, codeAfter, rawBefore, rawAfter) {
     for (var i in codeBefore) {
         for (var j in codeAfter) {
             var dist = StatementDistance(codeBefore[i], codeAfter[j]);
+            var rel = dist[1]/dist[0]; //Different / Same
+            if (rel !== Infinity && rel < changeTreshold) distances.push([rel,dist[1],i,j]);
         }
     }
 

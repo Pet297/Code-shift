@@ -1,6 +1,7 @@
 import fs from 'fs';
 import gm from 'gm';
 import os from 'os';
+import LevenChanges from './levenAnimator.js';
 
 // CONSTANTS
 const lineSpacing = 20;
@@ -29,6 +30,7 @@ function DrawLines(gms, lines, y0, xoffset = 0) {
     {
         var spaces = 0;
         var s0 = s;
+        var firstLine = Math.max(1 - i, 0);
 
         while(true)
         {
@@ -46,7 +48,7 @@ function DrawLines(gms, lines, y0, xoffset = 0) {
         }
         spaces += xoffset;
 
-        gms.drawText(xoffset * fontWidth + firstCharX, y0 + lineSpacing * i, s0);
+        gms.drawText(xoffset * fontWidth * firstLine + firstCharX, y0 + lineSpacing * i, s0);
         i++;
     }
 }
@@ -223,11 +225,86 @@ export function WriteChangingAnimationFile(textStat0,textStat1,changingText0,cha
     var perc0 = 1 - Math.min(1 - percentage * 2, 1);
     var perc1 = Math.max(percentage * 2 - 1, 0);
 
-    // Nonchanging text
+    // 1) Nonchanging text
     DrawLines(gms, lines0, py0);
 
-    // Changing text
-    var textColor = MixColors(0,64,0,255,255,255,percOpac);
+    // 2) Changing text
+    var changingTextFull = LevenChanges(changingText0,changingText1);
+
+    // 2A) Calculate initial and destination row and colum of each bit of the text
+    var posY0 = lc0;
+    var posX0 = 0;
+    var posY1 = lc1;
+    var posX1 = 0;
+    var positions = [];
+
+    // TODO: refactor, opacity of changed text
+    for (var part of changingTextFull) {
+        positions.push([posX0, posY0, posX1, posY1]);
+        if (part instanceof String) for (var char of part) {
+            if (char == '\n') {
+                posX0 = 0;
+                posX1 = 0;
+                posY0++;
+                posY1++;
+            }
+            else if (char == '\t') {
+                posX0 += tabSpaces;
+                posY0 += tabSpaces;
+            }
+            else {
+                posX0 ++;
+                posY0 ++;
+            }
+        }
+        else if (part instanceof Array) {
+            for (var char of part[0]) {
+                if (char == '\n') {
+                    posX0 = 0;
+                    posY0++;
+                }
+                else if (char == '\t') {
+                    posX0 += tabSpaces;
+                }
+                else {
+                    posX0 ++;
+                }
+            }
+            for (var char of part[1]) {
+                if (char == '\n') {
+                    posX1 = 0;
+                    posY1++;
+                }
+                else if (char == '\t') {
+                    posX1 += tabSpaces;
+                }
+                else {
+                    posX1 ++;
+                }
+            }
+        }
+    }
+
+    // 2B) Calculate percentage of animation: |Part1|Part2| = |movement + disapearence|appearence|
+    var percMove = Math.min(percentage * 2, 1);
+    var opac = Math.max(0, 1 - percentage * 2) + Math.min(0, percentage * 2 - 1);
+
+    // 2C) Draw all the strings necessary at expected postions at expected opacities.
+    for (var i = 0; i < changingTextFull.length; i++) {
+        var posx = (1-percMove) * positions[0] + percMove * positions[2];
+        var lineNo = (1-percMove) * positions[1] + percMove * positions[3];
+        var posy = (lineNo) * lineSpacing + firstLineY;
+
+        if (changingTextFull[i] instanceof String) DrawLines(gms, changingTextFull[i], posy, posx);
+        else if (changingTextFull[i] instanceof Array) {
+            if (percentage > 0.5) DrawLines(gms, changingTextFull[i][1], posy, posx);
+            else DrawLines(gms, changingTextFull[i][0], posy, posx);
+        }
+    }
+
+
+    // OLD CODE TO BE REMOVED
+    /*var textColor = MixColors(0,64,0,255,255,255,percOpac);
     if (percOpac > 0) DrawHighlitedLines(linesM, '#004000', textColor, py2);
 
     var i = 0;
@@ -247,9 +324,9 @@ export function WriteChangingAnimationFile(textStat0,textStat1,changingText0,cha
         {
             gms.fill(color1);
             gms.drawText(-10,pyM + 20 * i,'. ' + linesM1[i]);
-        }
+        }*/
     
-    // More nonchanging text
+    // 3) More nonchanging text
     gms.fill('#ffffff');
     DrawLines(gms, lines1, pya1);
 

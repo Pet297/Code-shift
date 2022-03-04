@@ -20,12 +20,10 @@ export function GetAnimationSequence(sourceChanges, destinationChanges)
             animationList.push(new MovingUpAnimation(srcaddress));
 
             // Apply changes, or do internal animation
-            // TODO[09]: Changing animation
-            //if (sourceChanges[srcaddress].children.length == 0 && destinationChanges[index].children == 0)animationList.push(new ChangingAnimation(srcaddress, true));
             if (sourceChanges[srcaddress].children.length != 0 || destinationChanges[index].children != 0) animationList.push(new InternalAnimationSequence(srcaddress, GetAnimationSequence(sourceChanges[srcaddress].children, destinationChanges[index].children)));
+            else animationList.push(new ChangingAnimation(srcaddress));
         }
     }
-
     // TODO[09]: Reduce number of animations by grouping related ones.
     return animationList;
 }
