@@ -74,7 +74,50 @@ export function LevenChanges(inputString, outputString)
             console.error("Implementation of LevenChanges in levenAnimator.js is wrong. This shouldn't happen.");
         }
     }
+    retList.reverse();
+
+    // Connect related entries
+    var unchangedRegion = null;
+    var retlist2 = [];
+    var tempString0 = "";
+    var tempString1 = "";
+    for (var entry of retList) {
+
+        if (unchangedRegion === null) {
+            if (entry[0] == 'o') unchangedRegion = true;
+            else unchangedRegion = false;
+        }
+
+        if (unchangedRegion && entry[0] != 'o') {
+            unchangedRegion = false;
+            retlist2.push(tempString0);
+            tempString0 = "";
+        }
+        else if (!unchangedRegion && entry[0] == 'o') {
+            unchangedRegion = true;
+            retlist2.push([tempString0,tempString1]);
+            tempString0 = "";
+            tempString1 = "";
+        }
+
+        if (unchangedRegion) tempString0 += entry[1];
+        else if (!unchangedRegion) {
+            if (entry[0] == '+') tempString1 += entry[1];
+            else if (entry[0] == 'x') tempString0 += entry[0];
+            else if (entry[0] == 'C') {
+                tempString0 += entry[1];
+                tempString1 += entry[2];
+            }
+        }
+    }
+
+    if (unchangedRegion) {
+        if (tempString0.length > 0) retlist2.push(tempString0);
+    }
+    else if (!unchangedRegion) {
+        if (tempString0.length + tempString1.length > 0) retlist2.push([tempString0,tempString1]);
+    }
 
     // Return
-    return retList;
+    return retList2;
 }
