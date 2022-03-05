@@ -261,7 +261,7 @@ export function WriteChangingAnimationFile(textStat0,textStat1,changingText0,cha
     // 2A) Calculate initial and destination row and colum of each bit of the text
     var posY0 = lc0;
     var posX0 = 0;
-    var posY1 = lc1;
+    var posY1 = lc0;
     var posX1 = 0;
     var positions = [];
 
@@ -289,7 +289,7 @@ export function WriteChangingAnimationFile(textStat0,textStat1,changingText0,cha
             }
         }
         else if (part instanceof Array) {
-            for (var char of part[0]) {
+            for (var char of part[1]) {
                 if (char == '\n') {
                     posX0 = 0;
                     posY0++;
@@ -304,7 +304,7 @@ export function WriteChangingAnimationFile(textStat0,textStat1,changingText0,cha
                     posX0++;
                 }
             }
-            for (var char of part[1]) {
+            for (var char of part[0]) {
                 if (char == '\n') {
                     posX1 = 0;
                     posY1++;
@@ -324,10 +324,13 @@ export function WriteChangingAnimationFile(textStat0,textStat1,changingText0,cha
 
     // 2B) Calculate percentage of animation: |Part1|Part2| = |movement + disapearence|appearence|
     var percMove = Math.min(percentage * 2, 1);
-    var opac = Math.max(0, 1 - percentage * 3) + Math.max(0, percentage * 3 - 2);
+    var opac = Math.max(0, 1 - percentage * 3) + Math.max(0, percentage * 2 - 1);
 
     // 2C) Draw background
-    var textColor = MixColors(0,0,0,255,255,255,opac);
+    var bgColor = MixColors(0,64,0,0,0,64,percentage);
+    gms.fill(bgColor);
+    gms.drawRectangle(0, pyM - lineSpacing + lineHighlightOffset, lineWidth, pyM  - lineSpacing + lineHighlightOffset + lcMa * lineSpacing);
+    var textColor = MixColors(0,32,32,255,255,255,opac);
     
     // 2D) Draw all the strings necessary at expected postions at expected opacities.
     for (var i = 0; i < changingTextFull.length; i++) {
@@ -337,8 +340,8 @@ export function WriteChangingAnimationFile(textStat0,textStat1,changingText0,cha
 
         if (typeof changingTextFull[i] === "string") DrawColoredLines(gms, [changingTextFull[i]], '#FFFFFF', posy, posx);
         else if (changingTextFull[i] instanceof Array) {
-            if (percentage > 0.5) DrawColoredLines(gms, [changingTextFull[i][1]], textColor, posy, posx);
-            else DrawColoredLines(gms, [changingTextFull[i][0]], textColor, posy, posx);
+            if (percentage > 0.5) DrawColoredLines(gms, [changingTextFull[i][0]], textColor, posy, posx);
+            else DrawColoredLines(gms, [changingTextFull[i][1]], textColor, posy, posx);
         }
     }
 

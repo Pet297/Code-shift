@@ -112,7 +112,7 @@ async function DoGifOutput(resenum, output, resolve) {
                 await Promise.all(promises);
             }
 
-            if (text[0]=='*' && text[4] != text[2])
+            if (text[0]=='*')
             {
                 var promises = [];
                 for (var i=0; i<20; i++)
@@ -236,7 +236,7 @@ async function RunTests() {
         //'./tests/test_F1_0', './tests/test_F1_1', '../F1',
         //'./tests/test_F2_0', './tests/test_F2_1', '../F2',
         //'./tests/test_F3_0', './tests/test_F3_1', '../F3',
-        //'./tests/test_C1_0', './tests/test_C1_1', '../C1',
+        './tests/test_C1_0', './tests/test_C1_1', '../C1',
         './tests/test_C2_0', './tests/test_C2_1', '../C2',
         //'./tests/test_D1_0', './tests/test_D1_1', '../D1',
         //'./tests/test_D2_0', './tests/test_D2_1', '../D2',
@@ -421,6 +421,6 @@ async function UserInput() {
     }
 }
 
-SimpleTest();
-//RunTests();
+//SimpleTest();
+RunTests();
 //UserInput();

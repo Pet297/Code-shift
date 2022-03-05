@@ -21,7 +21,7 @@ export function GetAnimationSequence(sourceChanges, destinationChanges)
 
             // Apply changes, or do internal animation
             if (sourceChanges[srcaddress].children.length != 0 || destinationChanges[index].children != 0) animationList.push(new InternalAnimationSequence(srcaddress, GetAnimationSequence(sourceChanges[srcaddress].children, destinationChanges[index].children)));
-            else animationList.push(new ChangingAnimation(srcaddress));
+            else if (sourceChanges[srcaddress].rawText != destinationChanges[index].rawText) animationList.push(new ChangingAnimation(srcaddress));
         }
     }
     // TODO[09]: Reduce number of animations by grouping related ones.

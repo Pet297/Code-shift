@@ -211,7 +211,7 @@ function CollapseAnimation(enumerator) {
     }
     else if (enumerator.changedType.type == '*')
     {
-        //TODO: change
+        //TODO: change (ALE OPRAVDU OPRAVIT - test C1)
         enumerator.proccessedList = enumerator.proccessedList.concat(enumerator.unproccessedList2);
         enumerator.changedList = [];
         enumerator.unproccessedList2 = [];
