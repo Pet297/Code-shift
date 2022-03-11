@@ -547,7 +547,7 @@ function ConvertBlockToOneLevel(block, renames = {}) {
         return new SemanticDefinition(RenameElementsOfList(block.paramList, renames), [], block.definitionType, Rename(block.name, renames));
     }
     else if (block instanceof SemanticAction) {
-        return new SemanticAction(RenameElementsOfList(block.dependingVariables, renames), RenameElementsOfList(block.dependentOn, renames));
+        return new SemanticAction(RenameElementsOfList(block.dependingVariables, renames), RenameElementsOfList(block.dependentOn, renames), block.tokens);
     }
     else if (block instanceof NonsemanticText) {
         return block;

@@ -11,7 +11,8 @@ import { GetAnimationSequence } from './animationSequence.js'
 import { IntermediateTextEnumerator, CollapseIntermediateText } from './animationEnumerator.js'
 import { WriteStationaryAnimationFile, WriteMovingAnimationFile, WriteAddingAnimationFile, WriteDeletingAnimationFile, WriteChangingAnimationFile, WriteGifFile } from './gifWriter.js'
 import { ListOfChangesToFile, FileToListOfChanges } from './intermediateOutput.js';
-import LevenChanges from './levenAnimator.js'
+import LevenChanges from './levenAnimator.js';
+import RenmameVariable from './variableRenamer.js';
 
 function CallbackMove(callback)
 {
@@ -230,15 +231,34 @@ async function Exec1F(code1, code2, output, resolve) {
     await promise;
 }
 
+// New version for testing.
+async function Exec1F2(code1, code2, output, resolve) { 
+
+    const tree1 = CodeToTree(code1);
+    let root1 = TranslateRule(tree1);
+    const tree2 = CodeToTree(code2);
+    let root2 = TranslateRule(tree2);
+
+    var result = FindCodeChanges([root1], [root2], tree1.start.source[1].strdata, tree2.start.source[1].strdata);
+    var result2 = GetAnimationSequence(result.inputDestinations, result.outputSources);
+
+    var resenum = new IntermediateTextEnumerator(result.inputDestinations, result.outputSources, result2);
+    var promise = new Promise(
+        resolve => DoGifOutput(resenum, output, resolve)
+        );
+    promise.then(()=>resolve());
+    await promise;
+}
+
 async function RunTests() {
 
     const tests = [
         //'./tests/test_F1_0', './tests/test_F1_1', '../F1',
         //'./tests/test_F2_0', './tests/test_F2_1', '../F2',
         //'./tests/test_F3_0', './tests/test_F3_1', '../F3',
-        './tests/test_C1_0', './tests/test_C1_1', '../C1',
-        './tests/test_C2_0', './tests/test_C2_1', '../C2',
-        //'./tests/test_D1_0', './tests/test_D1_1', '../D1',
+        //'./tests/test_C1_0', './tests/test_C1_1', '../C1',
+        //'./tests/test_C2_0', './tests/test_C2_1', '../C2',
+        './tests/test_D1_0', './tests/test_D1_1', '../D1',
         //'./tests/test_D2_0', './tests/test_D2_1', '../D2',
     ]
     const fullExecution = true;
@@ -248,7 +268,7 @@ async function RunTests() {
     for (var i = 0; i < tests.length; i+=3) {
         if (fullExecution) {
             var promise = new Promise(
-                resolve => Exec1F(tests[i+0], tests[i+1], tests[i+2] + '.gif', resolve)
+                resolve => Exec1F2(tests[i+0], tests[i+1], tests[i+2] + '.gif', resolve)
                 );
             await promise;
         }
@@ -276,8 +296,8 @@ async function SimpleTest() {
             resolve => WriteChangingAnimationFile(
                 "Text 1\r\nText 2\r\n",
                 "Text 3\r\nText 4\r\n",
-                "Lorem ipsum dolor sit amet\r\nLorem ipsum\r\n",
                 "Nunc mi ipsum faucibus vitae\r\n",
+                "Lorem ipsum dolor sit amet\r\nLorem ipsum\r\n",
                 i/19.0,
                 '.output\\frame' + (gifnumber+1001).toString() + '.gif',
                 resolve)
@@ -301,6 +321,23 @@ async function SimpleTest() {
     //move result
     const outputPath = path.join(".", ".output", "result.gif");
     fs.rename(outputPath, '../TT.gif', CallbackMove);
+}
+
+async function SimpleTest2() {
+    const tree1 = CodeToTree('./tests/test_D1_0');
+    const tree2 = CodeToTree('./tests/test_D1_1');
+    let root1 = TranslateRule(tree1);
+    let root2 = TranslateRule(tree2);
+    AddText(root1, tree1.start.source[1].strdata);
+    AddText(root2, tree2.start.source[1].strdata);
+
+    RenmameVariable(root1.localCode, 'c', 'b');
+}
+
+async function SimpleTest3() {
+    const tree1 = CodeToTree('./tests/test_D1_0');
+    let root1 = TranslateRule(tree1);
+    console.log(root1);
 }
 
 const recognizedFlags = ['-i', '-o', '-c', '-l', '-n', '-f', '-h']
@@ -421,6 +458,6 @@ async function UserInput() {
     }
 }
 
-//SimpleTest();
+//SimpleTest3();
 RunTests();
 //UserInput();

@@ -289,7 +289,7 @@ export function WriteChangingAnimationFile(textStat0,textStat1,changingText0,cha
             }
         }
         else if (part instanceof Array) {
-            for (var char of part[1]) {
+            for (var char of part[0]) {
                 if (char == '\n') {
                     posX0 = 0;
                     posY0++;
@@ -304,7 +304,7 @@ export function WriteChangingAnimationFile(textStat0,textStat1,changingText0,cha
                     posX0++;
                 }
             }
-            for (var char of part[0]) {
+            for (var char of part[1]) {
                 if (char == '\n') {
                     posX1 = 0;
                     posY1++;
@@ -340,34 +340,10 @@ export function WriteChangingAnimationFile(textStat0,textStat1,changingText0,cha
 
         if (typeof changingTextFull[i] === "string") DrawColoredLines(gms, [changingTextFull[i]], '#FFFFFF', posy, posx);
         else if (changingTextFull[i] instanceof Array) {
-            if (percentage > 0.5) DrawColoredLines(gms, [changingTextFull[i][0]], textColor, posy, posx);
-            else DrawColoredLines(gms, [changingTextFull[i][1]], textColor, posy, posx);
+            if (percentage > 0.5) DrawColoredLines(gms, [changingTextFull[i][1]], textColor, posy, posx);
+            else DrawColoredLines(gms, [changingTextFull[i][0]], textColor, posy, posx);
         }
     }
-
-
-    // OLD CODE TO BE REMOVED
-    /*
-    if (percOpac > 0) DrawHighlitedLines(linesM, '#004000', textColor, py2);
-
-    var i = 0;
-        var bgcolor = MixColors(0,64,0,32,64,0,percentage);
-        gms.fill(bgcolor);
-        gms.drawRectangle(0, pyM + lineSpacing * i - lineSpacing + lineHighlightOffset + lcMa * lineSpacing, lineWidth, pyM + lineSpacing * i - lineSpacing + lineHighlightOffset);
-
-        var color0 = MixColors(16,64,0,255,255,255,perc0);
-        var color1 = MixColors(16,64,0,255,255,255,perc1);
-
-        if (perc0 > 1) for(i=0;i<lcM0;i++)
-        {
-            gms.fill(color0);
-            gms.drawText(-10,pyM + 20 * i,'. ' + linesM0[i]);
-        }
-        if (perc1 > 1) for(i=0;i<lcM1;i++)
-        {
-            gms.fill(color1);
-            gms.drawText(-10,pyM + 20 * i,'. ' + linesM1[i]);
-        }*/
     
     // 3) More nonchanging text
     gms.fill('#ffffff');
