@@ -265,13 +265,13 @@ export function FindCodeChanges(codeBefore, codeAfter, rawBefore, rawAfter) {
 
     // Z) ADD RAW TEXT
     for (var index in inputDestinations) {
-        if ('rawText' in codeBefore[index]) {
-            inputDestinations[index].rawText = codeBefore[index].rawText;
+        if ('tokens' in codeBefore[index]) {
+            inputDestinations[index].tokens = codeBefore[index].tokens;
         }
     }
     for (var index in outputSources) {
-        if ('rawText' in codeAfter[index]) {
-            outputSources[index].rawText = codeAfter[index].rawText;
+        if ('tokens' in codeAfter[index]) {
+            outputSources[index].tokens = codeAfter[index].tokens;
         }
     }
 

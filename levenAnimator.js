@@ -3,7 +3,7 @@
 
 // TODO: Eliminate 2 same long functions replacing them by 1 long + 2 short fcs.
 
-export default function LevenChanges(inputString, outputString)
+export function LevenChanges(inputString, outputString)
 {
     // TODO: String length 0
 
@@ -114,10 +114,10 @@ export default function LevenChanges(inputString, outputString)
     }
 
     if (unchangedRegion) {
-        if (tempString0.length > 0) retlist2.push(tempString0);
+        if (tempString0.length > 0) retlist2.push(new UnchangedLevenPart(tempString0));
     }
     else if (!unchangedRegion) {
-        if (tempString0.length + tempString1.length > 0) retlist2.push([tempString0,tempString1]);
+        if (tempString0.length + tempString1.length > 0) retlist2.push(new ChangingLevenPart(tempString0,tempString1));
     }
 
     // Return
@@ -191,7 +191,7 @@ export function LevenChangesColored(inputString, outputString)
         else if (matrix[posI][posJ] == matrix[posI-1][posJ-1]) {
             posI--;
             posJ--;
-            retList.push(['o', inputString[posI]]);
+            retList.push(['o', inputString[posI], outputString[posJ]]);
         }
         else {
             console.error("Implementation of LevenChanges in levenAnimator.js is wrong. This shouldn't happen.");
@@ -213,17 +213,22 @@ export function LevenChangesColored(inputString, outputString)
 
         if (unchangedRegion && entry[0] != 'o') {
             unchangedRegion = false;
-            retlist2.push(tempString0);
+            retlist2.push(new UnchangedLevenPart(tempString0,tempString1));
             tempString0 = [];
+            tempString1 = [];
         }
         else if (!unchangedRegion && entry[0] == 'o') {
             unchangedRegion = true;
-            retlist2.push([tempString0,tempString1]);
+            retlist2.push(new ChangingLevenPart(tempString0,tempString1));
             tempString0 = [];
             tempString1 = [];
         }
 
-        if (unchangedRegion) tempString0.push(entry[1]);
+        if (unchangedRegion)
+        {
+            tempString0.push(entry[1]);
+            tempString1.push(entry[2]);
+        }
         else if (!unchangedRegion) {
             if (entry[0] == '+') tempString1.push(entry[1]);
             else if (entry[0] == 'x') tempString0.push(entry[1]);
@@ -235,14 +240,26 @@ export function LevenChangesColored(inputString, outputString)
     }
 
     if (unchangedRegion) {
-        if (tempString0.length > 0) retlist2.push(tempString0);
+        if (tempString0.length > 0) retlist2.push(new UnchangedLevenPart(tempString0, tempString1));
     }
     else if (!unchangedRegion) {
-        if (tempString0.length + tempString1.length > 0) retlist2.push([tempString0,tempString1]);
+        if (tempString0.length + tempString1.length > 0) retlist2.push(new ChangingLevenPart(tempString0,tempString1));
     }
 
     // Return
     return retlist2;
 }
 
-// TODO: Class "Unchanging" + "Changing"
+export class UnchangedLevenPart {
+    constructor(before, after) {
+        this.before = before;
+        this.after = after;
+    }
+}
+
+export class ChangingLevenPart {
+    constructor(before, after) {
+        this.before = before;
+        this.after = after;
+    }
+}

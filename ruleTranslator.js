@@ -285,25 +285,23 @@ switch (treeNode.ruleIndex)
         if (params43 == null) params43 = [];
         
         return new SemanticDefinition(params43,code43,type43,name43);
-    case 44: // formalParameterList(44) -> (45) [',' (45)]* [',' (46)]? | (46)
-        let params44 = [];
+    //case 44: // formalParameterList(44) -> (45) [',' (45)]* [',' (46)]? | (46)
+        /*let params44 = [];
         let children44 = FindChildren(treeNode, 45);
         for (const child of children44)
         {
             var params = TranslateRule(child);
-            for (const child2 of params)
+            for (const child2 of params.identifiers)
             {
                 params44.push(child2);
             }
         }
         let lastparam44 = FindChildren(treeNode, 46);
-        if (lastparam44 != null) params44.push(lastparam44);
+        if (lastparam44 != null) params44.push(lastparam44.identifiers[0]);
 
-        return params44;
-    case 45: // formalParameterArg(45) -> (58) ['=' (57)]?
-        return TranslateRule(FindChild(treeNode, 58));
-    case 46: // lastFormalParameterArg(46) -> (ELLIPSIS)? (57)
-        return null;
+        return params44;*/
+    // case 45: // formalParameterArg(45) -> (58) ['=' (57)]?
+    // case 46: // lastFormalParameterArg(46) -> (ELLIPSIS)? (57)
     case 47:  // functionBody(47) -> '{' (48)? '}'
         let body47 = TranslateRule(FindChild(treeNode,48));
         return body47;
@@ -599,7 +597,7 @@ function FillInTokens(treeNode, commandList) {
             // create new nonsemantic text
             var tokensNt = [];
             for (var i = from; i < cmd.tokens[0].tokenIndex; i++) {
-                tokensNt.push(treeNode.parser._input.tokens[i]);
+                tokensNt.push(GetTokenInfo(treeNode.parser._input.tokens[i]));
             }
             var nt = new NonsemanticText(tokensNt);
             newList.push(nt);
@@ -615,7 +613,7 @@ function FillInTokens(treeNode, commandList) {
         // create new nonsemantic text
         var tokensEnd = [];
         for (var i = from; i <= to; i++) {
-            tokensEnd.push(treeNode.parser._input.tokens[i]);
+            tokensEnd.push(GetTokenInfo(treeNode.parser._input.tokens[i]));
         }
         var nt = new NonsemanticText(tokensEnd);
         newList.push(nt);
@@ -651,9 +649,8 @@ class NonsemanticIdentifierList {
         this.identifiers = [];
 
         for (var token of tokens) {
-            var info = GetTokenInfo(token);
-            if (info.isIdentifier) this.identifiers.push(token.text);
-            if (info.isLiteral) this.literals.push(token.text);
+            if (token.isIdentifier) this.identifiers.push(token.text);
+            if (token.isLiteral) this.literals.push(token.text);
         }
     }
 }
@@ -717,8 +714,6 @@ export class NonsemanticText
         this.tokens = [];
         for (var token of tokens) {
             var info = GetTokenInfo(token);
-            if (info.isIdentifier) this.identifiers.push(token.text);
-            if (info.isLiteral) this.literals.push(token.text);
             this.tokens.push(token);
         }
     }

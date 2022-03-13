@@ -8,10 +8,10 @@ import TranslateRule from './ruleTranslator.js';
 import { FindCodeChanges, SupplyCodeChanges } from './distance.js'
 import { AddText } from './statementPosition.js'
 import { GetAnimationSequence } from './animationSequence.js'
-import { IntermediateTextEnumerator, CollapseIntermediateText } from './animationEnumerator.js'
-import { WriteStationaryAnimationFile, WriteMovingAnimationFile, WriteAddingAnimationFile, WriteDeletingAnimationFile, WriteChangingAnimationFile, WriteGifFile, WriteGifFileSH } from './gifWriter.js'
+import { IntermediateTextEnumerator, CollapseIntermediateText } from './animationEnumerator2.js'
+import { WriteStationaryAnimationFile, WriteMovingAnimationFile, WriteAddingAnimationFile, WriteDeletingAnimationFile, WriteChangingAnimationFile, WriteGifFile, WriteGifFileSH, WriteGifFileSHMove } from './gifWriter.js'
 import { ListOfChangesToFile, FileToListOfChanges } from './intermediateOutput.js';
-import LevenChanges from './levenAnimator.js';
+import { LevenChanges } from './levenAnimator.js';
 import RenmameVariable from './variableRenamer.js';
 
 function CallbackMove(callback)
@@ -169,6 +169,139 @@ async function DoGifOutput(resenum, output, resolve) {
     resolve();
 }
 
+async function DoGifOutput2(resenum, output, resolve) {
+    var gifnumber = 0;
+    var prevText;
+    var text;
+    while (true) {
+        prevText = text;
+        text = resenum.GetNextStillText();
+        if (text === undefined) break;
+        else {
+            text = CollapseIntermediateText(text);
+/*
+            if (text[0]=='^' && text[3] != '')
+            {
+                var promises = [];
+                for (var i=0; i<20; i++)
+                {
+                    let promise = new Promise(
+                        resolve => WriteMovingAnimationFile(
+                            text[1],
+                            text[3],
+                            text[4],
+                            text[2],
+                            i/19.0,
+                            '.output\\frame' + (gifnumber+1001).toString() + '.gif',
+                            resolve)
+                    );
+                    promises.push(promise);
+                    gifnumber++;
+                }
+                await Promise.all(promises);
+            }
+
+            if (text[0]=='+' && text[2] != '')
+            {
+                var promises = [];
+                for (var i=0; i<20; i++)
+                {
+                    let promise = new Promise(
+                        resolve => WriteAddingAnimationFile(
+                            text[1],
+                            text[3],
+                            text[4],
+                            text[2],
+                            i/19.0,
+                            '.output\\frame' + (gifnumber+1001).toString() + '.gif',
+                            resolve)
+                    );
+                    promises.push(promise);
+                    gifnumber++;
+                }
+                await Promise.all(promises);
+            }
+
+            if (text[0]=='x' && text[2] != '')
+            {
+                var promises = [];
+                for (var i=0; i<20; i++)
+                {
+                    let promise = new Promise(
+                        resolve => WriteDeletingAnimationFile(
+                            text[1],
+                            text[3],
+                            text[4],
+                            text[2],
+                            i/19.0,
+                            '.output\\frame' + (gifnumber+1001).toString() + '.gif',
+                            resolve)
+                    );
+                    promises.push(promise);
+                    gifnumber++;
+                }
+                await Promise.all(promises);
+            }
+*/
+            if (text[0]=='*')
+            {
+                var tokenList = [];
+
+                tokenList = tokenList.concat(text[1]);
+                tokenList.push([text[4],text[2]]);
+                tokenList = tokenList.concat(text[3]);
+
+                var promises = [];
+                for (var i=0; i<20; i++)
+                {
+                    let promise = new Promise(
+                        resolve => WriteGifFileSHMove(
+                        
+                        i/19.0,
+                        '.output\\frame' + (gifnumber+1001).toString() + '.gif',
+                        resolve)
+                    );
+                    promises.push(promise);
+                    gifnumber++;
+                }
+                await Promise.all(promises);
+            }
+        }
+
+    }
+
+    var promises = [];
+                for (var i=0; i<20; i++)
+                {
+                    let promise = new Promise(
+                        resolve => WriteStationaryAnimationFile(
+                            prevText[1] + prevText[3] + prevText[4] + prevText[2],
+                            '.output\\frame' + (gifnumber+1001).toString() + '.gif',
+                            resolve)
+                    );
+                    promises.push(promise);
+                    gifnumber++;
+                }
+                await Promise.all(promises);
+
+    let promise = new Promise(
+        resolve => WriteGifFile('.output/frame*.gif', '.output/result.gif', resolve)
+        )
+    await promise;
+
+    //delete individual frames
+    for (var i=0; i < gifnumber;i++) {
+        var framePath = path.join(".", ".output", "frame"+ (i+1001).toString() +".gif");
+        fs.unlink(framePath, CallbackRemove);
+    }
+
+    //move result
+    const outputPath = path.join(".", ".output", "result.gif");
+    fs.rename(outputPath, output, CallbackMove);
+
+    resolve();
+}
+
 // Find differences between two source codes,
 //  output lists of changes to a file.
 async function Exec1N(code1, code2, output, resolve) {
@@ -244,7 +377,7 @@ async function Exec1F2(code1, code2, output, resolve) {
 
     var resenum = new IntermediateTextEnumerator(result.inputDestinations, result.outputSources, result2);
     var promise = new Promise(
-        resolve => DoGifOutput(resenum, output, resolve)
+        resolve => DoGifOutput2(resenum, output, resolve)
         );
     promise.then(()=>resolve());
     await promise;
@@ -257,7 +390,7 @@ async function RunTests() {
         //'./tests/test_F2_0', './tests/test_F2_1', '../F2',
         //'./tests/test_F3_0', './tests/test_F3_1', '../F3',
         //'./tests/test_C1_0', './tests/test_C1_1', '../C1',
-        //'./tests/test_C2_0', './tests/test_C2_1', '../C2',
+        './tests/test_C2_0', './tests/test_C2_1', '../C2',
         './tests/test_D1_0', './tests/test_D1_1', '../D1',
         //'./tests/test_D2_0', './tests/test_D2_1', '../D2',
     ]

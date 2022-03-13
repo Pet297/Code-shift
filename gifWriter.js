@@ -1,7 +1,7 @@
 import fs from 'fs';
 import gm from 'gm';
 import os from 'os';
-import { LevenChanges, LevenChangesColored } from './levenAnimator.js';
+import { LevenChanges, LevenChangesColored, ChangingLevenPart, UnchangedLevenPart } from './levenAnimator.js';
 import { GetTokenInfo } from './ruleTranslator.js';
 
 // CONSTANTS
@@ -121,6 +121,7 @@ const JS_STRINGCONSTANT = 4;
 const JS_CONSTANT = 5;
 const JS_OPERATOR = 6;
 const JS_COMMENT = 7;
+const JS_COLOR = ['#606060', '#C040C0', '#A0A0FF', '#80FF40', '#E04040', '#4040FF', '#BBBBBB', '#00A000'];
 
 export function WriteGifFileSH(tokens,filename,resolve) {
     var gms = StartNewGIF();
@@ -128,18 +129,7 @@ export function WriteGifFileSH(tokens,filename,resolve) {
     var y = 0;
 
     for (var token of tokens) {
-        var textC = '#606060';
-
-        switch (token.colorClass) {
-            case JS_NOCLASS: textC = '#606060'; break;
-            case JS_KEYWORD: textC = '#C040C0'; break;
-            case JS_IDENTIFIER: textC = '#A0A0FF'; break;
-            case JS_NUMERICCONSTANT: textC = '#80FF40'; break;
-            case JS_STRINGCONSTANT: textC = '#E04040'; break;
-            case JS_CONSTANT: textC = '#4040FF'; break;
-            case JS_OPERATOR: textC = '#BBBBBB'; break;
-            case JS_COMMENT: textC = '#00A000'; break;
-        }
+        var textC = JS_COLOR[textC.colorClass];
 
         if (token.text == '\n') {
             y++;
@@ -212,19 +202,8 @@ export function WriteGifFileSHMove(tokens,percentage,filename,resolve) {
     }
 
     // Draw
-    for (var i = 0; i < tokens.length; i++) {
-        var textC = '#606060';
-
-        switch (token[i].colorClass) {
-            case JS_NOCLASS: textC = '#606060'; break;
-            case JS_KEYWORD: textC = '#C040C0'; break;
-            case JS_IDENTIFIER: textC = '#A0A0FF'; break;
-            case JS_NUMERICCONSTANT: textC = '#80FF40'; break;
-            case JS_STRINGCONSTANT: textC = '#E04040'; break;
-            case JS_CONSTANT: textC = '#4040FF'; break;
-            case JS_OPERATOR: textC = '#BBBBBB'; break;
-            case JS_COMMENT: textC = '#00A000'; break;
-        }
+    for (var i = 0; i < tokens.length; i++) { 
+        var textC = JS_COLOR[textC.colorClass];
 
         if (token[i].text != '\n' && token[i].text != '\r' && token[i].text != '\t') {
             var pxa = (1-percentage) * oldPos[i].x + percentage * newPos[i].x;
@@ -251,18 +230,73 @@ export function WriteGifFileSHMove(tokens,percentage,filename,resolve) {
             var changingTextFull = LevenChangesColored(coloredText1, coloredtext2);
 
             // 3) Calculate old and new positions for every char
-            var oldPos1 = [];
-            var oldPos2 = [];
+            var listMove = [];
+            var listAdd = [];
+            var listDel = [];
 
             var x1 = oldPos[i].x;
             var y1 = oldPos[i].y;
-            var x2 = oldPos[i].x;
-            var y2 = oldPos[i].y;
+            var x2 = newPos[i].x;
+            var y2 = newPos[i].y;
             for (var part of changingTextFull) {
-                
+                if (part instanceof UnchangedLevenPart) {
+                    // Both same length
+                    for (var char of part.part) {
+                        //             char     color 1  color 2  b.x b.y a.x a.y
+                        listMove.push([char[0], char[1], char[2], x1, y1, x2, y2]);
+
+                        if (char[0] == nl) { y1++; x1 = 0; y2++; x2 = 0; }
+                        else if (char[0] == '\n' || char[0] == '\r') {}
+                        else if (char[0] == '\t') { x1 += tabSpaces; x1 -= x1 % tabSpaces; x2 += tabSpaces; x2 -= x2 % tabSpaces; }
+                        else { x1++; x2++; }
+                    }
+                }
+                else if (part instanceof ChangingLevenPart) {
+                    // Before
+                    for (var char of part.before) {
+                        listAdd.push([char[0], char[1], x2, y2]);
+
+                        if (char[0] == nl) { y1++; x1 = 0; }
+                        else if (char[0] == '\n' || char[0] == '\r') {}
+                        else if (char[0] == '\t') { x1 += tabSpaces; x1 -= x1 % tabSpaces; }
+                        else { x1++; }
+                    }
+                    // After
+                    for (var char of part.after) {
+                        listAdd.push([char[0], char[1], x1, y1]);
+
+                        if (char[0] == nl) { y2++; x2 = 0; }
+                        else if (char[0] == '\n' || char[0] == '\r') {}
+                        else if (char[0] == '\t') { x2 += tabSpaces; x2 -= x2 % tabSpaces; }
+                        else { x2++; }
+                    }
+                }
             }
 
-            // 4) Draw every character individualy
+            // 4) Calculate relevant percentages
+            var percentMove = Math.min(1, percentage * 2);
+            var percentDissappear = Math.min(1, percentage * 2);
+            var percentAppear = Math.max(0, (percentage - 0.5) * 2);
+
+            // 5) Draw every character individualy
+            if (percentage < 0.5) {
+                for (var c of listDel) {
+                    var color = MixColors(JS_COLOR[c[1]],'#000000',percentDissappear);
+                    DrawColoredLines(gms,[c[0]],textC,c[3] * lineSpacing + firstLineY,c[2]);
+                }
+            }
+            else {
+                for (var c of listAdd) {
+                    var color = MixColors('#000000',JS_COLOR[c[1]],percentAppear);
+                    DrawColoredLines(gms,[c[0]],textC,c[3] * lineSpacing + firstLineY,c[2]);
+                }
+            }
+            for (var c of listMove) {
+                var xa = (1-percentMove) * c[3] + percentMove * c[5];
+                var ya = (1-percentMove) * c[4] + percentMove * c[6];
+                var color = MixColors(JS_COLOR[c[1]],JS_COLOR[c[2]],percentage);
+                DrawColoredLines(gms,[c[0]],color,ya * lineSpacing + firstLineY,xa);
+            }
         }
     }
 
@@ -516,12 +550,17 @@ function RGBtoString(r,g,b) {
 }
 
 // Mixes 2 colors given as RGB values and returns color string
-function MixColors(r0,g0,b0,r1,g1,b1,percentage) {
+function MixColors(string0, string1, percentage) {
+    let c0 = FromHexadecimal(string0);
+    let c1 = FromHexadecimal(string1);
+    return MixColors(c0.r, c0.g, c0.b, c1.r, c1.g, c1.b, percentage);
+}
+/*function MixColors(r0,g0,b0,r1,g1,b1,percentage) {
     let r = r0 + (r1 - r0) * percentage;
     let g = g0 + (g1 - g0) * percentage;
     let b = b0 + (b1 - b0) * percentage;
     return RGBtoString(r,g,b);
-}
+}*/
 
 // Returns hexadecimal representation of a number in range 0 to 255.
 let hexit = ['0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F']
@@ -529,4 +568,33 @@ function ToHexadecimal(num) {
     let byte1 = Math.trunc(num / 16);
     let byte2 = Math.trunc(num % 16);
     return hexit[byte1] + hexit[byte2];
+}
+
+function FromHexadecimal(string) {
+    return {
+        r: HexCharToNum(string[1]) * 16 + HexCharToNum(string[2]),
+        g: HexCharToNum(string[3]) * 16 + HexCharToNum(string[4]),
+        b: HexCharToNum(string[5]) * 16 + HexCharToNum(string[6])
+    }
+}
+
+function HexCharToNum(char) {
+    switch(char) {
+        case '0': return 0;
+        case '1': return 1;
+        case '2': return 2;
+        case '3': return 3;
+        case '4': return 4;
+        case '5': return 5;
+        case '6': return 6;
+        case '7': return 7;
+        case '8': return 8;
+        case '9': return 9;
+        case 'A': return 10;
+        case 'B': return 11;
+        case 'C': return 12;
+        case 'D': return 13;
+        case 'E': return 14;
+        case 'F': return 15;
+    }
 }
