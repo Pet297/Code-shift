@@ -544,12 +544,12 @@ function TreenodeToTokens(treeNode) {
     var tokens = [];
 
     for (var i = treeNode.start.tokenIndex; i <= treeNode.stop.tokenIndex; i++) {
-        tokens.push(treeNode.parser._input.tokens[i]);
+        tokens.push(GetTokenInfo(treeNode.parser._input.tokens[i]));
     }
 
     return tokens;
 }
-function GetTokenInfo(commonToken) {
+export function GetTokenInfo(commonToken) {
     var colorClass = JS_NOCLASS;
     var identifier = false;
     var literal = false;
@@ -567,7 +567,7 @@ function GetTokenInfo(commonToken) {
     if (commonToken.type >= 118 && commonToken.type <= 119) { colorClass = JS_STRINGCONSTANT; literal = true; }
     if (commonToken.type >= 122 && commonToken.type <= 123) colorClass = JS_COMMENT;
 
-    return new TokenInfo(text, literal, identifier, colorClass);
+    return new TokenInfo(text, commonToken.start, commonToken.stop, commonToken.tokenIndex, literal, identifier, colorClass);
 }
 function ToCommandList(command) {
     if (command instanceof NonsemanticIdentifierList) {
@@ -629,11 +629,18 @@ function FillInTokens(treeNode, commandList) {
 // - variables: list of tokens, that are also variables
 
 class TokenInfo {
-    constructor (text, isLiteral, isIdentifier, colorClass) {
+    constructor (text, start, stop, tokenIndex, isLiteral, isIdentifier, colorClass) {
         this.text = text;
+        this.start = start;
+        this.stop = stop;
+        this.tokenIndex = tokenIndex;
         this.isLiteral = isLiteral;
         this.isIdentifier = isIdentifier;
         this.colorClass = colorClass;
+    }
+
+    Clone() {
+        return new TokenInfo(this.text, this.start, this.stop, this.tokenIndex, this.isLiteral, this.isIdentifier, this.colorClass);
     }
 }
 
@@ -669,6 +676,11 @@ export class SemanticDefinition
         this.localCode = localCode;
         this.definitionType = definitionType;
         this.name = name;
+
+        this.tokens = [];
+        for (var cmd of localCode) {
+            MergeArrays(this.tokens, cmd.tokens);
+        }
     }
 }
 

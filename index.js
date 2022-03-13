@@ -9,7 +9,7 @@ import { FindCodeChanges, SupplyCodeChanges } from './distance.js'
 import { AddText } from './statementPosition.js'
 import { GetAnimationSequence } from './animationSequence.js'
 import { IntermediateTextEnumerator, CollapseIntermediateText } from './animationEnumerator.js'
-import { WriteStationaryAnimationFile, WriteMovingAnimationFile, WriteAddingAnimationFile, WriteDeletingAnimationFile, WriteChangingAnimationFile, WriteGifFile } from './gifWriter.js'
+import { WriteStationaryAnimationFile, WriteMovingAnimationFile, WriteAddingAnimationFile, WriteDeletingAnimationFile, WriteChangingAnimationFile, WriteGifFile, WriteGifFileSH } from './gifWriter.js'
 import { ListOfChangesToFile, FileToListOfChanges } from './intermediateOutput.js';
 import LevenChanges from './levenAnimator.js';
 import RenmameVariable from './variableRenamer.js';
@@ -338,6 +338,15 @@ async function SimpleTest3() {
     const tree1 = CodeToTree('./tests/test_D1_0');
     let root1 = TranslateRule(tree1);
     console.log(root1);
+
+    let promise = new Promise(
+        resolve => WriteGifFileSH(
+            root1.tokens,
+            '..\\test.gif',
+            resolve)
+    );
+
+    await promise;
 }
 
 const recognizedFlags = ['-i', '-o', '-c', '-l', '-n', '-f', '-h']

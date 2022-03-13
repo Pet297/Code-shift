@@ -1,7 +1,8 @@
 import fs from 'fs';
 import gm from 'gm';
 import os from 'os';
-import LevenChanges from './levenAnimator.js';
+import { LevenChanges, LevenChangesColored } from './levenAnimator.js';
+import { GetTokenInfo } from './ruleTranslator.js';
 
 // CONSTANTS
 const lineSpacing = 20;
@@ -111,6 +112,162 @@ function DrawHighlitedLines(gms, lines, highlightColor, textColor, y0, xoffset =
 }
 
 // PUBLIC INTERFACE
+
+const JS_NOCLASS = 0;
+const JS_KEYWORD = 1;
+const JS_IDENTIFIER = 2;
+const JS_NUMERICCONSTANT = 3;
+const JS_STRINGCONSTANT = 4;
+const JS_CONSTANT = 5;
+const JS_OPERATOR = 6;
+const JS_COMMENT = 7;
+
+export function WriteGifFileSH(tokens,filename,resolve) {
+    var gms = StartNewGIF();
+    var x = 0;
+    var y = 0;
+
+    for (var token of tokens) {
+        var textC = '#606060';
+
+        switch (token.colorClass) {
+            case JS_NOCLASS: textC = '#606060'; break;
+            case JS_KEYWORD: textC = '#C040C0'; break;
+            case JS_IDENTIFIER: textC = '#A0A0FF'; break;
+            case JS_NUMERICCONSTANT: textC = '#80FF40'; break;
+            case JS_STRINGCONSTANT: textC = '#E04040'; break;
+            case JS_CONSTANT: textC = '#4040FF'; break;
+            case JS_OPERATOR: textC = '#BBBBBB'; break;
+            case JS_COMMENT: textC = '#00A000'; break;
+        }
+
+        if (token.text == '\n') {
+            y++;
+            x = 0;
+        }
+        else if (token.text == '\r') {
+            
+        }
+        else {
+            DrawColoredLines(gms,[token.text],textC,y * lineSpacing + firstLineY,x);
+            x += token.text.length;
+        }
+    }
+
+    gms.write(filename, ()=>{resolve()});
+}
+
+export function WriteGifFileSHMove(tokens,percentage,filename,resolve) {
+    var gms = StartNewGIF();
+    var x = 0;
+    var y = 0;
+    var nl = '\n';
+    if (os.EOL == '\r') nl = '\r';
+
+    var oldPos = [];
+    var newPos = [];
+
+    // Positions before
+    x = 0;
+    y = 0;
+    for (var token of tokens) {
+        oldPos.push({x:x, y:y});
+        if (token instanceof TokenInfo) {
+            if (token.text == nl) { y++; x = 0}
+            else if (token.text == '\n' || token.text == '\r') {}
+            else if (token.text == '\t') { x += tabSpaces; x -= x % tabSpaces }
+            else x += token.text.length;
+        }
+        else {
+            var text2 = "";
+            for (var token2 of token[0]) {
+                if (token2.text == nl) { y++; x = 0}
+                else if (token2.text == '\n' || token.text == '\r') {}
+                else if (token2.text == '\t') { x += tabSpaces; x -= x % tabSpaces }
+                else x += token2.text.length;
+            }
+        }
+    }
+
+    // Positions after
+    x = 0;
+    y = 0;
+    for (var token of tokens) {
+        oldPos.push({x:x, y:y});
+        if (token instanceof TokenInfo) {
+            if (token.text == nl) { y++; x = 0}
+            else if (token.text == '\n' || token.text == '\r') {}
+            else if (token.text == '\t') { x += tabSpaces; x -= x % tabSpaces }
+            else x += token.text.length;
+        }
+        else {
+            var text2 = "";
+            for (var token2 of token[1]) {
+                if (token2.text == nl) { y++; x = 0}
+                else if (token2.text == '\n' || token.text == '\r') {}
+                else if (token2.text == '\t') { x += tabSpaces; x -= x % tabSpaces }
+                else x += token2.text.length;
+            }
+        }
+    }
+
+    // Draw
+    for (var i = 0; i < tokens.length; i++) {
+        var textC = '#606060';
+
+        switch (token[i].colorClass) {
+            case JS_NOCLASS: textC = '#606060'; break;
+            case JS_KEYWORD: textC = '#C040C0'; break;
+            case JS_IDENTIFIER: textC = '#A0A0FF'; break;
+            case JS_NUMERICCONSTANT: textC = '#80FF40'; break;
+            case JS_STRINGCONSTANT: textC = '#E04040'; break;
+            case JS_CONSTANT: textC = '#4040FF'; break;
+            case JS_OPERATOR: textC = '#BBBBBB'; break;
+            case JS_COMMENT: textC = '#00A000'; break;
+        }
+
+        if (token[i].text != '\n' && token[i].text != '\r' && token[i].text != '\t') {
+            var pxa = (1-percentage) * oldPos[i].x + percentage * newPos[i].x;
+            var pya = (1-percentage) * oldPos[i].y + percentage * newPos[i].y;
+            DrawColoredLines(gms,[token.text],textC,pya * lineSpacing + firstLineY,pxa);
+        }
+        else if (!(token[i] instanceof TokenInfo)) {
+            var coloredText1 = [];
+            var coloredtext2 = [];
+
+            // 1) Build colored strings
+            for (var token2 of token[i][0]) {
+                for (var j = 0; j < token2.text.length; j++) {
+                    coloredText1.push([token2.text[j],token2.colorClass]);
+                }
+            }
+            for (var token2 of token[i][1]) {
+                for (var j = 0; j < token2.text.length; j++) {
+                    coloredText2.push([token2.text[j],token2.colorClass]);
+                }
+            }
+
+            // 2) Get changes
+            var changingTextFull = LevenChangesColored(coloredText1, coloredtext2);
+
+            // 3) Calculate old and new positions for every char
+            var oldPos1 = [];
+            var oldPos2 = [];
+
+            var x1 = oldPos[i].x;
+            var y1 = oldPos[i].y;
+            var x2 = oldPos[i].x;
+            var y2 = oldPos[i].y;
+            for (var part of changingTextFull) {
+                
+            }
+
+            // 4) Draw every character individualy
+        }
+    }
+
+    gms.write(filename, ()=>{resolve()});
+}
 
 // Given list of input image filenames (wildcard '*'), writes GIF file
 export function WriteGifFile(inputFilenames, outputFilename, resolve) {
