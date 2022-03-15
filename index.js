@@ -9,7 +9,7 @@ import { FindCodeChanges, SupplyCodeChanges } from './distance.js'
 import { AddText } from './statementPosition.js'
 import { GetAnimationSequence } from './animationSequence.js'
 import { IntermediateTextEnumerator, CollapseIntermediateText } from './animationEnumerator2.js'
-import { WriteStationaryAnimationFile, WriteMovingAnimationFile, WriteAddingAnimationFile, WriteDeletingAnimationFile, WriteChangingAnimationFile, WriteGifFile, WriteGifFileSH, WriteGifFileSHMove } from './gifWriter.js'
+import { WriteStationaryAnimationFile, WriteMovingAnimationFile, WriteAddingAnimationFile, WriteDeletingAnimationFile, WriteChangingAnimationFile, WriteGifFile, WriteGifFileSH, WriteGifFileSHTransform, WriteGifFileSHAdd, WriteGifFileSHMoveUp, WriteGifFileSHRemove } from './gifWriter.js'
 import { ListOfChangesToFile, FileToListOfChanges } from './intermediateOutput.js';
 import { LevenChanges } from './levenAnimator.js';
 import RenmameVariable from './variableRenamer.js';
@@ -179,18 +179,18 @@ async function DoGifOutput2(resenum, output, resolve) {
         if (text === undefined) break;
         else {
             text = CollapseIntermediateText(text);
-/*
-            if (text[0]=='^' && text[3] != '')
+
+            if (text[0]=='^' && text[3].length > 0)
             {
                 var promises = [];
                 for (var i=0; i<20; i++)
                 {
                     let promise = new Promise(
-                        resolve => WriteMovingAnimationFile(
+                        resolve => WriteGifFileSHMoveUp(
                             text[1],
-                            text[3],
-                            text[4],
                             text[2],
+                            text[4],
+                            text[3],
                             i/19.0,
                             '.output\\frame' + (gifnumber+1001).toString() + '.gif',
                             resolve)
@@ -201,17 +201,16 @@ async function DoGifOutput2(resenum, output, resolve) {
                 await Promise.all(promises);
             }
 
-            if (text[0]=='+' && text[2] != '')
+            if (text[0]=='+' && text[2].length > 0)
             {
                 var promises = [];
                 for (var i=0; i<20; i++)
                 {
                     let promise = new Promise(
-                        resolve => WriteAddingAnimationFile(
+                        resolve => WriteGifFileSHAdd(
                             text[1],
-                            text[3],
-                            text[4],
                             text[2],
+                            text[3].concat(text[4]),
                             i/19.0,
                             '.output\\frame' + (gifnumber+1001).toString() + '.gif',
                             resolve)
@@ -222,17 +221,16 @@ async function DoGifOutput2(resenum, output, resolve) {
                 await Promise.all(promises);
             }
 
-            if (text[0]=='x' && text[2] != '')
+            if (text[0]=='x' && text[2].length > 0)
             {
                 var promises = [];
                 for (var i=0; i<20; i++)
                 {
                     let promise = new Promise(
-                        resolve => WriteDeletingAnimationFile(
-                            text[1],
+                        resolve => WriteGifFileSHRemove(
                             text[3],
-                            text[4],
                             text[2],
+                            text[4],
                             i/19.0,
                             '.output\\frame' + (gifnumber+1001).toString() + '.gif',
                             resolve)
@@ -242,7 +240,7 @@ async function DoGifOutput2(resenum, output, resolve) {
                 }
                 await Promise.all(promises);
             }
-*/
+
             if (text[0]=='*')
             {
                 var tokenList = [];
@@ -255,7 +253,7 @@ async function DoGifOutput2(resenum, output, resolve) {
                 for (var i=0; i<20; i++)
                 {
                     let promise = new Promise(
-                        resolve => WriteGifFileSHMove(
+                        resolve => WriteGifFileSHTransform(
                         
                         i/19.0,
                         '.output\\frame' + (gifnumber+1001).toString() + '.gif',
@@ -274,8 +272,8 @@ async function DoGifOutput2(resenum, output, resolve) {
                 for (var i=0; i<20; i++)
                 {
                     let promise = new Promise(
-                        resolve => WriteStationaryAnimationFile(
-                            prevText[1] + prevText[3] + prevText[4] + prevText[2],
+                        resolve => WriteGifFileSH(
+                            prevText[1].concat(prevText[3], prevText[4], prevText[2]),
                             '.output\\frame' + (gifnumber+1001).toString() + '.gif',
                             resolve)
                     );

@@ -48,7 +48,7 @@ export class IntermediateTextEnumerator
                         GetStillText(this.sourceChanges, this.destinationChanges, this.proccessedList),
                         childText,
                         GetStillText(this.sourceChanges, this.destinationChanges, this.unproccessedList),
-                        "",
+                        [],
                         true
                     ];
                 }
@@ -253,10 +253,10 @@ export function CollapseIntermediateText(intermediateText) {
         intermediateText[0] = intermediateText[2][0];
 
         //1: ProcE + ProcI
-        intermediateText[1] = intermediateText[1] + intermediateText[2][1];
+        intermediateText[1] = intermediateText[1].concat(intermediateText[2][1]);
 
         //4: Unproc2I + UnprocE + Unproc2I
-        intermediateText[4] = intermediateText[2][4] + intermediateText[3] + intermediateText[4];
+        intermediateText[4] = intermediateText[2][4].concat(intermediateText[3], intermediateText[4]);
 
         //3: UnprocI
         intermediateText[3] = intermediateText[2][3];

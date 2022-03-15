@@ -129,7 +129,7 @@ export function WriteGifFileSH(tokens,filename,resolve) {
     var y = 0;
 
     for (var token of tokens) {
-        var textC = JS_COLOR[textC.colorClass];
+        var textC = JS_COLOR[token.colorClass];
 
         if (token.text == '\n') {
             y++;
@@ -147,7 +147,7 @@ export function WriteGifFileSH(tokens,filename,resolve) {
     gms.write(filename, ()=>{resolve()});
 }
 
-export function WriteGifFileSHMove(tokens,percentage,filename,resolve) {
+export function WriteGifFileSHTransform(tokens,percentage,filename,resolve) {
     var gms = StartNewGIF();
     var x = 0;
     var y = 0;
@@ -301,6 +301,131 @@ export function WriteGifFileSHMove(tokens,percentage,filename,resolve) {
     }
 
     gms.write(filename, ()=>{resolve()});
+}
+
+export function WriteGifFileSHMoveUp(tokensPreceding, tokensMovingDown, tokensMovingUp, tokensAfter, percentage, filename, resolve) {
+    var gms = StartNewGIF();
+    
+    // Determine position of each token (preceding)
+    var obj00 = GetTokenPositions(tokensPreceding, 0, 0);
+
+    // Determine position of all other tokens at the start
+    var obj01 = GetTokenPositions(tokensMovingDown, obj00.x, obj00.y);
+    var obj02 = GetTokenPositions(tokensMovingUp, obj01.x, obj01.y);
+    var obj03 = GetTokenPositions(tokensAfter, obj02.x, obj02.y);
+
+    // Determine position of all other tokens at the end
+    var obj11 = GetTokenPositions(tokensMovingUp, obj00.x, obj00.y);
+    var obj12 = GetTokenPositions(tokensMovingDown, obj11.x, obj11.y);
+    var obj13 = GetTokenPositions(tokensAfter, obj12.x, obj12.y);
+
+    // Get actual positions of moving objects
+    var pos0 = obj00.positions;
+    var pos1 = InterpolatePositions(obj01.positions, obj11.positions, percentage);
+    var pos2 = InterpolatePositions(obj02.positions, obj12.positions, percentage);
+    var pos3 = InterpolatePositions(obj03.positions, obj13.positions, percentage);
+
+    // Draw them all
+    DrawTokens(tokensPreceding, pos0, gms);
+    DrawTokens(tokensMovingDown, pos1, gms);
+    DrawTokens(tokensMovingUp, pos2, gms);
+    DrawTokens(tokensAfter, pos3, gms);
+
+    gms.write(filename, ()=>{resolve()});
+}
+
+export function WriteGifFileSHRemove(tokensPreceding, tokensRemoved, tokensAfter, percentage, filename, resolve) {
+    var gms = StartNewGIF();
+    
+    // Determine position of each token (preceding)
+    var obj00 = GetTokenPositions(tokensPreceding, 0, 0);
+
+    // Determine position of all other tokens at the start
+    var obj01 = GetTokenPositions(tokensRemoved, obj00.x, obj00.y);
+    var obj02 = GetTokenPositions(tokensAfter, obj01.x, obj01.y);
+
+    // Determine position of all other tokens at the end
+    var obj12 = GetTokenPositions(tokensAfter, obj00.x, obj00.y);
+
+    // Get actual positions of moving objects
+    var pos0 = obj00.positions;
+    var pos1 = obj01.positions;
+    var pos2 = InterpolatePositions(obj02.positions, obj12.positions, percentage);
+
+    // Draw them all
+    // TODO: opacity
+    DrawTokens(tokensPreceding, pos0, gms);
+    DrawTokens(tokensRemoved, pos1, gms);
+    DrawTokens(tokensAfter, pos2, gms);
+    
+    gms.write(filename, ()=>{resolve()});
+}
+
+export function WriteGifFileSHAdd(tokensPreceding, tokensAdded, tokensAfter, percentage, filename, resolve) {
+    var gms = StartNewGIF();
+    
+    // Determine position of each token (preceding)
+    var obj00 = GetTokenPositions(tokensPreceding, 0, 0);
+
+    // Determine position of all other tokens at the start
+    var obj02 = GetTokenPositions(tokensAfter, obj00.x, obj00.y);
+
+    // Determine position of all other tokens at the end
+    var obj11 = GetTokenPositions(tokensAdded, obj00.x, obj00.y);
+    var obj12 = GetTokenPositions(tokensAfter, obj11.x, obj11.y);
+
+    // Get actual positions of moving objects
+    var pos0 = obj00.positions;
+    var pos1 = obj11.positions;
+    var pos2 = InterpolatePositions(obj02.positions, obj12.positions, percentage);
+
+    // Draw them all
+    // TODO: opacity
+    DrawTokens(tokensPreceding, pos0, gms);
+    DrawTokens(tokensAdded, pos1, gms);
+    DrawTokens(tokensAfter, pos2, gms);
+    
+    gms.write(filename, ()=>{resolve()});
+}
+
+function GetTokenPositions(tokens, x, y) { 
+    var xc = x;
+    var yc = y;
+    var nl = '\n';
+    if (os.EOL == '\r') nl = '\r';
+    var positions = [];
+
+    for (var token of tokens) {
+        positions.push({x: xc, y: yc});
+        if (token.text == nl) {
+            yc++;
+            xc = 0;
+        }
+        else if (token.text == '\n' || token.text == '\r') {
+            //nothing happens
+        }
+        else if (token.text == '\t') {
+            xc += tabSpaces;
+        }
+        else {
+            xc += token.text.length;
+        }
+    }
+    return {positions: positions, x: xc, y: yc};
+}
+
+function InterpolatePositions(array0, array1, percentage) {
+    var ret = [];
+    for (var i = 0; i < array0.length; i++) {
+        ret.push({x: array0[i].x * (1-percentage) + array1[i].x * percentage, y: array0[i].y * (1-percentage) + array1[i].y * percentage})
+    }
+    return ret;
+}
+
+function DrawTokens(tokens, positions, gms) {
+    for (var i = 0; i < tokens.length; i++) {
+        DrawColoredLines(gms,[tokens[i].text],JS_COLOR[tokens[i].colorClass],positions[i].y * lineSpacing + firstLineY, positions[i].x);
+    }   
 }
 
 // Given list of input image filenames (wildcard '*'), writes GIF file
