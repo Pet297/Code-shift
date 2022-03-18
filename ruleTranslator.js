@@ -479,6 +479,7 @@ switch (treeNode.ruleIndex)
 // TODO: 57 simplify
 // TODO: 68 - setter
 // TODO skoro vse s decision
+// TODO: 74
 
 function FindChild(treeNode, index) {
     if (treeNode == null) return null;
@@ -591,21 +592,27 @@ function FillInTokens(treeNode, commandList) {
     var from = treeNode.start.tokenIndex;
     var to = treeNode.stop.tokenIndex;
     var newList = [];
+    var lastCmd = null;
 
     for (var cmd of commandList) {
         if (cmd.tokens[0].tokenIndex != from) {
             // create new nonsemantic text
             var tokensNt = [];
             for (var i = from; i < cmd.tokens[0].tokenIndex; i++) {
-                tokensNt.push(GetTokenInfo(treeNode.parser._input.tokens[i]));
+                if (lastCmd !== null && 'tokens' in lastCmd) lastCmd.tokens.push(GetTokenInfo(treeNode.parser._input.tokens[i]));
+                else tokensNt.push(GetTokenInfo(treeNode.parser._input.tokens[i]));
             }
-            var nt = new NonsemanticText(tokensNt);
-            newList.push(nt);
+            // TODO: Merge into last line instead
+            if (lastCmd === null || !('tokens' in lastCmd)) {
+                var nt = new NonsemanticText(tokensNt);
+                newList.push(nt);
+            }
         }
         
         // add previous
         newList.push(cmd);
         from = cmd.tokens[cmd.tokens.length - 1].tokenIndex + 1;
+        lastCmd = cmd;
     }
 
     // add nonsemantic end if any

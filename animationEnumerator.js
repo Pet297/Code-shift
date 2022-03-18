@@ -48,7 +48,7 @@ export class IntermediateTextEnumerator
                         GetStillText(this.sourceChanges, this.destinationChanges, this.proccessedList),
                         childText,
                         GetStillText(this.sourceChanges, this.destinationChanges, this.unproccessedList),
-                        "",
+                        [],
                         true
                     ];
                 }
@@ -107,21 +107,33 @@ export class IntermediateTextEnumerator
 //  returns coresponding text from original or new source code.
 function GetStillText(sourceChanges, destinationChanges, currentBlocks)
 {
-    var stillText = "";
+    var stillText = [];
 
     for (var block of currentBlocks)
     {
         if (block[1] == 'o') {
-            stillText += FindByAddress(sourceChanges,block[0]);
+            var tokens = FindByAddress(sourceChanges,block[0]);
+            for (var token of tokens) {
+                stillText.push(token);
+            }
         }
         else if (block[1] == '+') {
-            stillText += FindByAddress(destinationChanges,block[0]);
+            var tokens = FindByAddress(destinationChanges,block[0]);
+            for (var token of tokens) {
+                stillText.push(token);
+            }
         }
         else if (block[1] == 'x') {
-            stillText += FindByAddress(sourceChanges,block[0]);
+            var tokens = FindByAddress(sourceChanges,block[0]);
+            for (var token of tokens) {
+                stillText.push(token);
+            }
         }
         else if (block[1] == '*') {
-            stillText += FindByAddress(destinationChanges,sourceChanges[block[0]].address);
+            var tokens = FindByAddress(destinationChanges,sourceChanges[block[0]].address);
+            for (var token of tokens) {
+                stillText.push(token);
+            }
         }
     }
 
@@ -241,10 +253,10 @@ export function CollapseIntermediateText(intermediateText) {
         intermediateText[0] = intermediateText[2][0];
 
         //1: ProcE + ProcI
-        intermediateText[1] = intermediateText[1] + intermediateText[2][1];
+        intermediateText[1] = intermediateText[1].concat(intermediateText[2][1]);
 
         //4: Unproc2I + UnprocE + Unproc2I
-        intermediateText[4] = intermediateText[2][4] + intermediateText[3] + intermediateText[4];
+        intermediateText[4] = intermediateText[2][4].concat(intermediateText[3].concat(intermediateText[4]));
 
         //3: UnprocI
         intermediateText[3] = intermediateText[2][3];
@@ -260,7 +272,7 @@ export function CollapseIntermediateText(intermediateText) {
 
 // Given a list of changes and an adress, returns part of one of the original source codes.
 function FindByAddress(listOfChanges, address) {
-    if ('rawText' in listOfChanges[address]) return listOfChanges[address].rawText;
+    if ('tokens' in listOfChanges[address]) return listOfChanges[address].tokens;
     else
     {
         return GetAllText(listOfChanges[address]);
@@ -269,13 +281,13 @@ function FindByAddress(listOfChanges, address) {
 
 // Gets all text from a non-leaf block of code.
 function GetAllText(change) {
-    var text = '';
+    var text = [];
     for (var index in change.children) {
-        if ('rawText' in change.children[index]) {
-            text += change.children[index].rawText;
+        if ('tokens' in change.children[index]) {
+            text = text.concat(change.children[index].tokens);
         }
         else {
-            text += GetAllText(change.children[index]);
+            text = text.concat(GetAllText(change.children[index]));
         }
     }
     return text;

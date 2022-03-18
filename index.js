@@ -8,8 +8,8 @@ import TranslateRule from './ruleTranslator.js';
 import { FindCodeChanges, SupplyCodeChanges } from './distance.js'
 import { AddText } from './statementPosition.js'
 import { GetAnimationSequence } from './animationSequence.js'
-import { IntermediateTextEnumerator, CollapseIntermediateText } from './animationEnumerator2.js'
-import { WriteStationaryAnimationFile, WriteMovingAnimationFile, WriteAddingAnimationFile, WriteDeletingAnimationFile, WriteChangingAnimationFile, WriteGifFile, WriteGifFileSH, WriteGifFileSHTransform, WriteGifFileSHAdd, WriteGifFileSHMoveUp, WriteGifFileSHRemove } from './gifWriter.js'
+import { IntermediateTextEnumerator, CollapseIntermediateText } from './animationEnumerator.js'
+import { WriteGifFile, WriteGifFileSH, WriteGifFileSHTransform, WriteGifFileSHAdd, WriteGifFileSHMoveUp, WriteGifFileSHRemove } from './gifWriter.js'
 import { ListOfChangesToFile, FileToListOfChanges } from './intermediateOutput.js';
 import { LevenChanges } from './levenAnimator.js';
 import RenmameVariable from './variableRenamer.js';
@@ -39,136 +39,6 @@ function CodeToTree(codeFile) {
     return tree;
 }
 
-async function DoGifOutput(resenum, output, resolve) {
-    var gifnumber = 0;
-    var prevText;
-    var text;
-    while (true) {
-        prevText = text;
-        text = resenum.GetNextStillText();
-        if (text === undefined) break;
-        else {
-            text = CollapseIntermediateText(text);
-
-            if (text[0]=='^' && text[3] != '')
-            {
-                var promises = [];
-                for (var i=0; i<20; i++)
-                {
-                    let promise = new Promise(
-                        resolve => WriteMovingAnimationFile(
-                            text[1],
-                            text[3],
-                            text[4],
-                            text[2],
-                            i/19.0,
-                            '.output\\frame' + (gifnumber+1001).toString() + '.gif',
-                            resolve)
-                    );
-                    promises.push(promise);
-                    gifnumber++;
-                }
-                await Promise.all(promises);
-            }
-
-            if (text[0]=='+' && text[2] != '')
-            {
-                var promises = [];
-                for (var i=0; i<20; i++)
-                {
-                    let promise = new Promise(
-                        resolve => WriteAddingAnimationFile(
-                            text[1],
-                            text[3],
-                            text[4],
-                            text[2],
-                            i/19.0,
-                            '.output\\frame' + (gifnumber+1001).toString() + '.gif',
-                            resolve)
-                    );
-                    promises.push(promise);
-                    gifnumber++;
-                }
-                await Promise.all(promises);
-            }
-
-            if (text[0]=='x' && text[2] != '')
-            {
-                var promises = [];
-                for (var i=0; i<20; i++)
-                {
-                    let promise = new Promise(
-                        resolve => WriteDeletingAnimationFile(
-                            text[1],
-                            text[3],
-                            text[4],
-                            text[2],
-                            i/19.0,
-                            '.output\\frame' + (gifnumber+1001).toString() + '.gif',
-                            resolve)
-                    );
-                    promises.push(promise);
-                    gifnumber++;
-                }
-                await Promise.all(promises);
-            }
-
-            if (text[0]=='*')
-            {
-                var promises = [];
-                for (var i=0; i<20; i++)
-                {
-                    let promise = new Promise(
-                        resolve => WriteChangingAnimationFile(
-                            text[1],
-                            text[3],
-                            text[4],
-                            text[2],
-                            i/19.0,
-                            '.output\\frame' + (gifnumber+1001).toString() + '.gif',
-                            resolve)
-                    );
-                    promises.push(promise);
-                    gifnumber++;
-                }
-                await Promise.all(promises);
-            }
-        }
-
-    }
-
-    var promises = [];
-                for (var i=0; i<20; i++)
-                {
-                    let promise = new Promise(
-                        resolve => WriteStationaryAnimationFile(
-                            prevText[1] + prevText[3] + prevText[4] + prevText[2],
-                            '.output\\frame' + (gifnumber+1001).toString() + '.gif',
-                            resolve)
-                    );
-                    promises.push(promise);
-                    gifnumber++;
-                }
-                await Promise.all(promises);
-
-    let promise = new Promise(
-        resolve => WriteGifFile('.output/frame*.gif', '.output/result.gif', resolve)
-        )
-    await promise;
-
-    //delete individual frames
-    for (var i=0; i < gifnumber;i++) {
-        var framePath = path.join(".", ".output", "frame"+ (i+1001).toString() +".gif");
-        fs.unlink(framePath, CallbackRemove);
-    }
-
-    //move result
-    const outputPath = path.join(".", ".output", "result.gif");
-    fs.rename(outputPath, output, CallbackMove);
-
-    resolve();
-}
-
 async function DoGifOutput2(resenum, output, resolve) {
     var gifnumber = 0;
     var prevText;
@@ -189,8 +59,8 @@ async function DoGifOutput2(resenum, output, resolve) {
                         resolve => WriteGifFileSHMoveUp(
                             text[1],
                             text[2],
-                            text[4],
                             text[3],
+                            text[4],
                             i/19.0,
                             '.output\\frame' + (gifnumber+1001).toString() + '.gif',
                             resolve)
@@ -333,7 +203,7 @@ async function Exec1M(code1, code2, changes12, output, resolve) {
 
     var resenum = new IntermediateTextEnumerator(result.inputDestinations, result.outputSources, result2);
     var promise = new Promise(
-        resolve => DoGifOutput(resenum, output, resolve)
+        resolve => DoGifOutput2(resenum, output, resolve)
         );
     promise.then(()=>resolve());
     await promise;
@@ -356,7 +226,7 @@ async function Exec1F(code1, code2, output, resolve) {
 
     var resenum = new IntermediateTextEnumerator(result.inputDestinations, result.outputSources, result2);
     var promise = new Promise(
-        resolve => DoGifOutput(resenum, output, resolve)
+        resolve => DoGifOutput2(resenum, output, resolve)
         );
     promise.then(()=>resolve());
     await promise;
