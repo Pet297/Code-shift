@@ -124,7 +124,7 @@ async function DoGifOutput2(resenum, output, resolve) {
                 {
                     let promise = new Promise(
                         resolve => WriteGifFileSHTransform(
-                        
+                        tokenList,
                         i/19.0,
                         '.output\\frame' + (gifnumber+1001).toString() + '.gif',
                         resolve)

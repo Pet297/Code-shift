@@ -21,11 +21,19 @@ export function GetAnimationSequence(sourceChanges, destinationChanges)
 
             // Apply changes, or do internal animation
             if (sourceChanges[srcaddress].children.length != 0 || destinationChanges[index].children != 0) animationList.push(new InternalAnimationSequence(srcaddress, GetAnimationSequence(sourceChanges[srcaddress].children, destinationChanges[index].children)));
-            else if (sourceChanges[srcaddress].rawText != destinationChanges[index].rawText) animationList.push(new ChangingAnimation(srcaddress));
+            else if (!CheckTokensSame(sourceChanges[srcaddress].tokens, destinationChanges[index].tokens)) animationList.push(new ChangingAnimation(srcaddress));
         }
     }
     // TODO[09]: Reduce number of animations by grouping related ones.
     return animationList;
+}
+
+function CheckTokensSame(tokens1, tokens2) {
+    if (tokens1.length != tokens2.length) return false;
+    for (var i = 0; i < tokens1.length; i++) {
+        if (tokens1[i].text != tokens2[i].text) return false;
+    }
+    return true;
 }
 
 export class DeletingAnimation {

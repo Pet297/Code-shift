@@ -143,10 +143,10 @@ switch (treeNode.ruleIndex)
     //case 24: // breakStatement(24) -> 'Break' [(!!)? (70)]? (74)
 
     case 25: // returnStatement(25) -> 'Return' [(!!)? (56)]? (74)
-        return TranslateRule(FindChild(treeNode, 56));
+        return FillInTokensSimple(treeNode, TranslateRule(FindChild(treeNode, 56)));
 
     case 26: // yieldStatement(26) -> 'Yield' [(!!)? (56)]? (74)
-        return TranslateRule(FindChild(treeNode, 56));
+        return FillInTokensSimple(treeNode, TranslateRule(FindChild(treeNode, 56)));
 
     case 27: // withStatement(27) -> 'With' '(' (56) ')' (2)
         // TODO: 2 dependent on 56 ident.
@@ -616,6 +616,16 @@ function FillInTokens(treeNode, commandList) {
 
     return new NonsemanticCommandList(newList);
 }
+function FillInTokensSimple(treeNode, command) {
+    var from = treeNode.start.tokenIndex;
+    var to = treeNode.stop.tokenIndex;
+
+    command.tokens = [];
+
+    for (var i = from; i <= to; i++) {
+        command.tokens.push(GetTokenInfo(treeNode.parser._input.tokens[i]));
+    }
+}
 function PushTokensToEnd(block, tokens) {
     for (var token of tokens) {
         block.tokens.push(token);
@@ -631,7 +641,7 @@ function PushTokensToEnd(block, tokens) {
 // - tokens: list of tokens in source code
 // - variables: list of tokens, that are also variables
 
-class TokenInfo {
+export class TokenInfo {
     constructor (text, start, stop, tokenIndex, isLiteral, isIdentifier, colorClass) {
         this.text = text;
         this.start = start;

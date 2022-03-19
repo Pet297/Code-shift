@@ -2,7 +2,7 @@ import fs from 'fs';
 import gm from 'gm';
 import os from 'os';
 import { LevenChanges, LevenChangesColored, ChangingLevenPart, UnchangedLevenPart } from './levenAnimator.js';
-import { GetTokenInfo } from './ruleTranslator.js';
+import { TokenInfo } from './ruleTranslator.js';
 
 // CONSTANTS
 const lineSpacing = 20;
@@ -62,12 +62,12 @@ function DrawColoredLines(gms, lines, textColor, y0, xoffset = 0) {
 
         while(true)
         {
-            if (s0.charAt(0) == ' ')
+            if (s0[0] == ' ')
             {
                 spaces++;
                 s0 = s0.substring(1);
             }
-            else if (s0.charAt(0) == '\t')
+            else if (s0[0] == '\t')
             {
                 spaces += tabSpaces;
                 s0 = s0.substring(1);
@@ -149,6 +149,7 @@ export function WriteGifFileSH(tokens,filename,resolve) {
 
 export function WriteGifFileSHTransform(tokens,percentage,filename,resolve) {
     var gms = StartNewGIF();
+
     var x = 0;
     var y = 0;
     var nl = '\n';
@@ -169,8 +170,7 @@ export function WriteGifFileSHTransform(tokens,percentage,filename,resolve) {
             else x += token.text.length;
         }
         else {
-            var text2 = "";
-            for (var token2 of token[0]) {
+            for (var token2 of token[1]) {
                 if (token2.text == nl) { y++; x = 0}
                 else if (token2.text == '\n' || token.text == '\r') {}
                 else if (token2.text == '\t') { x += tabSpaces; x -= x % tabSpaces }
@@ -183,7 +183,7 @@ export function WriteGifFileSHTransform(tokens,percentage,filename,resolve) {
     x = 0;
     y = 0;
     for (var token of tokens) {
-        oldPos.push({x:x, y:y});
+        newPos.push({x:x, y:y});
         if (token instanceof TokenInfo) {
             if (token.text == nl) { y++; x = 0}
             else if (token.text == '\n' || token.text == '\r') {}
@@ -191,8 +191,7 @@ export function WriteGifFileSHTransform(tokens,percentage,filename,resolve) {
             else x += token.text.length;
         }
         else {
-            var text2 = "";
-            for (var token2 of token[1]) {
+            for (var token2 of token[0]) {
                 if (token2.text == nl) { y++; x = 0}
                 else if (token2.text == '\n' || token.text == '\r') {}
                 else if (token2.text == '\t') { x += tabSpaces; x -= x % tabSpaces }
@@ -203,31 +202,26 @@ export function WriteGifFileSHTransform(tokens,percentage,filename,resolve) {
 
     // Draw
     for (var i = 0; i < tokens.length; i++) { 
-        var textC = JS_COLOR[textC.colorClass];
+        var textC = JS_COLOR[tokens[i].colorClass];
 
-        if (token[i].text != '\n' && token[i].text != '\r' && token[i].text != '\t') {
-            var pxa = (1-percentage) * oldPos[i].x + percentage * newPos[i].x;
-            var pya = (1-percentage) * oldPos[i].y + percentage * newPos[i].y;
-            DrawColoredLines(gms,[token.text],textC,pya * lineSpacing + firstLineY,pxa);
-        }
-        else if (!(token[i] instanceof TokenInfo)) {
+        if (!(tokens[i] instanceof TokenInfo)) {
             var coloredText1 = [];
-            var coloredtext2 = [];
+            var coloredText2 = [];
 
             // 1) Build colored strings
-            for (var token2 of token[i][0]) {
+            for (var token2 of tokens[i][0]) {
                 for (var j = 0; j < token2.text.length; j++) {
                     coloredText1.push([token2.text[j],token2.colorClass]);
                 }
             }
-            for (var token2 of token[i][1]) {
+            for (var token2 of tokens[i][1]) {
                 for (var j = 0; j < token2.text.length; j++) {
                     coloredText2.push([token2.text[j],token2.colorClass]);
                 }
             }
 
             // 2) Get changes
-            var changingTextFull = LevenChangesColored(coloredText1, coloredtext2);
+            var changingTextFull = LevenChangesColored(coloredText1, coloredText2);
 
             // 3) Calculate old and new positions for every char
             var listMove = [];
@@ -241,20 +235,20 @@ export function WriteGifFileSHTransform(tokens,percentage,filename,resolve) {
             for (var part of changingTextFull) {
                 if (part instanceof UnchangedLevenPart) {
                     // Both same length
-                    for (var char of part.part) {
+                    for (var j = 0; j < part.before.length; j++) {
                         //             char     color 1  color 2  b.x b.y a.x a.y
-                        listMove.push([char[0], char[1], char[2], x1, y1, x2, y2]);
+                        listMove.push([part.before[j][0], part.before[j][1], part.after[j][1], x1, y1, x2, y2]);
 
-                        if (char[0] == nl) { y1++; x1 = 0; y2++; x2 = 0; }
-                        else if (char[0] == '\n' || char[0] == '\r') {}
-                        else if (char[0] == '\t') { x1 += tabSpaces; x1 -= x1 % tabSpaces; x2 += tabSpaces; x2 -= x2 % tabSpaces; }
+                        if (part.before[j][0] == nl) { y1++; x1 = 0; y2++; x2 = 0; }
+                        else if (part.before[j][0] == '\n' || part.before[j][0] == '\r') {}
+                        else if (part.before[j][0] == '\t') { x1 += tabSpaces; x1 -= x1 % tabSpaces; x2 += tabSpaces; x2 -= x2 % tabSpaces; }
                         else { x1++; x2++; }
                     }
                 }
                 else if (part instanceof ChangingLevenPart) {
                     // Before
                     for (var char of part.before) {
-                        listAdd.push([char[0], char[1], x2, y2]);
+                        listAdd.push([char[0], char[1], x1, y1]);
 
                         if (char[0] == nl) { y1++; x1 = 0; }
                         else if (char[0] == '\n' || char[0] == '\r') {}
@@ -263,7 +257,7 @@ export function WriteGifFileSHTransform(tokens,percentage,filename,resolve) {
                     }
                     // After
                     for (var char of part.after) {
-                        listAdd.push([char[0], char[1], x1, y1]);
+                        listDel.push([char[0], char[1], x2, y2]);
 
                         if (char[0] == nl) { y2++; x2 = 0; }
                         else if (char[0] == '\n' || char[0] == '\r') {}
@@ -274,29 +268,34 @@ export function WriteGifFileSHTransform(tokens,percentage,filename,resolve) {
             }
 
             // 4) Calculate relevant percentages
-            var percentMove = Math.min(1, percentage * 2);
-            var percentDissappear = Math.min(1, percentage * 2);
-            var percentAppear = Math.max(0, (percentage - 0.5) * 2);
+            var percentMove = percentage;
+            var percentDissappear = percentage;
+            var percentAppear = percentage;
 
             // 5) Draw every character individualy
-            if (percentage < 0.5) {
+            //if (percentage < 0.5) {
                 for (var c of listDel) {
                     var color = MixColors(JS_COLOR[c[1]],'#000000',percentDissappear);
-                    DrawColoredLines(gms,[c[0]],textC,c[3] * lineSpacing + firstLineY,c[2]);
+                    DrawColoredLines(gms,[c[0]],color,c[3] * lineSpacing + firstLineY,c[2]);
                 }
-            }
-            else {
+            //}
+            //else {
                 for (var c of listAdd) {
                     var color = MixColors('#000000',JS_COLOR[c[1]],percentAppear);
-                    DrawColoredLines(gms,[c[0]],textC,c[3] * lineSpacing + firstLineY,c[2]);
+                    DrawColoredLines(gms,[c[0]],color,c[3] * lineSpacing + firstLineY,c[2]);
                 }
-            }
+            //}
             for (var c of listMove) {
-                var xa = (1-percentMove) * c[3] + percentMove * c[5];
-                var ya = (1-percentMove) * c[4] + percentMove * c[6];
+                var xa = (1 - percentMove) * c[3] + percentMove * c[5];
+                var ya = (1 - percentMove) * c[4] + percentMove * c[6];
                 var color = MixColors(JS_COLOR[c[1]],JS_COLOR[c[2]],percentage);
                 DrawColoredLines(gms,[c[0]],color,ya * lineSpacing + firstLineY,xa);
             }
+        }
+        else if (tokens[i].text != '\n' && tokens[i].text != '\r' && tokens[i].text != '\t') {
+            var pxa = (1-percentage) * oldPos[i].x + percentage * newPos[i].x;
+            var pya = (1-percentage) * oldPos[i].y + percentage * newPos[i].y;
+            DrawColoredLines(gms,[tokens[i].text],textC,pya * lineSpacing + firstLineY,pxa);
         }
     }
 
