@@ -192,8 +192,8 @@ export function FindCodeChanges(codeBefore, codeAfter, rawBefore, rawAfter) {
     // B4) Calculate distances between every block with renamings
     // TODO[12]: (?) Cap max distance in code to avoid O(n^2) and prevent crazy O(exp) algorithms down the line
     var distances = [];
-    for (var i in unpairedBefore) {
-        for (var j in unpairedAfter) {
+    for (var i of unpairedBefore) {
+        for (var j of unpairedAfter) {
             var dist = StatementDistance(codeBefore[i], codeAfter[j]);
             var rel = dist[1]/dist[0]; //Different / Same
             if (rel !== Infinity && rel < changeTreshold) distances.push([rel,dist[1],i,j]);
@@ -369,20 +369,20 @@ function FindCodeChangesWithRename(codeBefore, codeAfter, unpairedBefore, unpair
 export function SupplyCodeChanges(codeBefore, codeAfter, renames, changesBefore, changesAfter) {
     
     // Z) ADD RAW TEXT
-    AddRawText(codeBefore, changesBefore);
-    AddRawText(codeAfter, changesAfter);
+    AddTokenData(codeBefore, changesBefore);
+    AddTokenData(codeAfter, changesAfter);
 
     // Return, as normally
     return new ListOfChanges(changesBefore, changesAfter, renames, 0, 1000);
 }
 
-function AddRawText(code, changes) {
+function AddTokenData(code, changes) {
     for (var index in changes) {
         if (code[index] instanceof SemanticAction) {
             if ('tokens' in code[index]) changes[index].tokens = code[index].tokens;
         }
         else if (code[index] instanceof SemanticDefinition) {
-            AddRawText(code[index].localCode, changes[index].children);
+            AddTokenData(code[index].localCode, changes[index].children);
         }
         else if (code[index] instanceof NonsemanticText) {
             if ('tokens' in code[index]) changes[index].tokens = code[index].tokens;
@@ -536,7 +536,7 @@ function StatementDistance(block1, block2) {
             for (var token of block2.tokens) rawText2 += token.text;
 
             var ld = leven(rawText1, rawText2);
-            var long = Math.max(block1.tokens.length, block2.tokens.length);
+            var long = Math.max(rawText1.length, rawText2.length);
             var dist = 1 + levenDifferencePenalty * ld;
             var sim = 1 + levenSimmilarityBonus * (long - ld);
             return [sim, dist];

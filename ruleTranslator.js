@@ -518,21 +518,6 @@ function FindChildren(treeNode, index) {
 function CollapseDefinition(definition, newParams, newName, newType) {
     return new SemanticDefinition(newParams, definition.localCode, newType, newName);
 }
-// Pozor, konstanta 117
-function ScanLiterals(treeNode, l = []) {
-    if (typeof treeNode.children === 'undefined')
-    {
-        if (treeNode.symbol.type == 117)
-        {
-            l.push(treeNode.symbol.text);
-        }
-    }
-    else
-    {
-        treeNode.children.forEach(element => {ScanLiterals(element,l);});
-    }
-    return l;
-}
 
 function MergeArrays(destination, source) {
     for (var v of source) {
