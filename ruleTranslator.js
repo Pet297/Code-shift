@@ -14,7 +14,10 @@ if (treeNode == null) return null;
 switch (treeNode.ruleIndex)
 {
     case 0: // program(0) -> (HB)? (48)? 'EOF'
-        return TranslateRule(FindChild(treeNode, 48));
+        var cmd = TranslateRule(FindChild(treeNode, 48));
+        var cmdList = FillInTokens(treeNode, cmd.localCode);
+        var st0 = new SemanticDefinition([], cmdList.commands, "program", null);
+        return st0;
 
     case 1: // sourceElement(1) -> (2)
         return TranslateRule(FindChild(treeNode, 2));
@@ -599,14 +602,14 @@ function FillInTokens(treeNode, commandList) {
             // create new nonsemantic text
             var tokensNt = [];
             for (var i = from; i < cmd.tokens[0].tokenIndex; i++) {
-                if (lastCmd !== null && 'tokens' in lastCmd) lastCmd.tokens.push(GetTokenInfo(treeNode.parser._input.tokens[i]));
-                else tokensNt.push(GetTokenInfo(treeNode.parser._input.tokens[i]));
+                tokensNt.push(GetTokenInfo(treeNode.parser._input.tokens[i]));
             }
             // TODO: Merge into last line instead
             if (lastCmd === null || !('tokens' in lastCmd)) {
                 var nt = new NonsemanticText(tokensNt);
                 newList.push(nt);
             }
+            else PushTokensToEnd(lastCmd, tokensNt);
         }
         
         // add previous
@@ -627,6 +630,16 @@ function FillInTokens(treeNode, commandList) {
     }
 
     return new NonsemanticCommandList(newList);
+}
+function PushTokensToEnd(block, tokens) {
+    for (var token of tokens) {
+        block.tokens.push(token);
+    }
+
+    //TODO: Decision
+    if (block instanceof SemanticDefinition) {
+        block.localCode.push(new NonsemanticText(tokens));
+    }
 }
 
 // Common interface

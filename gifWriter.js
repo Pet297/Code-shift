@@ -353,9 +353,8 @@ export function WriteGifFileSHRemove(tokensPreceding, tokensRemoved, tokensAfter
     var pos2 = InterpolatePositions(obj02.positions, obj12.positions, percentage);
 
     // Draw them all
-    // TODO: opacity
     DrawTokens(tokensPreceding, pos0, gms);
-    DrawTokens(tokensRemoved, pos1, gms);
+    DrawTokens(tokensRemoved, pos1, gms, 1-percentage);
     DrawTokens(tokensAfter, pos2, gms);
     
     gms.write(filename, ()=>{resolve()});
@@ -380,9 +379,8 @@ export function WriteGifFileSHAdd(tokensPreceding, tokensAdded, tokensAfter, per
     var pos2 = InterpolatePositions(obj02.positions, obj12.positions, percentage);
 
     // Draw them all
-    // TODO: opacity
     DrawTokens(tokensPreceding, pos0, gms);
-    DrawTokens(tokensAdded, pos1, gms);
+    DrawTokens(tokensAdded, pos1, gms, percentage);
     DrawTokens(tokensAfter, pos2, gms);
     
     gms.write(filename, ()=>{resolve()});
@@ -405,7 +403,7 @@ function GetTokenPositions(tokens, x, y) {
             //nothing happens
         }
         else if (token.text == '\t') {
-            xc += tabSpaces;
+            xc += tabSpaces - (xc % tabSpaces);
         }
         else {
             xc += token.text.length;
@@ -422,9 +420,10 @@ function InterpolatePositions(array0, array1, percentage) {
     return ret;
 }
 
-function DrawTokens(tokens, positions, gms) {
+function DrawTokens(tokens, positions, gms, opacity = 1) {
     for (var i = 0; i < tokens.length; i++) {
-        DrawColoredLines(gms,[tokens[i].text],JS_COLOR[tokens[i].colorClass],positions[i].y * lineSpacing + firstLineY, positions[i].x);
+        var opacColor = MixColors('#000000', JS_COLOR[tokens[i].colorClass], opacity);
+        DrawColoredLines(gms,[tokens[i].text],opacColor,positions[i].y * lineSpacing + firstLineY, positions[i].x);
     }   
 }
 
@@ -444,14 +443,14 @@ function RGBtoString(r,g,b) {
 function MixColors(string0, string1, percentage) {
     let c0 = FromHexadecimal(string0);
     let c1 = FromHexadecimal(string1);
-    return MixColors(c0.r, c0.g, c0.b, c1.r, c1.g, c1.b, percentage);
+    return MixColors0(c0.r, c0.g, c0.b, c1.r, c1.g, c1.b, percentage);
 }
-/*function MixColors(r0,g0,b0,r1,g1,b1,percentage) {
+function MixColors0(r0,g0,b0,r1,g1,b1,percentage) {
     let r = r0 + (r1 - r0) * percentage;
     let g = g0 + (g1 - g0) * percentage;
     let b = b0 + (b1 - b0) * percentage;
     return RGBtoString(r,g,b);
-}*/
+}
 
 // Returns hexadecimal representation of a number in range 0 to 255.
 let hexit = ['0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F']
