@@ -24,7 +24,7 @@ const levenSimmilarityBonus = 2.0;
 const changeTreshold = 2.0;
 const renameTreshold = 0.9;
 
-export function FindCodeChanges(codeBefore, codeAfter, rawBefore, rawAfter) {
+export function FindCodeChanges(codeBefore, codeAfter, rawBefore, rawAfter, parentRenames = {}) {
 
     // SPECIAL CASE: Only 1 object in the input and output --> If same type of definition, assume they are related
     if (codeBefore.length == 1 && codeAfter.length == 1
@@ -56,8 +56,9 @@ export function FindCodeChanges(codeBefore, codeAfter, rawBefore, rawAfter) {
             for (var j = 0; j < unpairedAfter.length; j++) {
                 if (codeAfter[unpairedAfter[j]] instanceof SemanticDefinition) {
                     if (codeBefore[unpairedBefore[i]].definitionType == codeAfter[unpairedAfter[j]].definitionType && codeBefore[unpairedBefore[i]].name == codeAfter[unpairedAfter[j]].name) {
-                        var innerChanges = FindCodeChanges(codeBefore[unpairedBefore[i]].localCode, codeAfter[unpairedAfter[j]].localCode);
+                        var innerChanges = FindCodeChanges(codeBefore[unpairedBefore[i]].localCode, codeAfter[unpairedAfter[j]].localCode, parentRenames);
                         difference += innerChanges.difference * innerCodeMultiplierPenalty;
+                        // TODO: Better rename call
                         difference += listDistance(codeBefore[unpairedBefore[i]].paramList, codeAfter[unpairedAfter[j]].paramList) * missingParamPenalty;
                         sameness += innerChanges.sameness * innerCodeMultiplierBonus;
                         sameness += listSimilarity(codeBefore[unpairedBefore[i]].paramList, codeAfter[unpairedAfter[j]].paramList) * sharedParamBonus;
@@ -149,11 +150,11 @@ export function FindCodeChanges(codeBefore, codeAfter, rawBefore, rawAfter) {
         }
     }
 
-    var renamesList = {};
+    var renamesList = {...parentRenames};
     while (true)
     {
         // B2) Calculate distances for potential renames and build renaming tables
-        var norename = FindCodeChangesWithRename(codeBefore, codeAfter, unpairedBefore, unpairedAfter, renamesList);
+        var norename = CheckForRenames(codeBefore, codeAfter, unpairedBefore, unpairedAfter, renamesList);
         var norenameRel = norename[1]/norename[0];
         if (norenameRel === Infinity) break;
         var renamesValues = [];
@@ -165,9 +166,9 @@ export function FindCodeChanges(codeBefore, codeAfter, rawBefore, rawAfter) {
                 // Go through every input block and try to find matching output block
                 // To each renaming pair, asign a value of sameness and difference
                 // Based on large ratios, accept some changes      
-                var renamesList0 = Object.assign({}, renamesList);;
+                var renamesList0 = {...renamesList};
                 renamesList0[origName] = newName;
-                var simDst = FindCodeChangesWithRename(codeBefore, codeAfter, unpairedBefore, unpairedAfter, renamesList0);
+                var simDst = CheckForRenames(codeBefore, codeAfter, unpairedBefore, unpairedAfter, renamesList0);
                 //renamesValues.push([simDst[0] / simDst[1], origName, newName, simDst[0], simDst[1]]);
 
                 var rel = simDst[1]/simDst[0]; //Different / Same
@@ -194,7 +195,7 @@ export function FindCodeChanges(codeBefore, codeAfter, rawBefore, rawAfter) {
     var distances = [];
     for (var i of unpairedBefore) {
         for (var j of unpairedAfter) {
-            var dist = StatementDistance(codeBefore[i], codeAfter[j]);
+            var dist = StatementDistance(codeBefore[i], codeAfter[j], renamesList);
             var rel = dist[1]/dist[0]; //Different / Same
             if (rel !== Infinity && rel < changeTreshold) distances.push([rel,dist[1],i,j]);
         }
@@ -232,7 +233,7 @@ export function FindCodeChanges(codeBefore, codeAfter, rawBefore, rawAfter) {
     // For each removed or added line, add penalty.
     for (var i in inputDestinations) {
         if (inputDestinations[i].address != 'x') {
-            var dist = StatementDistance(codeBefore[i], codeAfter[inputDestinations[i].address]);
+            var dist = StatementDistance(codeBefore[i], codeAfter[inputDestinations[i].address], renamesList);
             sameness += dist[0];
             difference += dist[1];
         }
@@ -279,7 +280,7 @@ export function FindCodeChanges(codeBefore, codeAfter, rawBefore, rawAfter) {
     return new ListOfChanges(inputDestinations, outputSources, renamesList, difference, sameness);
 }
 
-function FindCodeChangesWithRename(codeBefore, codeAfter, unpairedBefore, unpairedAfter, renames = {}) {
+function CheckForRenames(codeBefore, codeAfter, unpairedBefore, unpairedAfter, renames = {}) {
     var difference = 0.0;
     var sameness = 0.0;
     
@@ -397,7 +398,8 @@ function FindCodeChanges_Special_OneBlock(codeBefore, codeAfter) {
     var outputSources = {};
     inputDestinations[0] = new CodeChange('0', localChanges.inputDestinations);
     outputSources[0] = new CodeChange('0', localChanges.outputSources);
-    return new ListOfChanges(inputDestinations, outputSources, {}, localChanges.difference, localChanges.sameness);
+    //TODO: urovne renames
+    return new ListOfChanges(inputDestinations, outputSources, localChanges.renames, localChanges.difference, localChanges.sameness);
 }
 
 export class CodeChange {
@@ -486,7 +488,7 @@ function checkStatementsForEquality(block1, block2) {
 }
 
 // Compares 2 simple statements and returns their distance based on how different they are
-function StatementDistance(block1, block2) {
+function StatementDistance(block1, block2, renames = {}) {
     if (block1 instanceof SemanticDefinition && block2 instanceof SemanticDefinition) {
         var dist = 0.0;
         var sim = 0.0;
@@ -494,13 +496,13 @@ function StatementDistance(block1, block2) {
         if (block1.definitionType != block2.definitionType) dist += differentDefinitionTypePenalty;
         else sim += sameDefinitionTypeBonus;
 
-        if (block1.name != block2.name) dist += differentNamePenalty;
+        if (Rename(block1.name, renames) != block2.name) dist += differentNamePenalty;
         else sim += sameNameBonus;
 
-        dist += missingParamPenalty * listDistance(block1.paramList, block2.paramList);
-        sim += sharedParamBonus * listSimilarity(block1.paramList, block2.paramList);
+        dist += missingParamPenalty * listDistance(RenameElementsOfList(block1.paramList, renames), block2.paramList);
+        sim += sharedParamBonus * listSimilarity(RenameElementsOfList(block1.paramList, renames), block2.paramList);
 
-        var changes = FindCodeChanges(block1.localCode, block2.localCode)
+        var changes = FindCodeChanges(block1.localCode, block2.localCode, renames)
         dist += innerCodeMultiplierPenalty * changes.distance;
         sim += innerCodeMultiplierBonus * changes.sameness;
         return [sim + 1, dist + 1];
@@ -509,17 +511,17 @@ function StatementDistance(block1, block2) {
         var dist = 0.0;
         var sim = 0.0;
 
-        dist += missingParamPenalty * listDistance(block1.dependentOn, block2.dependentOn);
-        sim += sharedParamBonus * listSimilarity(block1.dependentOn, block2.dependentOn);
-        dist += missingDependingVariablePenalty * listDistance(block1.dependingVariables, block2.dependingVariables);
-        sim += sharedDependingVariableBonus * listSimilarity(block1.dependingVariables, block2.dependingVariables);
+        dist += missingParamPenalty * listDistance(RenameElementsOfList(block1.dependentOn, renames), block2.dependentOn);
+        sim += sharedParamBonus * listSimilarity(RenameElementsOfList(block1.dependentOn, renames), block2.dependentOn);
+        dist += missingDependingVariablePenalty * listDistance(RenameElementsOfList(block1.dependingVariables, renames), block2.dependingVariables);
+        sim += sharedDependingVariableBonus * listSimilarity(RenameElementsOfList(block1.dependingVariables, renames), block2.dependingVariables);
 
         return [sim + 1, dist + 1];
     }
     else if (block1 instanceof SemanticDecision && block2 instanceof SemanticDecision) {
         //TODO[10]: Lists of lists
         var dist = 0.0;
-        dist += missingParamPenalty * listDistance(block1.dependentOn, block2.dependentOn);
+        dist += missingParamPenalty * listDistance(RenameElementsOfList(block1.dependentOn, renames), block2.dependentOn);
         return [1.0, 1000.0];
     }
     else
@@ -532,7 +534,11 @@ function StatementDistance(block1, block2) {
             var rawText1 = "";
             var rawText2 = "";
 
-            for (var token of block1.tokens) rawText1 += token.text;
+            for (var token of block1.tokens)
+            {
+                if (token.isIdentifier) rawText1 += Rename(token.text, renames);
+                else rawText1 += token.text;
+            }
             for (var token of block2.tokens) rawText2 += token.text;
 
             var ld = leven(rawText1, rawText2);

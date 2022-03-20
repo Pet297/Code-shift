@@ -1,11 +1,23 @@
-export function GetAnimationSequence(sourceChanges, destinationChanges)
+import VariableRename from './variableRenamer.js';
+
+export function GetAnimationSequence(sourceChanges, destinationChanges, renames)
 {
     var animationList = [];
 
     // Step 1 - List removals
-    for (var index in sourceChanges)
-    {
+    for (var index in sourceChanges) {
         if (sourceChanges[index].address == 'x') animationList.push(new DeletingAnimation(index));
+    }
+
+    // Step 1.5 - Add renames
+    for (var origName in renames) {
+        var affectedTokens = [];
+        VariableRename(sourceChanges, origName, affectedTokens);
+
+        var anim = new RenamingAnimation(origName, renames[origName], affectedTokens);
+        animationList.push(anim);
+        // TODO: Not propagate on children?
+        // TODO: Be specific about block
     }
 
     // Step 2 - From top to bottom move things up.
@@ -20,7 +32,7 @@ export function GetAnimationSequence(sourceChanges, destinationChanges)
             animationList.push(new MovingUpAnimation(srcaddress));
 
             // Apply changes, or do internal animation
-            if (sourceChanges[srcaddress].children.length != 0 || destinationChanges[index].children != 0) animationList.push(new InternalAnimationSequence(srcaddress, GetAnimationSequence(sourceChanges[srcaddress].children, destinationChanges[index].children)));
+            if (sourceChanges[srcaddress].children.length != 0 || destinationChanges[index].children != 0) animationList.push(new InternalAnimationSequence(srcaddress, GetAnimationSequence(sourceChanges[srcaddress].children, destinationChanges[index].children, renames)));
             else if (!CheckTokensSame(sourceChanges[srcaddress].tokens, destinationChanges[index].tokens)) animationList.push(new ChangingAnimation(srcaddress));
         }
     }
@@ -69,5 +81,14 @@ export class AddingAnimation {
     constructor (destinationAddress)
     {
         this.destinationAddress = destinationAddress;
+    }
+}
+
+export class RenamingAnimation {
+    constructor (origName, newName, tokensToRename)
+    {
+        this.origName = origName;
+        this.newName = newName;
+        this.tokens = tokensToRename;
     }
 }

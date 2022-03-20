@@ -134,6 +134,39 @@ async function DoGifOutput2(resenum, output, resolve) {
                 }
                 await Promise.all(promises);
             }
+
+            if (text[0]=='R' && text[5] !== undefined)
+            {
+                var tokenList = [];
+
+                tokenList = tokenList.concat(text[1]);
+                for (var token of text[3]) {
+                    if (token.isIdentifier && token.text == text[5][0]) {
+                        var ti2 = token.Clone();
+                        ti2.text = text[5][1];
+                        tokenList.push([
+                            [ti2],
+                            [token]              
+                        ]);
+                    }
+                    else tokenList.push(token);
+                }
+
+                var promises = [];
+                for (var i=0; i<20; i++)
+                {
+                    let promise = new Promise(
+                        resolve => WriteGifFileSHTransform(
+                        tokenList,
+                        i/19.0,
+                        '.output\\frame' + (gifnumber+1001).toString() + '.gif',
+                        resolve)
+                    );
+                    promises.push(promise);
+                    gifnumber++;
+                }
+                await Promise.all(promises);
+            }
         }
 
     }
@@ -241,7 +274,7 @@ async function Exec1F2(code1, code2, output, resolve) {
     let root2 = TranslateRule(tree2);
 
     var result = FindCodeChanges([root1], [root2], tree1.start.source[1].strdata, tree2.start.source[1].strdata);
-    var result2 = GetAnimationSequence(result.inputDestinations, result.outputSources);
+    var result2 = GetAnimationSequence(result.inputDestinations, result.outputSources, result.renames);
 
     var resenum = new IntermediateTextEnumerator(result.inputDestinations, result.outputSources, result2);
     var promise = new Promise(
@@ -258,7 +291,7 @@ async function RunTests() {
         //'./tests/test_F2_0', './tests/test_F2_1', '../F2',
         //'./tests/test_F3_0', './tests/test_F3_1', '../F3',
         //'./tests/test_C1_0', './tests/test_C1_1', '../C1',
-        './tests/test_C2_0', './tests/test_C2_1', '../C2',
+        //'./tests/test_C2_0', './tests/test_C2_1', '../C2',
         './tests/test_D1_0', './tests/test_D1_1', '../D1',
         //'./tests/test_D2_0', './tests/test_D2_1', '../D2',
     ]

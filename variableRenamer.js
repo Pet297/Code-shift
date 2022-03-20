@@ -1,18 +1,13 @@
 import {SemanticDefinition, SemanticAction, SemanticDecision, NonsemanticText} from './ruleTranslator.js';
 
-export default function RenmameVariable(codeBlocks, originalName, newName) {
-    for (var block of codeBlocks) {
+export default function RenmameVariable(listOfChanges, originalName, outputList) {
+    for (var i in listOfChanges) {
 
-        // TODO: listy krome rawtextu udrzuji seznam identifikatoru a jejich pozic.
-
-
-        if (block instanceof SemanticDefinition) {
+        if ('tokens' in listOfChanges[i]) {
+            for (var token of listOfChanges[i]['tokens']) {
+                if (token.isIdentifier && token.text == originalName) outputList.push(token);
+            }
         }
-        else if (block instanceof SemanticAction) {
-
-        }
-        else if (block instanceof SemanticDecision) {
-
-        }
+        else RenmameVariable(listOfChanges[i].children, originalName, outputList );
     }
 }

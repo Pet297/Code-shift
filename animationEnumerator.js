@@ -1,4 +1,4 @@
-import {DeletingAnimation, AddingAnimation, MovingUpAnimation, ChangingAnimation, InternalAnimationSequence} from './animationSequence.js';
+import {DeletingAnimation, AddingAnimation, MovingUpAnimation, ChangingAnimation, InternalAnimationSequence, RenamingAnimation} from './animationSequence.js';
 
 //TODO: Renaming Animation
 
@@ -49,7 +49,7 @@ export class IntermediateTextEnumerator
                         childText,
                         GetStillText(this.sourceChanges, this.destinationChanges, this.unproccessedList),
                         [],
-                        true
+                        [this.renameFrom, this.renameTo]
                     ];
                 }
 
@@ -93,7 +93,8 @@ export class IntermediateTextEnumerator
                     GetStillText(this.sourceChanges, this.destinationChanges, this.proccessedList),
                     GetStillText(this.sourceChanges, this.destinationChanges, this.changedList),
                     GetStillText(this.sourceChanges, this.destinationChanges, this.unproccessedList),
-                    GetStillText(this.sourceChanges, this.destinationChanges, this.unproccessedList2)
+                    GetStillText(this.sourceChanges, this.destinationChanges, this.unproccessedList2),
+                    [this.renameFrom, this.renameTo]
                 ];
             }
         }
@@ -182,7 +183,6 @@ function ApplySimpleAnimation(enumerator, animation) {
     else if (animation instanceof ChangingAnimation) {
         for (var key in enumerator.proccessedList) {
             if (enumerator.proccessedList[key][0] == animation.sourceAddress) {
-                //TODO changing anim (done?)
                 enumerator.proccessedList.splice(key, 1);
                 enumerator.changedList = [[animation.sourceAddress,'o']];
                 enumerator.unproccessedList2 = [[animation.sourceAddress,'*']];
@@ -198,6 +198,13 @@ function ApplySimpleAnimation(enumerator, animation) {
                 break;
             }
         }
+    }
+    else if (animation instanceof RenamingAnimation) {
+        enumerator.changedList = [];
+        enumerator.changedType.type = 'R';
+        enumerator.renameFrom = animation.origName;
+        enumerator.renameTo = animation.newName;
+        enumerator.affected = animation.tokens;
     }
 }
 
@@ -223,15 +230,17 @@ function CollapseAnimation(enumerator) {
     }
     else if (enumerator.changedType.type == '*')
     {
-        //TODO: change (ALE OPRAVDU OPRAVIT - test C1)
         enumerator.proccessedList = enumerator.proccessedList.concat(enumerator.unproccessedList2);
         enumerator.changedList = [];
         enumerator.unproccessedList2 = [];
     }
-    else if (enumerator.changedType.type == 'I')
-    {
+    else if (enumerator.changedType.type == 'I') {
     }
-    //TODO: rename
+    else if (enumerator.changedType.type == 'R') {
+        for (var token of enumerator.affected) {
+            token.text = enumerator.renameTo;
+        }
+    }
 }
 
 // TODO: Do this here, not export.
@@ -264,7 +273,7 @@ export function CollapseIntermediateText(intermediateText) {
         //2: ChangI
         intermediateText[2] = intermediateText[2][2];
 
-        //5: Visauly execute?
+        //5: Renames.
         intermediateText[5] = intermediateText[2][5];
     }
     return intermediateText;
