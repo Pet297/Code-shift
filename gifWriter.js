@@ -268,7 +268,7 @@ export function WriteGifFileSHTransform(tokens,percentage,filename,resolve) {
             }
 
             // 4) Calculate relevant percentages
-            var percentMove = percentage;
+            var percentMove = 1 - percentage;
             var percentDissappear = percentage;
             var percentAppear = percentage;
 
@@ -288,7 +288,7 @@ export function WriteGifFileSHTransform(tokens,percentage,filename,resolve) {
             for (var c of listMove) {
                 var xa = (1 - percentMove) * c[3] + percentMove * c[5];
                 var ya = (1 - percentMove) * c[4] + percentMove * c[6];
-                var color = MixColors(JS_COLOR[c[1]],JS_COLOR[c[2]],percentage);
+                var color = MixColors(JS_COLOR[c[1]],JS_COLOR[c[2]],1 - percentage);
                 DrawColoredLines(gms,[c[0]],color,ya * lineSpacing + firstLineY,xa);
             }
         }

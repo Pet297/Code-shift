@@ -482,7 +482,6 @@ switch (treeNode.ruleIndex)
 // TODO: 57 simplify
 // TODO: 68 - setter
 // TODO skoro vse s decision
-// TODO: 74
 
 function FindChild(treeNode, index) {
     if (treeNode == null) return null;
@@ -586,15 +585,23 @@ function FillInTokens(treeNode, commandList) {
         if (cmd.tokens[0].tokenIndex != from) {
             // create new nonsemantic text
             var tokensNt = [];
+            var comment = [];
+            var commentMode = false;
             for (var i = from; i < cmd.tokens[0].tokenIndex; i++) {
-                tokensNt.push(GetTokenInfo(treeNode.parser._input.tokens[i]));
+                var tokenType = treeNode.parser._input.tokens[i].type;
+                if (!commentMode && tokenType != 122 && tokenType != 123 && tokenType != 2 && tokenType != 3) tokensNt.push(GetTokenInfo(treeNode.parser._input.tokens[i]));
+                else
+                {
+                    comment.push(GetTokenInfo(treeNode.parser._input.tokens[i]));
+                    commentMode = true;
+                }
             }
-            // TODO: Merge into last line instead
             if (lastCmd === null || !('tokens' in lastCmd)) {
                 var nt = new NonsemanticText(tokensNt);
                 newList.push(nt);
             }
             else PushTokensToEnd(lastCmd, tokensNt);
+            if (comment.length != 0) newList.push(new NonsemanticText(comment));
         }
         
         // add previous
@@ -625,6 +632,8 @@ function FillInTokensSimple(treeNode, command) {
     for (var i = from; i <= to; i++) {
         command.tokens.push(GetTokenInfo(treeNode.parser._input.tokens[i]));
     }
+
+    return command;
 }
 function PushTokensToEnd(block, tokens) {
     for (var token of tokens) {

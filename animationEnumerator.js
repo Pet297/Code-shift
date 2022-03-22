@@ -249,32 +249,24 @@ function CollapseAnimation(enumerator) {
 //  to work with the GIF animator.
 export function CollapseIntermediateText(intermediateText) {
     while (intermediateText[0] == 'I') {
-        /*
-        1   |2    |3     |4
-        Proc|Chang|Unproc|Unproc2
-
-        I = Interior, E = Exterior
-        1            |2     |3      |4
-        ProcE + ProcI|ChangI|UnprocI|Unproc2I + UnprocE + Unproc2I
-        */
-
-        //0: Change Type
-        intermediateText[0] = intermediateText[2][0];
-
-        //1: ProcE + ProcI
-        intermediateText[1] = intermediateText[1].concat(intermediateText[2][1]);
-
-        //4: Unproc2I + UnprocE + Unproc2I
-        intermediateText[4] = intermediateText[2][4].concat(intermediateText[3].concat(intermediateText[4]));
-
-        //3: UnprocI
-        intermediateText[3] = intermediateText[2][3];
-
-        //2: ChangI
-        intermediateText[2] = intermediateText[2][2];
-
-        //5: Renames.
-        intermediateText[5] = intermediateText[2][5];
+        if (intermediateText[2][0] == '*')
+        {
+            intermediateText[0] = intermediateText[2][0];
+            intermediateText[1] = intermediateText[1].concat(intermediateText[2][1]);
+            intermediateText[3] = intermediateText[2][3].concat(intermediateText[3].concat(intermediateText[4]));
+            intermediateText[4] = intermediateText[2][4];
+            intermediateText[2] = intermediateText[2][2];
+        }
+        // TODO: rename
+        else
+        {
+            intermediateText[0] = intermediateText[2][0];
+            intermediateText[1] = intermediateText[1].concat(intermediateText[2][1]);
+            intermediateText[4] = intermediateText[2][4].concat(intermediateText[3].concat(intermediateText[4]));
+            intermediateText[3] = intermediateText[2][3];
+            intermediateText[2] = intermediateText[2][2];
+            intermediateText[5] = intermediateText[2][5];
+        }
     }
     return intermediateText;
 }
