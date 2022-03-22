@@ -88,6 +88,7 @@ switch (treeNode.ruleIndex)
             var child16 = TranslateRule(child);
             //Add 'var' as part of the command
             child16.tokens = TreenodeToTokens(treeNode);
+            child16.localCode[0].tokens = TreenodeToTokens(treeNode);
             var cmds16 = ToCommandList(child16);
             for (var cmd of cmds16.commands) {
                 variableActions16.push(cmd);
@@ -98,8 +99,9 @@ switch (treeNode.ruleIndex)
     case 17: // variableDeclaration(17) -> (58) ['=' (57)]?
         let asigned17 = TranslateRule(FindChild(treeNode, 58));
         let dependendencies17 = TranslateRule(FindChild(treeNode, 57));
-        let sd17 = new SemanticDefinition(dependendencies17.dependentOn, [], "variable", asigned17.identifiers[0]);
-        sd17.tokens = TreenodeToTokens(treeNode);
+        let tokens17 = TreenodeToTokens(treeNode);
+        let sd17 = new SemanticDefinition(dependendencies17.dependentOn, [new NonsemanticText(tokens17)], "variable", asigned17.identifiers[0]);
+        sd17.tokens = tokens17;
         return sd17;
 
     //case 18: // emptyStatement(18) -> ';'
@@ -642,7 +644,8 @@ function PushTokensToEnd(block, tokens) {
 
     //TODO: Decision
     if (block instanceof SemanticDefinition) {
-        block.localCode.push(new NonsemanticText(tokens));
+        if (block.definitionType != 'variable') block.localCode.push(new NonsemanticText(tokens));
+        else if (block.definitionType == 'variable') block.localCode[0].tokens = block.localCode[0].tokens.concat(tokens);
     }
 }
 

@@ -113,14 +113,6 @@ function DrawHighlitedLines(gms, lines, highlightColor, textColor, y0, xoffset =
 
 // PUBLIC INTERFACE
 
-const JS_NOCLASS = 0;
-const JS_KEYWORD = 1;
-const JS_IDENTIFIER = 2;
-const JS_NUMERICCONSTANT = 3;
-const JS_STRINGCONSTANT = 4;
-const JS_CONSTANT = 5;
-const JS_OPERATOR = 6;
-const JS_COMMENT = 7;
 const JS_COLOR = ['#606060', '#C040C0', '#A0A0FF', '#80FF40', '#E04040', '#4040FF', '#BBBBBB', '#00A000'];
 
 export function WriteGifFileSH(tokens,filename,resolve) {

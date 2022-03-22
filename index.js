@@ -287,12 +287,12 @@ async function Exec1F2(code1, code2, output, resolve) {
 async function RunTests() {
 
     const tests = [
-        './tests/test_F1_0', './tests/test_F1_1', '../F1',
+        //'./tests/test_F1_0', './tests/test_F1_1', '../F1',
         //'./tests/test_F2_0', './tests/test_F2_1', '../F2',
         //'./tests/test_F3_0', './tests/test_F3_1', '../F3',
         //'./tests/test_C1_0', './tests/test_C1_1', '../C1',
         //'./tests/test_C2_0', './tests/test_C2_1', '../C2',
-        './tests/test_D1_0', './tests/test_D1_1', '../D1',
+        './tests/test_D1_0', './tests/test_D1_1', '../D1',   //TODO: Fix rewrites after rename
         //'./tests/test_D2_0', './tests/test_D2_1', '../D2',
     ]
     const fullExecution = true;

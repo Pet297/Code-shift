@@ -257,6 +257,14 @@ export function CollapseIntermediateText(intermediateText) {
             intermediateText[4] = intermediateText[2][4];
             intermediateText[2] = intermediateText[2][2];
         }
+        else if (intermediateText[2][0] == 'x')
+        {
+            intermediateText[0] = intermediateText[2][0];
+            intermediateText[4] = intermediateText[2][4].concat(intermediateText[3].concat(intermediateText[4]));
+            intermediateText[3] = intermediateText[1].concat(intermediateText[2][1].concat(intermediateText[2][3]));
+            intermediateText[1] = [];
+            intermediateText[2] = intermediateText[2][2];
+        }
         // TODO: rename
         else
         {

@@ -503,7 +503,7 @@ function StatementDistance(block1, block2, renames = {}) {
         sim += sharedParamBonus * listSimilarity(RenameElementsOfList(block1.paramList, renames), block2.paramList);
 
         var changes = FindCodeChanges(block1.localCode, block2.localCode, renames)
-        dist += innerCodeMultiplierPenalty * changes.distance;
+        dist += innerCodeMultiplierPenalty * changes.difference;
         sim += innerCodeMultiplierBonus * changes.sameness;
         return [sim + 1, dist + 1];
     }
