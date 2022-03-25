@@ -1,0 +1,15 @@
+var a = 0;
+var b = 2;
+
+if (a == b - 1) {
+    a -= 0;
+    a += b;
+}
+else if (a == b + 1) {
+    b += a;
+    a += a;
+}
+else {
+    a += 2;
+    b -= 3;
+}

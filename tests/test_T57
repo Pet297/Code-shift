@@ -1,0 +1,30 @@
+var x = 0;
+var y = 10;
+var b = false;
+var c = true;
+var l = [1,2,10,20];
+var o = { prop1: 10, prop2: 20 };
+var z = 0;
+function F(d,e) {
+    d = e + e;
+    return d + e;
+}
+
+z = l[2];
+z = o.prop2;
+z = F(x,y);
+z++;
+z--;
+delete o.prop1;
+z = b ? x : y;
+var zz = z;
+zz = z = y;
+z += y;
+z *= y;
+z /= y;
+z -= y;
+z %= y;
+z >>= y;
+z=x >>> y;
+z=b || c;
+z=b && c;

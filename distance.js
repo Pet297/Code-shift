@@ -424,6 +424,12 @@ export class ListOfChanges {
 }
 
 // Checks 2 generic lists for equality
+export function checkTokensEqual(list1, list2) {
+    if (list1.length === list2.length) return list1.every((l, i) => l.text === list2[i].text);
+    return false;
+}
+
+// Checks 2 generic lists for equality
 function checkListsEqual(list1, list2) {
     if (list1.length === list2.length) return list1.every((l, i) => l === list2[i]);
     return false;

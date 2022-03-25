@@ -11,8 +11,10 @@ const JS_COMMENT = 7;
 export default function TranslateRule(treeNode) {
 
 if (treeNode == null) return null;
-switch (treeNode.ruleIndex)
-{
+else if (! ('ruleIndex' in treeNode)) {
+    return null;
+}
+else switch (treeNode.ruleIndex) {
     case 0: // program(0) -> (HB)? (48)? 'EOF'
         var cmd = TranslateRule(FindChild(treeNode, 48));
         var cmdList = FillInTokens(treeNode, cmd.localCode);
@@ -99,6 +101,7 @@ switch (treeNode.ruleIndex)
     case 17: // variableDeclaration(17) -> (58) ['=' (57)]?
         let asigned17 = TranslateRule(FindChild(treeNode, 58));
         let dependendencies17 = TranslateRule(FindChild(treeNode, 57));
+        if (dependendencies17 === null) dependendencies17 = [];
         let tokens17 = TreenodeToTokens(treeNode);
         let sd17 = new SemanticDefinition(dependendencies17.dependentOn, [new NonsemanticText(tokens17)], "variable", asigned17.identifiers[0]);
         sd17.tokens = tokens17;
@@ -109,36 +112,69 @@ switch (treeNode.ruleIndex)
     case 19: // expressionStatement(19) -> (!!)? (56) (74)
         return TranslateRule(FindChild(treeNode, 56));
 
+    //TODO: 20-21 upresnit mezery
     case 20: // ifStatement(20) -> 'If' '(' (56) ')' (2) ['Else' (2)]?
-        let condition20 = TranslateRule(FindChild(treeNode, 56));
-        let codes20 = FindChildren(treeNode, 2);
-        let codeblocks20 = [];
+        let dependencies20 = [];
+        let decisions20 = FindChildren(treeNode, 56);
 
-        for (const child of codes20)
+        for (const child of decisions20)
         {
-            codeblocks20.push(TranslateRule(child));
+            var ids = new NonsemanticIdentifierList(TreenodeToTokens(child));
+            dependencies20 = dependencies20.concat(ids.identifiers);
         }
 
-        return new SemanticDecision(condition20, codeblocks20, "if");
+        // List statements
+        let code20 = [];
+        for (var child of treeNode.children) {
+            var childCode = TranslateRule(child);       
+            if (childCode != null) {
+                var cmdList = ToCommandList(childCode);
+                var childFill = FillInTokens(child, cmdList.commands);
+                for (var command of childFill.commands) {
+                    code20.push(command);
+                }
+            }
+        }
+        var codeFill = FillInTokens(treeNode, code20);
+
+        return new SemanticDecision(dependencies20, codeFill.commands, "if");
 
     case 21: // iterationStatement(21) -> 'Do' (2) 'While' '(' (56) ')' (74) |
              //                              -> 'While' '(' (56) ')' (2)
              //                              -> 'For' '(' [(56)|(16)]? ';' (56)? ';' (56)? ')' (2)
              //                              -> 'For' '(' [(57)|(16)] 'In' (56) ')' (2)
              //                              -> 'For' 'Await'? '(' [(57)|(16)] (70='of')? (56) ')' (2)
-        // Decisions are based on (56)s, repetaedly executed code is in (2), in code blocks (2) variables listed in (16) are dependent
-        let code21 = TranslateRule(FindChild(treeNode, 2));
+             // Decisions are based on (56)s, repetaedly executed code is in (2), in code blocks (2) variables listed in (16) are dependent
+        let dependencies21 = [];
         let decisions21 = FindChildren(treeNode, 56);
-        let depvar21 = TranslateRule(FindChild(treeNode, 16));
+        let depvar21 = FindChild(treeNode, 16);
 
-        let decisionblocks21 = [];
+        if (depvar21 != null) {
+            var ids = new NonsemanticIdentifierList(TreenodeToTokens(depvar21));
+            dependencies21 = dependencies21.concat(ids.identifiers);
+        }
 
         for (const child of decisions21)
         {
-            decisionblocks21.push(TranslateRule(child));
+            var ids = new NonsemanticIdentifierList(TreenodeToTokens(child));
+            dependencies21 = dependencies21.concat(ids.identifiers);
         }
-        // TODO: Pridat zavislost na (16), rozlisit druh iterace?
-        return new SemanticDecision(decisionblocks21, code21, "iteration");
+
+        // List statements
+        let code21 = [];
+        for (var child of treeNode.children) {
+            var childCode = TranslateRule(child);       
+            if (childCode != null) {
+                var cmdList = ToCommandList(childCode);
+                var childFill = FillInTokens(child, cmdList.commands);
+                for (var command of childFill.commands) {
+                    code21.push(command);
+                }
+            }
+        }
+        var codeFill = FillInTokens(treeNode, code21);
+
+        return new SemanticDecision(dependencies21, codeFill.commands, "iteration");
 
     //case 22: // varModifier(22) -> 'Var' | (73) | 'Const'
     //case 23: // continueStatement(23) -> 'Continue' [(!!)? (70)]? (74)
@@ -151,34 +187,55 @@ switch (treeNode.ruleIndex)
         return FillInTokensSimple(treeNode, TranslateRule(FindChild(treeNode, 56)));
 
     case 27: // withStatement(27) -> 'With' '(' (56) ')' (2)
-        // TODO: 2 dependent on 56 ident.
-        return TranslateRule(FindChild(treeNode, 2));
+        let dependencies27 = [];
+        let decisions27 = FindChildren(treeNode, 56);
+
+        for (const child of decisions27)
+        {
+            var ids = new NonsemanticIdentifierList(TreenodeToTokens(child));
+            dependencies27 = dependencies27.concat(ids.identifiers);
+        }
+        
+        let code27 = TranslateRule(FindChild(treeNode,2));
+        let cmdList27 = ToCommandList(code27);
+        let cmdFill27 = FillInTokens(treeNode, cmdList27.commands);
+        return new SemanticDecision(dependencies27 , cmdFill27.commands, "with");
 
     case 28: // switchStatement(28) -> 'Switch' '(' (56) ')' (29)
+        let dependencies28 = [];
+        let decisions28 = FindChildren(treeNode, 56);
+
+        for (const child of decisions28)
+        {
+            var ids = new NonsemanticIdentifierList(TreenodeToTokens(child));
+            dependencies28 = dependencies28.concat(ids.identifiers);
+        }
         let switch28 = TranslateRule(FindChild(treeNode, 29));
-        let conditions28 = TranslateRule(FindChild(treeNode, 56));
-        // TODO: format conditions28
-        return new SemanticDecision(conditions28, switch28, "switch");
+        let cmdList28 = ToCommandList(switch28);
+        let cmdFill28 = FillInTokens(treeNode, cmdList28.commands);
+
+        return new SemanticDecision(decisions28, cmdFill28.commands, "switch");
 
     case 29: // caseBlock(29) -> '{' (30)? [(32) (30)?]? '}'
         let switch29 = TranslateRule(FindChild(treeNode, 30));
         let default29 = TranslateRule(FindChild(treeNode, 32));
-        // TODO: Proc 2krat (30)?
 
         if (switch29 == null) switch29 = [];
-        if (default29 != null) switch29.push(default29);
+        else switch29 = switch29.commands;
+        if (default29 != null) switch29 = switch29.concat(default29.commands);
 
-        return switch29;
+        return FillInTokens(treeNode, switch29);
 
     case 30: // caseClauses(30) -> (31)+
         let switch30 = [];
-        let clauses30 = FindChildren(treeNode, 2);
+        let clauses30 = FindChildren(treeNode, 31);
         for (const clause of clauses30)
         {
             let clause30 = TranslateRule(clause);
-            switch30.push(clause30);
+            let cmdl30 = ToCommandList(clause30);
+            switch30 = switch30.concat(cmdl30.commands);
         }
-    return clauses30;
+    return FillInTokens(treeNode ,switch30);
 
     case 31: // caseClause(31) -> 'Case' (56) ':' (4)?
         return TranslateRule(FindChild(treeNode, 4));
@@ -192,23 +249,25 @@ switch (treeNode.ruleIndex)
     //case 34: // throwStatement(34) -> 'Throw' (!!)? (56) (74)
 
     case 35: // tryStatement(35) -> 'Try' (3) [ (36) (37)? | (37) ]
-        let code1_35 = TranslateRule(FindChild(treeNode, 3));
-        let code2_35 = TranslateRule(FindChild(treeNode, 36));
-        let code3_35 = TranslateRule(FindChild(treeNode, 37));
+        // List statements
+        let code35 = [];
+        for (var child of treeNode.children) {
+            var childCode = TranslateRule(child);       
+            if (childCode != null) {
+                var cmdList = ToCommandList(childCode);
+                var childFill = FillInTokens(child, cmdList.commands);
+                for (var command of childFill.commands) {
+                    code35.push(command);
+                }
+            }
+        }
+        var codeFill = FillInTokens(treeNode, code35);
 
-        let codes35 = [];
-        if (code1_35 != null) codes35.push(code1_35);
-        if (code2_35 != null) codes35.push(code2_35);
-        if (code3_35 != null) codes35.push(code3_35);
+        return new SemanticDecision([],code35,"try");
 
-        return new SemanticDecision([],codes35,"try");
+    //case 36: // catchProduction(36) -> 'Catch' ['(' (58) ')']? (3)
 
-    case 36: // catchProduction(36) -> 'Catch' ['(' (58) ')']? (3)
-        //TODO: dependency of (58)
-        return TranslateRule(FindChild(treeNode, 3));
-
-    case 37: // finallyProduction(37) -> 'Finally' (3)
-        return TranslateRule(FindChild(treeNode, 3));
+    //case 37: // finallyProduction(37) -> 'Finally' (3)
 
     //case 38: // debuggerStatement(38) -> 'Debugger' (74)
 
@@ -238,14 +297,15 @@ switch (treeNode.ruleIndex)
         let extendinglist41 = [];
         if (extending41 != null) extendinglist41.push(extending41);
     
+        // TODO: Jako ostatni
         for (const child of children41)
         {
-            //Preklad spravne
             if (child != null) functions41.push(TranslateRule(child));
         }
 
-        //TODO: Nonsem.
+        let bodyFillIn41 = FillInTokens(treeNode, functions41);
 
+        // TODO: seznam prikazu
         return new SemanticDefinition(extendinglist41,functions41,"class_functions", null);
     case 42: // classElement(42) -> ['Static' | !!? (70) | 'Async']* [(43) | (58) '=' (59) ';'] | (18) | '#'? (53) '=' (57)
         // 43: method/getter/setter
@@ -256,10 +316,14 @@ switch (treeNode.ruleIndex)
         let cv42 = TranslateRule(FindChild(treeNode,58));
         let property42 = TranslateRule(FindChild(treeNode,53));
 
+        let code42 = ToCommandList(new NonsemanticIdentifierList(TreenodeToTokens(treeNode)));
+
+        //TODO: Doplnit
+
         if (mgs42 != null) return mgs42;
-        else if (cv42 != null) return new SemanticDefinition([],[],"class_variable", cv42);
-        else if (property42 != null) return new SemanticDefinition([],[],"class_property",property42);
-        else return null;
+        else if (cv42 != null) return new SemanticDefinition([],code42.commands,"class_variable", cv42);
+        else if (property42 != null) return new SemanticDefinition([],code42.commands,"class_property",property42.identifiers[0]);
+        else return new NonsemanticIdentifierList(TreenodeToTokens(treeNode));
 
     case 43: // methodDefinition(43) -> '*'? '#'? (53) '(' (44)? ')' (47) | '*'? '#'? (67) '(' ')' (47) | '*'? '#'? (68) '(' (44)? ')' (47)
         let methodName43 = TranslateRule(FindChild(treeNode,53));
@@ -274,7 +338,7 @@ switch (treeNode.ruleIndex)
         if (methodName43 != null)
         {
             type43 = "method";
-            name43 = methodName43;
+            name43 = methodName43.identifiers[0];
         }
         if (getterName43 != null)
         {
@@ -287,26 +351,12 @@ switch (treeNode.ruleIndex)
             name43 = methodName43;
         }
 
-        if (params43 == null) params43 = [];
+        if (params43 == null) params43 = { identifiers: []};
         
-        return new SemanticDefinition(params43,code43,type43,name43);
+        return new SemanticDefinition(params43.identifiers,code43.localCode,type43,name43);
     //case 44: // formalParameterList(44) -> (45) [',' (45)]* [',' (46)]? | (46)
-        /*let params44 = [];
-        let children44 = FindChildren(treeNode, 45);
-        for (const child of children44)
-        {
-            var params = TranslateRule(child);
-            for (const child2 of params.identifiers)
-            {
-                params44.push(child2);
-            }
-        }
-        let lastparam44 = FindChildren(treeNode, 46);
-        if (lastparam44 != null) params44.push(lastparam44.identifiers[0]);
-
-        return params44;*/
-    // case 45: // formalParameterArg(45) -> (58) ['=' (57)]?
-    // case 46: // lastFormalParameterArg(46) -> (ELLIPSIS)? (57)
+    //case 45: // formalParameterArg(45) -> (58) ['=' (57)]?
+    //case 46: // lastFormalParameterArg(46) -> (ELLIPSIS)? (57)
     case 47:  // functionBody(47) -> '{' (48)? '}'
         let body47 = TranslateRule(FindChild(treeNode,48));
         return body47;
@@ -336,8 +386,7 @@ switch (treeNode.ruleIndex)
     //case 49: // arrayLiteral(49) -> '[' (50) ']'
     //case 50: // elementList(50) -> ','* (51)? [','+ (51)]* ','*
     //case 51: // arrayElement(51) -> (ELLIPSIS)? (57)
-    case 52: // propertyAssignment(52) -> (53) ':' (57) | '[' (57) ']' ':' (57) | 'Async'? '*'? (53) '(' (44)? ')' (47) | (67) '(' ')' (47) | (68) '(' (45) ')' (47) | (ELLIPSIS)? (57)
-        return null;
+    //case 52: // propertyAssignment(52) -> (53) ':' (57) | '[' (57) ']' ':' (57) | 'Async'? '*'? (53) '(' (44)? ')' (47) | (67) '(' ')' (47) | (68) '(' (45) ')' (47) | (ELLIPSIS)? (57)
     //case 53: // propertyName(53) -> (69) | (STRINGLITERAL) | (NUMERICLITERAL) | '[' (57) ']'
     //case 54: // arguments(54) -> '(' [(55) [',' (55)]* ','?]? ')'
     //case 55: // argument(55) -> (ELIPSIS)? (57) | (ELIPSIS)? (70)
@@ -425,13 +474,12 @@ switch (treeNode.ruleIndex)
                 }
             case 3:
                 // (57) '?' (57) ':' (57)
-                dependendencies3_57 = []
-                asigned3_57 = []
+                var dependendencies3_57 = []
+                var asigned3_57 = []
                 for (const child of ts57_57)
                 {
-                    let dep3_57 = TranslateRule(child);
-                    MergeArrays(dependendencies3_57,dep3_57.dependingVariables.identifiers);
-                    MergeArrays(asigned3_57,dep3_57.dependentOn.identifiers);
+                    MergeArrays(dependendencies3_57,child.dependingVariables);
+                    MergeArrays(asigned3_57,child.dependentOn);
                 }
                 return new SemanticAction(dependendencies3_57, asigned3_57, TreenodeToTokens(treeNode))
         }
@@ -439,6 +487,7 @@ switch (treeNode.ruleIndex)
     //case 58: // assignable(58) -> (70) | (49) | (59)
     //case 59: // objectLiteral(59) -> '{' [(52) [',' (52)]*]? '}'
     case 60: // anonymousFunction(60) -> (39) | (ASYNC)? (FUNCTION) '*'? '(' (44)? ')'
+        // TODO: sd
         let sd39_60 = TranslateRule(FindChild(treeNode,39));
         let params44_60 = TranslateRule(FindChild(treeNode,44));
         if (sd39_60 != null)
@@ -454,6 +503,7 @@ switch (treeNode.ruleIndex)
             return new SemanticDefinition([], [], "anonymous_function", null)
         }
     case 61: // arrowFunctionParameters(61) -> (70) | '(' (44)? ')'
+        // Nebo - SD
         let funcName61 = TranslateRule(FindChild(treeNode,70));
         let params61 = TranslateRule(FindChild(treeNode,44));
         if (params61 == null) params61 = [];
@@ -726,11 +776,16 @@ export class SemanticAction
 
 export class SemanticDecision
 {
-    constructor(dependentOn, perConditionCode, conditionType)
+    constructor(dependentOn, localCode, conditionType)
     {
         this.dependentOn = dependentOn;
-        this.perConditionCode = perConditionCode;
+        this.localCode = localCode;
         this.conditionType = conditionType;
+
+        this.tokens = [];
+        for (var cmd of localCode) {
+            MergeArrays(this.tokens, cmd.tokens);
+        }
     }
 }
 

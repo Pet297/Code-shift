@@ -13,6 +13,7 @@ import { WriteGifFile, WriteGifFileSH, WriteGifFileSHTransform, WriteGifFileSHAd
 import { ListOfChangesToFile, FileToListOfChanges } from './intermediateOutput.js';
 import { LevenChanges } from './levenAnimator.js';
 import RenmameVariable from './variableRenamer.js';
+import { checkTokensEqual } from './distance.js';
 
 function CallbackMove(callback)
 {
@@ -111,8 +112,7 @@ async function DoGifOutput2(resenum, output, resolve) {
                 await Promise.all(promises);
             }
 
-            if (text[0]=='*')
-            {
+            if (text[0]=='*' && (!checkTokensEqual(text[2], text[4]))) {
                 var tokenList = [];
 
                 tokenList = tokenList.concat(text[1]);
@@ -168,7 +168,6 @@ async function DoGifOutput2(resenum, output, resolve) {
                 await Promise.all(promises);
             }
         }
-
     }
 
     var promises = [];
@@ -287,13 +286,17 @@ async function Exec1F2(code1, code2, output, resolve) {
 async function RunTests() {
 
     const tests = [
+        // OLD TESTS:
         //'./tests/test_F1_0', './tests/test_F1_1', '../F1',
         //'./tests/test_F2_0', './tests/test_F2_1', '../F2',
         //'./tests/test_F3_0', './tests/test_F3_1', '../F3',
         //'./tests/test_C1_0', './tests/test_C1_1', '../C1',
         //'./tests/test_C2_0', './tests/test_C2_1', '../C2',
-        './tests/test_D1_0', './tests/test_D1_1', '../D1',   //TODO: Fix rewrites after rename
+        //'./tests/test_D1_0', './tests/test_D1_1', '../D1',
         //'./tests/test_D2_0', './tests/test_D2_1', '../D2',
+
+        // NEW TESTS:
+
     ]
     const fullExecution = true;
     const intermediateFileGen = false;
@@ -383,6 +386,12 @@ async function SimpleTest3() {
     await promise;
 }
 
+async function SimpleTest4(id) {
+    const tree1 = CodeToTree('./tests/test_T' + id);
+    let root1 = TranslateRule(tree1);
+    console.log(root1);
+}
+
 const recognizedFlags = ['-i', '-o', '-c', '-l', '-n', '-f', '-h']
 function IsRecognizedFlag(flag)
 {
@@ -393,7 +402,7 @@ function IsRecognizedFlag(flag)
 }
 
 function ShowHelp() {
-    console.log("Code shift pre-release v0.3");
+    console.log("Code shift pre-release v0.4");
     console.log("Tool for automatic comparison of different varisons of source code");
     console.log("and generating animation of its possible intermediate states.");
     console.log("---------------------------");
@@ -409,6 +418,9 @@ function ShowHelp() {
     console.log("-n                : Do not generate GIF");
     console.log("-f                : Generate XML file with changes instead of GIF");
     console.log("-h                : Show this help");
+    console.log("---------------------------");
+    console.log("Basic usage:");
+    console.log("-i [old source code] -i [new source code] -o [GIF filename]");
     console.log("---------------------------");
     console.log("Notes:");
     console.log("-The number of input files must be 1 more than the number of output files.");
@@ -501,6 +513,13 @@ async function UserInput() {
     }
 }
 
-//SimpleTest3();
-RunTests();
-//UserInput();
+//FIX
+//SimpleTest4('20');
+//SimpleTest4('21');
+//SimpleTest4('27');
+//SimpleTest4('28');
+//SimpleTest4('42');
+//SimpleTest4('57');
+
+//RunTests();
+UserInput();
