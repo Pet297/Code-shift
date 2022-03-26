@@ -1,0 +1,14 @@
+var a = 0;
+var dx = 0;
+var c = 0;
+
+if (a == dx + 2) {
+    c = a + 2;
+    dx = a + c;
+    a = 2 * a + c;
+}
+else {
+    a = dx * dx;
+    dx = 50 + 3;
+    c *= 5;
+}

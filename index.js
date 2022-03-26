@@ -296,6 +296,7 @@ async function RunTests() {
         //'./tests/test_D2_0', './tests/test_D2_1', '../D2',
 
         // NEW TESTS:
+        './tests/test_C3_0', './tests/test_C3_1', '../C3',
 
     ]
     const fullExecution = true;

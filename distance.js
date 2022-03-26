@@ -532,8 +532,8 @@ function StatementDistance(block1, block2, renames = {}) {
     }
     else
     {
-        if (block1.tokens === undefined) return [1.0, 1000.0];
-        if (block2.tokens === undefined) return [1.0, 1000.0];
+        if (block1 === undefined || block1.tokens === undefined) return [1.0, 1000.0];
+        if (block2 === undefined || block2.tokens === undefined) return [1.0, 1000.0];
         else
         {
 
