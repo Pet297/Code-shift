@@ -101,6 +101,12 @@ else switch (treeNode.ruleIndex) {
     case 17: // variableDeclaration(17) -> (58) ['=' (57)]?
         let asigned17 = TranslateRule(FindChild(treeNode, 58));
         let dependendencies17 = TranslateRule(FindChild(treeNode, 57));
+        // If we are defining anonymous function
+        if (dependendencies17 instanceof SemanticDefinition)
+        {
+            let fillIn17 = FillInTokens(treeNode, dependendencies17.localCode);
+            return new SemanticDefinition([], fillIn17.commands, dependendencies17.definitionType, asigned17.identifiers[0]);
+        }
         if (dependendencies17 === null) dependendencies17 = [];
         let tokens17 = TreenodeToTokens(treeNode);
         let sd17 = new SemanticDefinition(dependendencies17.dependentOn, [new NonsemanticText(tokens17)], "variable", asigned17.identifiers[0]);
@@ -409,17 +415,16 @@ else switch (treeNode.ruleIndex) {
              //                            -> | (57) '?' (57) ':' (57) | (57) '=' (57) | (57) (63) (57) | 'Import' '(' (57) ')' | (57) (TEMPLATESTRINGLITERAL) |
              //                            -> | (26) | 'This' | (70) | 'Super' | (64) | (49) | (59) | '(' (56) ')'
 
-        let t26_57 = TranslateRule(FindChild(treeNode,26));
+        // Anonymous class
         let t41_57 = TranslateRule(FindChild(treeNode,41));
-        let t49_57 = TranslateRule(FindChild(treeNode,49));
-        let t54_57 = TranslateRule(FindChild(treeNode,54));
+        if (t41_57 != null) return t41_57;
+
+        // Anonymous function
+        let t60_57 = TranslateRule(FindChild(treeNode,60));
+        if (t60_57 != null) return t60_57;
+
         let t56_57 = TranslateRule(FindChild(treeNode,56));
         let cs57_57 = FindChildren(treeNode,57);
-        let t59_57 = TranslateRule(FindChild(treeNode,59));
-        let t60_57 = TranslateRule(FindChild(treeNode,60));
-        let t63_57 = TranslateRule(FindChild(treeNode,63));
-        let t64_57 = TranslateRule(FindChild(treeNode,64));
-        let t69_57 = TranslateRule(FindChild(treeNode,69));
         let t70_57 = TranslateRule(FindChild(treeNode,70));
 
         let ts57_57 = [];
@@ -490,29 +495,21 @@ else switch (treeNode.ruleIndex) {
         // TODO: sd
         let sd39_60 = TranslateRule(FindChild(treeNode,39));
         let params44_60 = TranslateRule(FindChild(treeNode,44));
+        let sd47_60 = TranslateRule(FindChild(treeNode,47));
         if (sd39_60 != null)
         {
             return new SemanticDefinition(sd30_60.paramList, sd30_60.localCode, "anonymous_function", sd30_60.name)
         }
         else if (params44_60 != null)
         {
-            return new SemanticDefinition(params44_60, [], "anonymous_function", null)
+            return new SemanticDefinition(params44_60.identifiers, sd47_60.localCode, "anonymous_function", null)
         }
         else
         {
             return new SemanticDefinition([], [], "anonymous_function", null)
         }
-    case 61: // arrowFunctionParameters(61) -> (70) | '(' (44)? ')'
-        // Nebo - SD
-        let funcName61 = TranslateRule(FindChild(treeNode,70));
-        let params61 = TranslateRule(FindChild(treeNode,44));
-        if (params61 == null) params61 = [];
-        return new SemanticDefinition(params61,[],"arrow_function", funcName61);
-    case 62: // arrowFunctionBody(62) -> (57) | (47)
-        let ex57_62 = TranslateRule(FindChild(treeNode,57));
-        let params47_62 = TranslateRule(FindChild(treeNode,47));
-        if (ex57_62 == null)  return new SemanticDefinition([], [ex57_62], "statements", null);
-        else return params47_62;
+    //case 61: // arrowFunctionParameters(61) -> (70) | '(' (44)? ')'
+    //case 62: // arrowFunctionBody(62) -> (57) | (47)
     //case 63: // assignmentOperator(63) -> '*=' | '/=' | '%=' | '+=' | ... | '**='
     //case 64: // literal(64) -> (NULLLITERAL) | (BOOLEANLITERAL) | (STRINGLITERAL) | (TEMPLATESTRINGLITERAL) | (REGULAREXPRESSIONLITTERAL) | (65) | (66)
     //case 65: // numericLiteral(65) -> (DEC-L) | (HEX-IL) | (OCT-IL) | (OCT-IL2) | (BIN-IL)

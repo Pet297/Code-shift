@@ -2,7 +2,7 @@ var a = 0;
 var b = 1;
 var c = [1,2,3];
 
-with (var i = a + b)
+with (i = a + b)
 {
     a = i;
     b = i + a;

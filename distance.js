@@ -5,6 +5,7 @@ import leven from 'js-levenshtein';
 const missingDependingVariablePenalty = 100.0;
 const missingParamPenalty = 10.0;
 const differentDefinitionTypePenalty = 20.0;
+const differentConditionTypePenalty = 10.0;
 const differentNamePenalty = 20.0;
 const swapPenalty = 5.0;
 const innerCodeMultiplierPenalty = 2.0;
@@ -16,6 +17,7 @@ const blockDeletedPenalty = 5.0;
 const sharedDependingVariableBonus = 20.0;
 const sharedParamBonus = 10.0;
 const sameDefinitionTypeBonus = 30.0;
+const sameConditionTypeBonus = 20.0;
 const sameNameBonus = 1000.0;
 const innerCodeMultiplierBonus = 2.0;
 const levenSimmilarityBonus = 2.0;
@@ -225,6 +227,20 @@ export function FindCodeChanges(codeBefore, codeAfter, rawBefore, rawAfter, pare
     for (var i = 0; i < codeAfter.length; i++) {
         if (!(i in outputSources)) {
             outputSources[i] = new CodeChange('+', []);
+        }
+    }
+
+    // C1) RELATED DEFINITIONS AND DECISIONS WILL HAVE ANIMATIONS CALCULATED TOO
+    for (var i in codeBefore)
+    {
+        var goalAdress = inputDestinations[i].address;
+        if (goalAdress in codeAfter &&
+            (codeAfter[goalAdress] instanceof SemanticDecision && codeBefore[i] instanceof SemanticDecision||
+            codeAfter[goalAdress] instanceof SemanticDefinition && codeBefore[i] instanceof SemanticDefinition)) {
+                var innerChanges = FindCodeChanges(codeBefore[i].localCode, codeAfter[goalAdress].localCode, parentRenames);
+
+                inputDestinations[i] = new CodeChange(i.toString(),innerChanges.inputDestinations);
+                outputSources[goalAdress] = new CodeChange(goalAdress.toString(),innerChanges.outputSources);
         }
     }
 
@@ -525,10 +541,19 @@ function StatementDistance(block1, block2, renames = {}) {
         return [sim + 1, dist + 1];
     }
     else if (block1 instanceof SemanticDecision && block2 instanceof SemanticDecision) {
-        //TODO[10]: Lists of lists
         var dist = 0.0;
+        var sim = 0.0;
+
+        if (block1.conditionType != block2.conditionType) dist += differentConditionTypePenalty;
+        else sim += sameConditionTypeBonus;
+
         dist += missingParamPenalty * listDistance(RenameElementsOfList(block1.dependentOn, renames), block2.dependentOn);
-        return [1.0, 1000.0];
+        sim += sharedParamBonus * listSimilarity(RenameElementsOfList(block1.dependentOn, renames), block2.dependentOn);
+
+        var changes = FindCodeChanges(block1.localCode, block2.localCode, renames)
+        dist += innerCodeMultiplierPenalty * changes.difference;
+        sim += innerCodeMultiplierBonus * changes.sameness;
+        return [sim + 1, dist + 1];
     }
     else
     {

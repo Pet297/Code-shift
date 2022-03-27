@@ -1,0 +1,6 @@
+var anon = function (a,b) {
+    var c = 1 + a + b;
+    return (c % 2 == 0 ? c : -1);
+};
+
+var d = anon(10, 20);

@@ -3,4 +3,4 @@ var b = true;
 var c = false;
 var d = true || false;
 var e = null && true;
-//var f = c || false;
+var f = c || false;
