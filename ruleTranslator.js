@@ -129,21 +129,26 @@ else switch (treeNode.ruleIndex) {
             dependencies20 = dependencies20.concat(ids.identifiers);
         }
 
-        // List statements
-        let code20 = [];
-        for (var child of treeNode.children) {
-            var childCode = TranslateRule(child);       
-            if (childCode != null) {
-                var cmdList = ToCommandList(childCode);
-                var childFill = FillInTokens(child, cmdList.commands);
-                for (var command of childFill.commands) {
-                    code20.push(command);
-                }
-            }
-        }
-        var codeFill = FillInTokens(treeNode, code20);
+        var innerCode = [];
 
-        return new SemanticDecision(dependencies20, codeFill.commands, "if");
+        // Nodes 0,1,2,3 - text about positive condition
+        var textPositive = TreenodesToTokens(treeNode.children[0],treeNode.children[1],treeNode.children[2],treeNode.children[3]);
+        innerCode.push(new NonsemanticText(textPositive, 'IF'));
+
+        // Node 4 - semantic block of code
+        var childCode4 = MoveNewlines(MoveTabs(FillInTokens(treeNode.children[4], ToCommandList(TranslateRule(treeNode.children[4])).commands))); //TODO: single function
+        innerCode = innerCode.concat(childCode4.commands);
+
+        if (treeNode.children.length > 4) {
+            // Node [5] - text about negative condition
+            var textNegative = TreenodeToTokens(treeNode.children[5]);
+            innerCode.push(new NonsemanticText(textNegative, 'ELSE'));
+            // Node [6] - semantic block of code
+            var childCode6 = MoveNewlines(MoveTabs(FillInTokens(treeNode.children[6], ToCommandList(TranslateRule(treeNode.children[6])).commands)));
+            innerCode = innerCode.concat(childCode6.commands);
+        }
+
+        return new SemanticDecision(dependencies20, innerCode, "if");
 
     case 21: // iterationStatement(21) -> 'Do' (2) 'While' '(' (56) ')' (74) |
              //                              -> 'While' '(' (56) ')' (2)
@@ -526,10 +531,6 @@ else switch (treeNode.ruleIndex) {
         return new NonsemanticIdentifierList(TreenodeToTokens(treeNode));
     }
 }
-// TODO: [id] -> NonsemIdList 62, 61, 58
-// TODO: 59 - zavislost na vnitrku
-// TODO: 57 simplify
-// TODO: 68 - setter
 // TODO skoro vse s decision
 
 function FindChild(treeNode, index) {
@@ -578,12 +579,26 @@ function MergeArrays(destination, source) {
 function TreenodeToTokens(treeNode) {
     var tokens = [];
 
-    for (var i = treeNode.start.tokenIndex; i <= treeNode.stop.tokenIndex; i++) {
+    if ('symbol' in treeNode) {
+        tokens.push(GetTokenInfo(treeNode.symbol));
+    }
+
+    else for (var i = treeNode.start.tokenIndex; i <= treeNode.stop.tokenIndex; i++) {
         tokens.push(GetTokenInfo(treeNode.parser._input.tokens[i]));
     }
 
     return tokens;
 }
+function TreenodesToTokens(...treeNodes) {
+    var tokens = [];
+
+    for (var treeNode of treeNodes) {
+        tokens = tokens.concat(TreenodeToTokens(treeNode));
+    }
+
+    return tokens;
+}
+//function 
 export function GetTokenInfo(commonToken) {
     var colorClass = JS_NOCLASS;
     var identifier = false;
@@ -695,6 +710,44 @@ function PushTokensToEnd(block, tokens) {
         else if (block.definitionType == 'variable') block.localCode[0].tokens = block.localCode[0].tokens.concat(tokens);
     }
 }
+function MoveTabs(commandList) {
+    for (var i = 0; i < commandList.commands.length - 1; i++) {
+        while (IsTab(commandList.commands[i].tokens[commandList.commands[i].tokens.length - 1])) {
+            var token = commandList.commands[i].tokens.splice(commandList.commands[i].tokens.length - 1, 1)
+            commandList.commands[i+1].tokens.splice(0,0,token[0]);
+        }
+    }
+    return commandList;
+}
+//TODO: Single colon
+function MoveNewlines(commandList) {
+    for (var i = 0; i < commandList.commands.length - 1; i++) {
+        while (IsNewline(commandList.commands[i+1].tokens[0]) || (IsSemicolon(commandList.commands[i+1].tokens[0]))) {
+            var token = commandList.commands[i+1].tokens.splice(0, 1);
+            commandList.commands[i].tokens.push(token[0]);
+        }
+    }
+    return commandList;
+}
+function IsTab(token) {
+    for (var char of token.text) {
+        if (char != ' ' && char != '\t') {
+            return false;
+        }
+    }
+    return true;
+}
+function IsNewline(token) {
+    for (var char of token.text) {
+        if (char != '\r' && char != '\n') {
+            return false;
+        }
+    }
+    return true;
+}
+function IsSemicolon(token) {
+    return token.text == ';';
+}
 
 // Common interface
 // - tokens: list of tokens in source code
@@ -788,12 +841,13 @@ export class SemanticDecision
 
 export class NonsemanticText
 {
-    constructor(tokens)
+    constructor(tokens, specialType)
     {
         this.tokens = [];
         for (var token of tokens) {
             var info = GetTokenInfo(token);
             this.tokens.push(token);
         }
+        this.specialType = specialType;
     }
 }
