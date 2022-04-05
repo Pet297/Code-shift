@@ -1,8 +1,7 @@
-import fs from 'fs';
 import gm from 'gm';
 import os from 'os';
-import { LevenChanges, LevenChangesColored, ChangingLevenPart, UnchangedLevenPart } from './levenAnimator.js';
-import { TokenInfo } from './ruleTranslator.js';
+import { LevenChangesColored, ChangingLevenPart, UnchangedLevenPart } from './levenAnimator.js';
+import { TokenInfo } from './languageInterface.js';
 
 // CONSTANTS
 const lineSpacing = 20;

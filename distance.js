@@ -1,4 +1,4 @@
-import {SemanticDefinition, SemanticAction, SemanticDecision, NonsemanticText} from './ruleTranslator.js';
+import {SemanticDefinition, SemanticAction, SemanticDecision, NonsemanticText} from './languageInterface.js';
 import leven from 'js-levenshtein';
 
 // Penalties for difference: The smaller the number, the more severe the penalty
@@ -58,7 +58,7 @@ export function FindCodeChanges(codeBefore, codeAfter, rawBefore, rawAfter, pare
             for (var j = 0; j < unpairedAfter.length; j++) {
                 if (codeAfter[unpairedAfter[j]] instanceof SemanticDefinition) {
                     if (codeBefore[unpairedBefore[i]].definitionType == codeAfter[unpairedAfter[j]].definitionType && codeBefore[unpairedBefore[i]].name == codeAfter[unpairedAfter[j]].name) {
-                        var innerChanges = FindCodeChanges(codeBefore[unpairedBefore[i]].localCode, codeAfter[unpairedAfter[j]].localCode, parentRenames);
+                        var innerChanges = FindCodeChanges(codeBefore[unpairedBefore[i]].innerCode, codeAfter[unpairedAfter[j]].innerCode, parentRenames);
                         difference += innerChanges.difference * innerCodeMultiplierPenalty;
                         // TODO: Better rename call
                         difference += listDistance(codeBefore[unpairedBefore[i]].paramList, codeAfter[unpairedAfter[j]].paramList) * missingParamPenalty;
@@ -67,6 +67,27 @@ export function FindCodeChanges(codeBefore, codeAfter, rawBefore, rawAfter, pare
 
                         inputDestinations[unpairedBefore[i]] = new CodeChange(unpairedAfter[j].toString(),innerChanges.inputDestinations);
                         outputSources[unpairedAfter[j]] = new CodeChange(unpairedBefore[i].toString(),innerChanges.outputSources);
+
+                        unpairedBefore.splice(i, 1);
+                        unpairedAfter.splice(j, 1);
+                        i--;
+                        j--;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    
+    // A05) Assume nonsemantics blocks with of the same special type are related.
+    for (var i = 0; i < unpairedBefore.length; i++) {
+        if (codeBefore[unpairedBefore[i]] instanceof NonsemanticText) {
+            for (var j = 0; j < unpairedAfter.length; j++) {
+                if (codeAfter[unpairedAfter[j]] instanceof NonsemanticText) {
+                    if (codeBefore[unpairedBefore[i]].specialType !== undefined && codeBefore[unpairedBefore[i]].specialType == codeAfter[unpairedAfter[j]].specialType) {
+
+                        inputDestinations[unpairedBefore[i]] = new CodeChange(unpairedAfter[j].toString(),{});
+                        outputSources[unpairedAfter[j]] = new CodeChange(unpairedBefore[i].toString(),{});
 
                         unpairedBefore.splice(i, 1);
                         unpairedAfter.splice(j, 1);
@@ -237,10 +258,10 @@ export function FindCodeChanges(codeBefore, codeAfter, rawBefore, rawAfter, pare
         if (goalAdress in codeAfter &&
             (codeAfter[goalAdress] instanceof SemanticDecision && codeBefore[i] instanceof SemanticDecision||
             codeAfter[goalAdress] instanceof SemanticDefinition && codeBefore[i] instanceof SemanticDefinition)) {
-                var innerChanges = FindCodeChanges(codeBefore[i].localCode, codeAfter[goalAdress].localCode, parentRenames);
+                var innerChanges = FindCodeChanges(codeBefore[i].innerCode, codeAfter[goalAdress].innerCode, parentRenames);
 
-                inputDestinations[i] = new CodeChange(i.toString(),innerChanges.inputDestinations);
-                outputSources[goalAdress] = new CodeChange(goalAdress.toString(),innerChanges.outputSources);
+                inputDestinations[i] = new CodeChange(goalAdress.toString(),innerChanges.inputDestinations);
+                outputSources[goalAdress] = new CodeChange(i.toString(),innerChanges.outputSources);
         }
     }
 
@@ -282,14 +303,10 @@ export function FindCodeChanges(codeBefore, codeAfter, rawBefore, rawAfter, pare
 
     // Z) ADD RAW TEXT
     for (var index in inputDestinations) {
-        if ('tokens' in codeBefore[index]) {
-            inputDestinations[index].tokens = codeBefore[index].tokens;
-        }
+        inputDestinations[index].tokens = Array.from(codeBefore[index].getTokens());
     }
     for (var index in outputSources) {
-        if ('tokens' in codeAfter[index]) {
-            outputSources[index].tokens = codeAfter[index].tokens;
-        }
+        outputSources[index].tokens = Array.from(codeAfter[index].getTokens());
     }
 
     // ZZ) FINISH
@@ -399,7 +416,7 @@ function AddTokenData(code, changes) {
             if ('tokens' in code[index]) changes[index].tokens = code[index].tokens;
         }
         else if (code[index] instanceof SemanticDefinition) {
-            AddTokenData(code[index].localCode, changes[index].children);
+            AddTokenData(code[index].innerCode, changes[index].children);
         }
         else if (code[index] instanceof NonsemanticText) {
             if ('tokens' in code[index]) changes[index].tokens = code[index].tokens;
@@ -409,7 +426,7 @@ function AddTokenData(code, changes) {
 }
 
 function FindCodeChanges_Special_OneBlock(codeBefore, codeAfter) {
-    var localChanges = FindCodeChanges(codeBefore[0].localCode, codeAfter[0].localCode);
+    var localChanges = FindCodeChanges(codeBefore[0].innerCode, codeAfter[0].innerCode);
     var inputDestinations = {};
     var outputSources = {};
     inputDestinations[0] = new CodeChange('0', localChanges.inputDestinations);
@@ -494,7 +511,7 @@ function checkStatementsForEquality(block1, block2) {
             block1.definitionType == block2.definitionType
             && block1.name == block2.name
             && checkListsEqual(block1.paramList, block2.paramList)
-            && checkCodeListForEquality(block1.localCode, block2.localCode));
+            && checkCodeListForEquality(block1.innerCode, block2.innerCode));
     }
     if (block1 instanceof SemanticAction && block2 instanceof SemanticAction) {
         return (
@@ -524,7 +541,7 @@ function StatementDistance(block1, block2, renames = {}) {
         dist += missingParamPenalty * listDistance(RenameElementsOfList(block1.paramList, renames), block2.paramList);
         sim += sharedParamBonus * listSimilarity(RenameElementsOfList(block1.paramList, renames), block2.paramList);
 
-        var changes = FindCodeChanges(block1.localCode, block2.localCode, renames)
+        var changes = FindCodeChanges(block1.innerCode, block2.innerCode, renames)
         dist += innerCodeMultiplierPenalty * changes.difference;
         sim += innerCodeMultiplierBonus * changes.sameness;
         return [sim + 1, dist + 1];
@@ -550,7 +567,7 @@ function StatementDistance(block1, block2, renames = {}) {
         dist += missingParamPenalty * listDistance(RenameElementsOfList(block1.dependentOn, renames), block2.dependentOn);
         sim += sharedParamBonus * listSimilarity(RenameElementsOfList(block1.dependentOn, renames), block2.dependentOn);
 
-        var changes = FindCodeChanges(block1.localCode, block2.localCode, renames)
+        var changes = FindCodeChanges(block1.innerCode, block2.innerCode, renames)
         dist += innerCodeMultiplierPenalty * changes.difference;
         sim += innerCodeMultiplierBonus * changes.sameness;
         return [sim + 1, dist + 1];

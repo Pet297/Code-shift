@@ -1,19 +1,14 @@
-import antlr4 from 'antlr4';
-import JavaScriptLexer from './grammars/JavaScriptLexer.js';
-import JavaScriptParser from './grammars/JavaScriptParser.js';
 import fs from 'fs';
 import path from 'path';
-import testVisitor from './ruleTranslator.js';
-import TranslateRule from './ruleTranslator.js';
 import { FindCodeChanges, SupplyCodeChanges } from './distance.js'
 import { AddText } from './statementPosition.js'
 import { GetAnimationSequence } from './animationSequence.js'
 import { IntermediateTextEnumerator, CollapseIntermediateText } from './animationEnumerator.js'
 import { WriteGifFile, WriteGifFileSH, WriteGifFileSHTransform, WriteGifFileSHAdd, WriteGifFileSHMoveUp, WriteGifFileSHRemove } from './gifWriter.js'
 import { ListOfChangesToFile, FileToListOfChanges } from './intermediateOutput.js';
-import { LevenChanges } from './levenAnimator.js';
 import RenmameVariable from './variableRenamer.js';
 import { checkTokensEqual } from './distance.js';
+import { TranslateFileDefault, TranslateFileByLanguage } from './languageDefinitions.js'
 
 function CallbackMove(callback)
 {
@@ -23,21 +18,6 @@ function CallbackMove(callback)
 function CallbackRemove(callback)
 {
     //TODO
-}
-
-function CodeToTree(codeFile) {
-    const input = fs.readFileSync(codeFile).toString()
-
-    const chars = new antlr4.InputStream(input);
-    const lexer = new JavaScriptLexer(chars);
-    const tokens = new antlr4.CommonTokenStream(lexer);
-    const parser = new JavaScriptParser(tokens);
-    parser.buildParseTrees = true;
-    const tree = parser.program();
-
-    testVisitor(tree,0);
-
-    return tree;
 }
 
 async function DoGifOutput2(resenum, output, resolve) {
@@ -265,14 +245,21 @@ async function Exec1F(code1, code2, output, resolve) {
 }
 
 // New version for testing.
-async function Exec1F2(code1, code2, output, resolve) { 
+async function Exec1F2(code1, code2, output, language, resolve) { 
 
-    const tree1 = CodeToTree(code1);
-    let root1 = TranslateRule(tree1);
-    const tree2 = CodeToTree(code2);
-    let root2 = TranslateRule(tree2);
+    var root1 = undefined;
+    var root2 = undefined;
 
-    var result = FindCodeChanges([root1], [root2], tree1.start.source[1].strdata, tree2.start.source[1].strdata);
+    if (language === undefined) {
+        root1 = TranslateFileDefault(code1);
+        root2 = TranslateFileDefault(code2);
+    }
+    else {
+        root1 = TranslateFileByLanguage(code1, language);
+        root2 = TranslateFileByLanguage(code2, language);
+    }
+
+    var result = FindCodeChanges([root1], [root2], undefined, undefined);
     var result2 = GetAnimationSequence(result.inputDestinations, result.outputSources, result.renames);
 
     var resenum = new IntermediateTextEnumerator(result.inputDestinations, result.outputSources, result2);
@@ -287,13 +274,13 @@ async function RunTests() {
 
     const tests = [
         // OLD TESTS:
-        //'./tests/test_F1_0', './tests/test_F1_1', '../F1',
-        //'./tests/test_F2_0', './tests/test_F2_1', '../F2',
-        //'./tests/test_F3_0', './tests/test_F3_1', '../F3',
-        //'./tests/test_C1_0', './tests/test_C1_1', '../C1',
-        //'./tests/test_C2_0', './tests/test_C2_1', '../C2',
-        //'./tests/test_D1_0', './tests/test_D1_1', '../D1',
-        //'./tests/test_D2_0', './tests/test_D2_1', '../D2',
+        './tests/test_F1_0', './tests/test_F1_1', '../F1',
+        './tests/test_F2_0', './tests/test_F2_1', '../F2',
+        './tests/test_F3_0', './tests/test_F3_1', '../F3',
+        './tests/test_C1_0', './tests/test_C1_1', '../C1',
+        './tests/test_C2_0', './tests/test_C2_1', '../C2',
+        './tests/test_D1_0', './tests/test_D1_1', '../D1',
+        './tests/test_D2_0', './tests/test_D2_1', '../D2',
 
         // NEW TESTS:
         './tests/test_C3_0', './tests/test_C3_1', '../C3',
@@ -306,7 +293,7 @@ async function RunTests() {
     for (var i = 0; i < tests.length; i+=3) {
         if (fullExecution) {
             var promise = new Promise(
-                resolve => Exec1F2(tests[i+0], tests[i+1], tests[i+2] + '.gif', resolve)
+                resolve => Exec1F2(tests[i+0], tests[i+1], tests[i+2] + '.gif', "JS", resolve)
                 );
             await promise;
         }
@@ -388,8 +375,7 @@ async function SimpleTest3() {
 }
 
 async function SimpleTest4(id) {
-    const tree1 = CodeToTree('./tests/test_T' + id);
-    let root1 = TranslateRule(tree1);
+    let root1 = TranslateFileByLanguage('./tests/test_T' + id, 'JS');
     console.log(root1);
 }
 
@@ -440,7 +426,7 @@ async function UserInput() {
     var inputFiles = [];
     var outputFiles = [];
     var intermediateFiles = [];
-    var language = 'JS'; //TODO[15]: JS-independent
+    var language = undefined; //TODO[15]: JS-independent
     var showHelp = false;
     var intermediateFilesUsed = false;
 
@@ -508,21 +494,21 @@ async function UserInput() {
     const N = inputFiles.length - 1;
     for (var i = 0; i < N; i++) {
         var promise = new Promise(
-            resolve => Exec1F(inputFiles[i], inputFiles[i+1], outputFiles[i], resolve)
+            resolve => Exec1F2(inputFiles[i], inputFiles[i+1], outputFiles[i], language, resolve)
             );
         await promise;
     }
 }
 
 //FIX
-//SimpleTest4('20');
-//SimpleTest4('21');
-//SimpleTest4('27');
-//SimpleTest4('28');
-//SimpleTest4('42');
-//SimpleTest4('57');
-//SimpleTest4('60');
-//SimpleTest4('71');
+//SimpleTest4('20'); PASS
+//SimpleTest4('21'); PASS
+//SimpleTest4('27'); PASS
+//SimpleTest4('28'); PASS
+//SimpleTest4('42'); PASS
+//SimpleTest4('57'); PASS
+//SimpleTest4('60'); PASS
+//SimpleTest4('71'); PASS
 
 //RunTests();
 UserInput();

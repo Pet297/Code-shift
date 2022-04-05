@@ -1,4 +1,4 @@
-import {SemanticDefinition, SemanticAction, SemanticDecision, NonsemanticText} from './ruleTranslator.js';
+import {SemanticDefinition, SemanticAction, SemanticDecision, NonsemanticText} from './languageInterface.js';
 import os from 'os';
 
 // Keeps track of what parts of code carry semantic meaning to determine what are the non-semantic parts.

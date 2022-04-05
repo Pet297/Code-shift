@@ -32,7 +32,7 @@ export function GetAnimationSequence(sourceChanges, destinationChanges, renames)
             animationList.push(new MovingUpAnimation(srcaddress));
 
             // Apply changes, or do internal animation
-            if (sourceChanges[srcaddress].children.length != 0 || destinationChanges[index].children != 0) animationList.push(new InternalAnimationSequence(srcaddress, GetAnimationSequence(sourceChanges[srcaddress].children, destinationChanges[index].children, renames)));
+            if (sourceChanges[srcaddress].children.length != 0 && destinationChanges[index].children != 0) animationList.push(new InternalAnimationSequence(srcaddress, GetAnimationSequence(sourceChanges[srcaddress].children, destinationChanges[index].children, renames)));
             else if (!CheckTokensSame(sourceChanges[srcaddress].tokens, destinationChanges[index].tokens)) animationList.push(new ChangingAnimation(srcaddress));
         }
     }

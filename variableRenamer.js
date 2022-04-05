@@ -1,5 +1,3 @@
-import {SemanticDefinition, SemanticAction, SemanticDecision, NonsemanticText} from './ruleTranslator.js';
-
 export default function RenmameVariable(listOfChanges, originalName, outputList) {
     for (var i in listOfChanges) {
 
