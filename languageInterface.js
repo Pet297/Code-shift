@@ -219,10 +219,11 @@ export class NonsemanticCommandList extends BaseCommandList {
  */
 export class SemanticDefinition extends BaseCommandList
 {
-    constructor(paramList, innerCode, definitionType, name) {
+    constructor(dependentOn, paramList, innerCode, definitionType, name) {
 
         super(innerCode);
 
+        this.dependentOn = dependentOn;
         this.paramList = paramList;
         this.definitionType = definitionType;
         this.name = name;
@@ -234,11 +235,12 @@ export class SemanticDefinition extends BaseCommandList
  */
 export class SemanticDecision extends BaseCommandList
 {
-    constructor(dependentOn, innerCode, conditionType)
+    constructor(dependentOn, paramList, innerCode, conditionType)
     {
         super(innerCode);
 
         this.dependentOn = dependentOn;
+        this.paramList = paramList;
         this.conditionType = conditionType;
     }
 }

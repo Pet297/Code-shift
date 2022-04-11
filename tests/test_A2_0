@@ -1,0 +1,7 @@
+var a = 0;
+/* line1
+line1
+    line2
+        line3
+*/
+var b = 0;

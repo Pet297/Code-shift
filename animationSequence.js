@@ -1,8 +1,9 @@
 import VariableRename from './variableRenamer.js';
 
-export function GetAnimationSequence(sourceChanges, destinationChanges, renames)
+export function GetAnimationSequence(sourceChanges, destinationChanges, parentRenames = {})
 {
     var animationList = [];
+    var renames = sourceChanges.renames;
 
     // Step 1 - List removals
     for (var index in sourceChanges) {
@@ -10,14 +11,15 @@ export function GetAnimationSequence(sourceChanges, destinationChanges, renames)
     }
 
     // Step 1.5 - Add renames
-    for (var origName in renames) {
-        var affectedTokens = [];
-        VariableRename(sourceChanges, origName, affectedTokens);
+        for (var origName in renames) {
+            if (!(origName in parentRenames)) {
+            var affectedTokens = [];
+            VariableRename(sourceChanges, origName, affectedTokens);
 
-        var anim = new RenamingAnimation(origName, renames[origName], affectedTokens);
-        animationList.push(anim);
-        // TODO: Not propagate on children?
-        // TODO: Be specific about block
+            var anim = new RenamingAnimation(origName, renames[origName], affectedTokens);
+            animationList.push(anim);
+        }
+        // TODO: Check propagation
     }
 
     // Step 2 - From top to bottom move things up.

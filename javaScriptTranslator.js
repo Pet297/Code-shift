@@ -42,7 +42,7 @@ else switch (treeNode.ruleIndex) {
         }
         // Clean Up
         CleanUp(treeNode, cmdList);
-        return new SemanticDefinition([], cmdList.innerCode, 'program', undefined);
+        return new SemanticDefinition([], [], cmdList.innerCode, 'program', undefined);
 
     case 1: // sourceElement(1) -> (2)
         return TranslateRule(treeNode.children[0]);
@@ -158,12 +158,12 @@ else switch (treeNode.ruleIndex) {
             if (dependencies instanceof SemanticDefinition)
             {
                 CleanUp(treeNode, dependencies.innerCode);
-                return new SemanticDefinition(ListOrEmpty(dependencies.dependentOn), functionCode.innerCode, dependencies.definitionType, Array.from(dependencies.getIdentifiers()));
+                return new SemanticDefinition(ListOrEmpty(dependencies.dependentOn), [], functionCode.innerCode, dependencies.definitionType, FirstOrNone(Array.from(dependencies.getIdentifiers())));
             }
         }
 
         var cmd = TranslateAsNonSemanticText(treeNode);
-        return new SemanticDefinition(Array.from(dependencies.getIdentifiers()), [cmd], "variable", Array.from(name.getIdentifiers()));
+        return new SemanticDefinition(Array.from(dependencies.getIdentifiers()), [], [cmd], "variable", FirstOrNone(Array.from(name.getIdentifiers())));
 
     //case 18: // emptyStatement(18) -> ';'
 
@@ -191,7 +191,6 @@ else switch (treeNode.ruleIndex) {
             return cmd;
         }
 
-    //TODO: 20-21 upresnit mezery
     case 20: // ifStatement(20) -> 'If' '(' (56) ')' (2) ['Else' (2)]?
         // Get dependencies
         var dependencies = Array.from(TranslateNodeAndCleanUp(treeNode.children[2]).getIdentifiers());
@@ -203,7 +202,7 @@ else switch (treeNode.ruleIndex) {
         // Node 4 - semantic block of code
         TranslateNodeAndConcatInner(treeNode.children[4], cmdList);
 
-        if (treeNode.children.length > 4) {
+        if (treeNode.children.length > 5) {
             // Node [5] - text about negative condition
             TranslateAsNonSemanticTextAndConcat(treeNode.children[5], cmdList, 'ELSE');
             // Node [6] - semantic block of code
@@ -211,7 +210,7 @@ else switch (treeNode.ruleIndex) {
         }
         // Clean up
         CleanUp(treeNode, cmdList);
-        return new SemanticDecision(dependencies, cmdList.innerCode, "if");
+        return new SemanticDecision(dependencies, [], cmdList.innerCode, "if");
 
     case 21: // iterationStatement(21) -> 'Do' (2) 'While' '(' (56) ')' (74) |
              //                              -> 'While' '(' (56) ')' (2)
@@ -251,7 +250,7 @@ else switch (treeNode.ruleIndex) {
 
         // Clean up
         CleanUp(treeNode, cmdList);
-        return new SemanticDecision(dependencies, cmdList.innerCode, "iteration");
+        return new SemanticDecision(dependencies, [], cmdList.innerCode, "iteration");
 
     //case 22: // varModifier(22) -> 'Var' | (73) | 'Const'
     //case 23: // continueStatement(23) -> 'Continue' [(!!)? (70)]? (74)
@@ -299,7 +298,7 @@ else switch (treeNode.ruleIndex) {
 
     // Clean up
     CleanUp(treeNode, cmdList);
-    return new SemanticDecision(dependencies, cmdList.innerCode, "with");
+    return new SemanticDecision([], dependencies, cmdList.innerCode, "with");
 
     case 28: // switchStatement(28) -> 'Switch' '(' (56) ')' (29)
         
@@ -316,7 +315,7 @@ else switch (treeNode.ruleIndex) {
 
     // Clean up
     CleanUp(treeNode, cmdList);
-    return new SemanticDecision(dependencies, cmdList.innerCode, "switch");
+    return new SemanticDecision(dependencies, [], cmdList.innerCode, "switch");
 
     case 29: // caseBlock(29) -> '{' (30)? [(32) (30)?]? '}'
 
@@ -358,7 +357,7 @@ else switch (treeNode.ruleIndex) {
         if (treeNode.children.length > 3) TranslateNodeAndConcatInner(treeNode.children[3], cmdList);
         // Clean up
         CleanUp(treeNode, cmdList);
-        return new SemanticDecision(dependencies, cmdList.innerCode, "case");
+        return new SemanticDecision(dependencies, [], cmdList.innerCode, "case");
 
     case 32: // defaultClause(32) -> Default ':' (4)?
 
@@ -372,7 +371,7 @@ else switch (treeNode.ruleIndex) {
         TranslateNodeAndConcatInner(treeNode.children[2], cmdList);
         // Clean up
         CleanUp(treeNode, cmdList);
-        return new SemanticDecision(dependencies, cmdList.innerCode, "default");
+        return new SemanticDecision(dependencies, [], cmdList.innerCode, "default");
 
     case 33: // labelledStatement(33) -> (70) ':' (2)
 
@@ -405,7 +404,7 @@ else switch (treeNode.ruleIndex) {
         }
 
         CleanUp(treeNode, cmdList);
-        return new SemanticDecision([],cmdList.innerCode,"try");
+        return new SemanticDecision([], [], cmdList.innerCode,"try");
 
     case 36: // catchProduction(36) -> 'Catch' ['(' (58) ')']? (3)
         var cmdList = new NonsemanticCommandList([]);
@@ -471,7 +470,7 @@ else switch (treeNode.ruleIndex) {
         }
         // Clean up
         CleanUp(treeNode, cmdList);
-        return new SemanticDefinition(params, cmdList.innerCode, "function", name);
+        return new SemanticDefinition([], params, cmdList.innerCode, "function", name);
 
     case 40: // classDeclaration(40) -> 'Class' (70) (41)
         
@@ -486,7 +485,8 @@ else switch (treeNode.ruleIndex) {
         cmdList.innerCode.splice(0,0,cmd01);
 
         CleanUp(treeNode, cmdList);
-        return new SemanticDefinition([],cmdList.innerCode,"class",name);
+        //TODO: inner params?
+        return new SemanticDefinition([], [], cmdList.innerCode,"class",name);
 
     case 41: // classTail(41) -> ['Extends' (57)]? '{' (42)* '}'
         
@@ -570,18 +570,18 @@ else switch (treeNode.ruleIndex) {
             }
 
             CleanUp(treeNode, cmdList);
-            return new SemanticDefinition(fullCode.paramList, cmdList.innerCode, fullCode.definitionType, fullCode.name);
+            return new SemanticDefinition([], fullCode.paramList, cmdList.innerCode, fullCode.definitionType, fullCode.name);
         }
         else if (rule53 != null) {
             var t53 = TranslateRule(rule53);
             var t57 = TranslateRule(rule57);
-            return new SemanticDefinition(Array.from(t57.getIdentifiers()), [fullNonsemanticCode], 'class property', Array.from(t53.getIdentifiers()));
+            return new SemanticDefinition(Array.from(t57.getIdentifiers()), [], [fullNonsemanticCode], 'class property', FirstOrNone(Array.from(t53.getIdentifiers())));
         }
         else if (rule58 != null) {
             // Get tokens, save as variable definition
             var t58 = TranslateRule(rule58);
             var t59 = TranslateRule(rule59);
-            return new SemanticDefinition(Array.from(t59.getIdentifiers()), [fullNonsemanticCode], 'class getter/setter', Array.from(t58.getIdentifiers()));
+            return new SemanticDefinition(Array.from(t59.getIdentifiers()), [], [fullNonsemanticCode], 'class getter/setter', FirstOrNone(Array.from(t58.getIdentifiers())));
         }
         else {
             // Epmty statement, just return NS
@@ -622,15 +622,15 @@ else switch (treeNode.ruleIndex) {
         // Determine, if we are dealing with a getter, a setter or a method.
         if (rule53 != null) {
             var name = FirstOrNone(Array.from(TranslateNodeAndCleanUp(rule53).getIdentifiers()));
-            return new SemanticDefinition(params, cmdList.innerCode, "method", name); // TODO: first id or nothing
+            return new SemanticDefinition([], params, cmdList.innerCode, "method", name); // TODO: first id or nothing
         }
         else if (rule67 != null) {
             var name = FirstOrNone(Array.from(TranslateNodeAndCleanUp(rule67).getIdentifiers()));
-            return new SemanticDefinition(params, cmdList.innerCode, "getter", name);
+            return new SemanticDefinition([], params, cmdList.innerCode, "getter", name);
         }
         else if (rule68 != null) {
             var name = FirstOrNone(Array.from(TranslateNodeAndCleanUp(rule68).getIdentifiers()));
-            return new SemanticDefinition(params, cmdList.innerCode, "setter", name);
+            return new SemanticDefinition([], params, cmdList.innerCode, "setter", name);
         }
         else {
             console.error("Error: something unexpected went worng while translating rule 43 in JS.")
@@ -658,7 +658,7 @@ else switch (treeNode.ruleIndex) {
         }
         // Clean Up
         CleanUp(treeNode, cmdList);
-        return new SemanticDefinition([], cmdList.innerCode, "program", null);
+        return new SemanticDefinition([], [], cmdList.innerCode, "program", null);
 
     //case 49: // arrayLiteral(49) -> '[' (50) ']'
     //case 50: // elementList(50) -> ','* (51)? [','+ (51)]* ','*
@@ -718,7 +718,7 @@ else switch (treeNode.ruleIndex) {
             var functionCode = TranslateNodeAndCleanUp(treeNode.children[treeNode.children.length-1]);
             cmdList.innerCode = cmdList.innerCode.concat(functionCode.innerCode);
             CleanUp(treeNode, cmdList);
-            return new SemanticDefinition(functionCode.paramList, cmdList, functionCode.definitionType, functionCode.name);
+            return new SemanticDefinition(functionCode.dependentOn, functionCode.paramList, cmdList, functionCode.definitionType, functionCode.name);
         }
         else if (rule60present) {
             // Just one node with rule 60.
@@ -748,7 +748,7 @@ else switch (treeNode.ruleIndex) {
         if (treeNode.children.length == 1) {
             var definitionIn39 = TranslateRule(treeNode.children[0]);
             // Change type of definition from regular to anonymous function
-            return new SemanticDefinition(definitionIn39.paramList, definitionIn39.paramList,"anonymous_function",definitionIn39.name);
+            return new SemanticDefinition(definitionIn39.dependentOn, definitionIn39.paramList, definitionIn39.paramList,"anonymous_function",definitionIn39.name);
         }
         // (ASYNC)? (FUNCTION) '*'? '(' (44)? ')'
         else {

@@ -7,7 +7,7 @@ import { TokenInfo } from './languageInterface.js';
 const lineSpacing = 20;
 const firstLineY = 25;
 const firstCharX = 10;
-const lineWidth = 400;
+const lineWidth = 800;
 const lineHighlightOffset = 5;
 
 const fontSize = 15;
@@ -17,7 +17,7 @@ const tabSpaces = 4;
 // IMPORTANT FUNCTIONS
 function StartNewGIF() {
     var imageMagick = gm.subClass({imageMagick: true});
-    var gms = imageMagick(400,400,'#000F')
+    var gms = imageMagick(800,800,'#000F')
     .setFormat('gif')
     .fill('#ffffff')
     .font('Consolas')
@@ -52,7 +52,10 @@ function DrawLines(gms, lines, y0, xoffset = 0) {
         i++;
     }
 }
-function DrawColoredLines(gms, lines, textColor, y0, xoffset = 0) {
+function DrawColoredText(gms, text, textColor, y0, xoffset = 0) {
+    
+    var lines = text.split(os.EOL);
+
     for(var i = 0; i <= lines.length - 1; i++) {
         gms.fill(textColor);
 
@@ -69,14 +72,15 @@ function DrawColoredLines(gms, lines, textColor, y0, xoffset = 0) {
             else if (s0[0] == '\t')
             {
                 spaces += tabSpaces;
+                spaces -= spaces % tabSpaces;
                 s0 = s0.substring(1);
             }
             else break;
         }
         spaces += xoffset;
 
-        gms.drawText(xoffset * fontWidth + firstCharX, y0 + lineSpacing * i, s0);
-        i++;
+        gms.drawText(spaces * fontWidth + firstCharX, y0 + lineSpacing * i, s0);
+        xoffset = 0;
     }
 }
 function DrawHighlitedLines(gms, lines, highlightColor, textColor, y0, xoffset = 0) {
@@ -118,21 +122,20 @@ export function WriteGifFileSH(tokens,filename,resolve) {
     var gms = StartNewGIF();
     var x = 0;
     var y = 0;
+    var nl = '\n';
+    if (os.EOL == '\r') nl = '\r';
 
     for (var token of tokens) {
         var textC = JS_COLOR[token.colorClass];
 
-        if (token.text == '\n') {
-            y++;
-            x = 0;
-        }
-        else if (token.text == '\r') {
-            
-        }
-        else {
-            DrawColoredLines(gms,[token.text],textC,y * lineSpacing + firstLineY,x);
-            x += token.text.length;
-        }
+        DrawColoredText(gms,token.text,textC,y * lineSpacing + firstLineY,x);
+        
+        for (var char of token.text) {
+            if (char == nl) { y++; x = 0}
+            else if (char == '\n' || char == '\r') {}
+            else if (char == '\t') { x += tabSpaces; x -= x % tabSpaces }
+            else x ++;
+        }      
     }
 
     gms.write(filename, ()=>{resolve()});
@@ -155,17 +158,21 @@ export function WriteGifFileSHTransform(tokens,percentage,filename,resolve) {
     for (var token of tokens) {
         oldPos.push({x:x, y:y});
         if (token instanceof TokenInfo) {
-            if (token.text == nl) { y++; x = 0}
-            else if (token.text == '\n' || token.text == '\r') {}
-            else if (token.text == '\t') { x += tabSpaces; x -= x % tabSpaces }
-            else x += token.text.length;
+            for (var char of token.text) {
+                if (char == nl) { y++; x = 0}
+                else if (char == '\n' || char == '\r') {}
+                else if (char == '\t') { x += tabSpaces; x -= x % tabSpaces }
+                else x ++;
+            }
         }
         else {
             for (var token2 of token[1]) {
-                if (token2.text == nl) { y++; x = 0}
-                else if (token2.text == '\n' || token.text == '\r') {}
-                else if (token2.text == '\t') { x += tabSpaces; x -= x % tabSpaces }
-                else x += token2.text.length;
+                for (var char of token2.text) {
+                    if (char == nl) { y++; x = 0}
+                    else if (char == '\n' || char == '\r') {}
+                    else if (char == '\t') { x += tabSpaces; x -= x % tabSpaces }
+                    else x ++;
+                }
             }
         }
     }
@@ -176,17 +183,21 @@ export function WriteGifFileSHTransform(tokens,percentage,filename,resolve) {
     for (var token of tokens) {
         newPos.push({x:x, y:y});
         if (token instanceof TokenInfo) {
-            if (token.text == nl) { y++; x = 0}
-            else if (token.text == '\n' || token.text == '\r') {}
-            else if (token.text == '\t') { x += tabSpaces; x -= x % tabSpaces }
-            else x += token.text.length;
+            for (var char of token.text) {
+                if (char == nl) { y++; x = 0}
+                else if (char == '\n' || char == '\r') {}
+                else if (char == '\t') { x += tabSpaces; x -= x % tabSpaces }
+                else x ++;
+            }
         }
         else {
             for (var token2 of token[0]) {
-                if (token2.text == nl) { y++; x = 0}
-                else if (token2.text == '\n' || token.text == '\r') {}
-                else if (token2.text == '\t') { x += tabSpaces; x -= x % tabSpaces }
-                else x += token2.text.length;
+                for (var char of token2.text) {
+                    if (char == nl) { y++; x = 0}
+                    else if (char == '\n' || char == '\r') {}
+                    else if (char == '\t') { x += tabSpaces; x -= x % tabSpaces }
+                    else x ++;
+                }
             }
         }
     }
@@ -267,26 +278,26 @@ export function WriteGifFileSHTransform(tokens,percentage,filename,resolve) {
             //if (percentage < 0.5) {
                 for (var c of listDel) {
                     var color = MixColors(JS_COLOR[c[1]],'#000000',percentDissappear);
-                    DrawColoredLines(gms,[c[0]],color,c[3] * lineSpacing + firstLineY,c[2]);
+                    DrawColoredText(gms,c[0],color,c[3] * lineSpacing + firstLineY,c[2]);
                 }
             //}
             //else {
                 for (var c of listAdd) {
                     var color = MixColors('#000000',JS_COLOR[c[1]],percentAppear);
-                    DrawColoredLines(gms,[c[0]],color,c[3] * lineSpacing + firstLineY,c[2]);
+                    DrawColoredText(gms,c[0],color,c[3] * lineSpacing + firstLineY,c[2]);
                 }
             //}
             for (var c of listMove) {
                 var xa = (1 - percentMove) * c[3] + percentMove * c[5];
                 var ya = (1 - percentMove) * c[4] + percentMove * c[6];
                 var color = MixColors(JS_COLOR[c[1]],JS_COLOR[c[2]],1 - percentage);
-                DrawColoredLines(gms,[c[0]],color,ya * lineSpacing + firstLineY,xa);
+                DrawColoredText(gms,c[0],color,ya * lineSpacing + firstLineY,xa);
             }
         }
         else if (tokens[i].text != '\n' && tokens[i].text != '\r' && tokens[i].text != '\t') {
             var pxa = (1-percentage) * oldPos[i].x + percentage * newPos[i].x;
             var pya = (1-percentage) * oldPos[i].y + percentage * newPos[i].y;
-            DrawColoredLines(gms,[tokens[i].text],textC,pya * lineSpacing + firstLineY,pxa);
+            DrawColoredText(gms,tokens[i].text,textC,pya * lineSpacing + firstLineY,pxa);
         }
     }
 
@@ -385,18 +396,20 @@ function GetTokenPositions(tokens, x, y) {
 
     for (var token of tokens) {
         positions.push({x: xc, y: yc});
-        if (token.text == nl) {
-            yc++;
-            xc = 0;
-        }
-        else if (token.text == '\n' || token.text == '\r') {
-            //nothing happens
-        }
-        else if (token.text == '\t') {
-            xc += tabSpaces - (xc % tabSpaces);
-        }
-        else {
-            xc += token.text.length;
+        for (var char of token.text) {
+            if (char == nl) {
+                yc++;
+                xc = 0;
+            }
+            else if (char == '\n' || char == '\r') {
+                //nothing happens
+            }
+            else if (char == '\t') {
+                xc += tabSpaces - (xc % tabSpaces);
+            }
+            else {
+                xc ++;
+            }
         }
     }
     return {positions: positions, x: xc, y: yc};
@@ -413,7 +426,7 @@ function InterpolatePositions(array0, array1, percentage) {
 function DrawTokens(tokens, positions, gms, opacity = 1) {
     for (var i = 0; i < tokens.length; i++) {
         var opacColor = MixColors('#000000', JS_COLOR[tokens[i].colorClass], opacity);
-        DrawColoredLines(gms,[tokens[i].text],opacColor,positions[i].y * lineSpacing + firstLineY, positions[i].x);
+        DrawColoredText(gms,tokens[i].text,opacColor,positions[i].y * lineSpacing + firstLineY, positions[i].x);
     }   
 }
 

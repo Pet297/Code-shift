@@ -1,7 +1,6 @@
 import fs from 'fs';
 import path from 'path';
 import { FindCodeChanges, SupplyCodeChanges } from './distance.js'
-import { AddText } from './statementPosition.js'
 import { GetAnimationSequence } from './animationSequence.js'
 import { IntermediateTextEnumerator, CollapseIntermediateText } from './animationEnumerator.js'
 import { WriteGifFile, WriteGifFileSH, WriteGifFileSHTransform, WriteGifFileSHAdd, WriteGifFileSHMoveUp, WriteGifFileSHRemove } from './gifWriter.js'
@@ -185,8 +184,8 @@ async function DoGifOutput2(resenum, output, resolve) {
 // Find differences between two source codes,
 //  output lists of changes to a file.
 async function Exec1N(code1, code2, output, resolve) {
-
-    const tree1 = CodeToTree(code1);
+    //TODO:
+    /*const tree1 = CodeToTree(code1);
     let root1 = TranslateRule(tree1);
     const tree2 = CodeToTree(code2);
     let root2 = TranslateRule(tree2);
@@ -194,7 +193,7 @@ async function Exec1N(code1, code2, output, resolve) {
     AddText(root2, tree2.start.source[1].strdata);
 
     var result = FindCodeChanges([root1], [root2], tree1.start.source[1].strdata, tree2.start.source[1].strdata);
-    ListOfChangesToFile(result.inputDestinations, result.outputSources, result.renames, output, resolve)
+    ListOfChangesToFile(result.inputDestinations, result.outputSources, result.renames, output, resolve)*/
 }
 
 // Find differences between two source codes,
@@ -202,7 +201,8 @@ async function Exec1N(code1, code2, output, resolve) {
 //  The list of changes is given.
 async function Exec1M(code1, code2, changes12, output, resolve) {
 
-    const tree1 = CodeToTree(code1);
+    //TODO:
+    /*const tree1 = CodeToTree(code1);
     let root1 = TranslateRule(tree1);
     const tree2 = CodeToTree(code2);
     let root2 = TranslateRule(tree2);
@@ -218,33 +218,9 @@ async function Exec1M(code1, code2, changes12, output, resolve) {
         resolve => DoGifOutput2(resenum, output, resolve)
         );
     promise.then(()=>resolve());
-    await promise;
+    await promise;*/
 }
 
-// Find differences between two source codes,
-//  output resulting animation to a GIF.
-//  The list of changes is automatically generated.
-async function Exec1F(code1, code2, output, resolve) { 
-
-    const tree1 = CodeToTree(code1);
-    let root1 = TranslateRule(tree1);
-    const tree2 = CodeToTree(code2);
-    let root2 = TranslateRule(tree2);
-    AddText(root1, tree1.start.source[1].strdata);
-    AddText(root2, tree2.start.source[1].strdata);
-
-    var result = FindCodeChanges([root1], [root2], tree1.start.source[1].strdata, tree2.start.source[1].strdata);
-    var result2 = GetAnimationSequence(result.inputDestinations, result.outputSources);
-
-    var resenum = new IntermediateTextEnumerator(result.inputDestinations, result.outputSources, result2);
-    var promise = new Promise(
-        resolve => DoGifOutput2(resenum, output, resolve)
-        );
-    promise.then(()=>resolve());
-    await promise;
-}
-
-// New version for testing.
 async function Exec1F2(code1, code2, output, language, resolve) { 
 
     var root1 = undefined;
@@ -270,20 +246,28 @@ async function Exec1F2(code1, code2, output, language, resolve) {
     await promise;
 }
 
+//TODO: clear unfinished run
+//TODO: group anim
+//TODO: 1-to-N
+//TODO: move or not
+
 async function RunTests() {
 
     const tests = [
         // OLD TESTS:
-        './tests/test_F1_0', './tests/test_F1_1', '../F1',
-        './tests/test_F2_0', './tests/test_F2_1', '../F2',
-        './tests/test_F3_0', './tests/test_F3_1', '../F3',
-        './tests/test_C1_0', './tests/test_C1_1', '../C1',
-        './tests/test_C2_0', './tests/test_C2_1', '../C2',
-        './tests/test_D1_0', './tests/test_D1_1', '../D1',
-        './tests/test_D2_0', './tests/test_D2_1', '../D2',
+        //'./tests/test_F1_0', './tests/test_F1_1', '../F1',
+        //'./tests/test_F2_0', './tests/test_F2_1', '../F2',
+        //'./tests/test_F3_0', './tests/test_F3_1', '../F3',
+        //'./tests/test_C1_0', './tests/test_C1_1', '../C1',
+        //'./tests/test_C2_0', './tests/test_C2_1', '../C2',
+        //'./tests/test_D1_0', './tests/test_D1_1', '../D1',
+        //'./tests/test_D2_0', './tests/test_D2_1', '../D2',
 
         // NEW TESTS:
-        './tests/test_C3_0', './tests/test_C3_1', '../C3',
+        //'./tests/test_C3_0', './tests/test_C3_1', '../C3',
+        //'./tests/test_D3_0', './tests/test_D3_1', '../D3',
+        //'./tests/test_A1_0', './tests/test_A1_1', '../A1',
+        //'./tests/test_A2_0', './tests/test_A2_1', '../A2',
 
     ]
     const fullExecution = true;
@@ -312,74 +296,17 @@ async function RunTests() {
     }
 }
 
-async function SimpleTest() {
-    var promises = [];
-    var gifnumber = 0;
-    for (var i=0; i<20; i++)
-    {
-        let promise = new Promise(
-            resolve => WriteChangingAnimationFile(
-                "Text 1\r\nText 2\r\n",
-                "Text 3\r\nText 4\r\n",
-                "Nunc mi ipsum faucibus vitae\r\n",
-                "Lorem ipsum dolor sit amet\r\nLorem ipsum\r\n",
-                i/19.0,
-                '.output\\frame' + (gifnumber+1001).toString() + '.gif',
-                resolve)
-        );
-        promises.push(promise);
-        gifnumber++;
-    }
-    await Promise.all(promises);
-    
-    let promise = new Promise(
-        resolve => WriteGifFile('.output/frame*.gif', '.output/result.gif', resolve)
-        )
-    await promise;
-
-    //delete individual frames
-    for (var i=0; i < gifnumber;i++) {
-        var framePath = path.join(".", ".output", "frame"+ (i+1001).toString() +".gif");
-        fs.unlink(framePath, CallbackRemove);
-    }
-
-    //move result
-    const outputPath = path.join(".", ".output", "result.gif");
-    fs.rename(outputPath, '../TT.gif', CallbackMove);
-}
-
-async function SimpleTest2() {
-    const tree1 = CodeToTree('./tests/test_D1_0');
-    const tree2 = CodeToTree('./tests/test_D1_1');
-    let root1 = TranslateRule(tree1);
-    let root2 = TranslateRule(tree2);
-    AddText(root1, tree1.start.source[1].strdata);
-    AddText(root2, tree2.start.source[1].strdata);
-
-    RenmameVariable(root1.localCode, 'c', 'b');
-}
-
-async function SimpleTest3() {
-    const tree1 = CodeToTree('./tests/test_D1_0');
-    let root1 = TranslateRule(tree1);
-    console.log(root1);
-
-    let promise = new Promise(
-        resolve => WriteGifFileSH(
-            root1.tokens,
-            '..\\test.gif',
-            resolve)
-    );
-
-    await promise;
-}
-
 async function SimpleTest4(id) {
     let root1 = TranslateFileByLanguage('./tests/test_T' + id, 'JS');
     console.log(root1);
 }
 
-const recognizedFlags = ['-i', '-o', '-c', '-l', '-n', '-f', '-h']
+async function SimpleTest(file) {
+    let root1 = TranslateFileByLanguage(file, 'JS');
+    console.log(root1);
+}
+
+const recognizedFlags = ['-i', '-o', '-c', '-l', '-n', '-f', '-h', '-t']
 function IsRecognizedFlag(flag)
 {
     for (var flag0 of recognizedFlags) {
@@ -426,9 +353,10 @@ async function UserInput() {
     var inputFiles = [];
     var outputFiles = [];
     var intermediateFiles = [];
-    var language = undefined; //TODO[15]: JS-independent
+    var language = undefined;
     var showHelp = false;
     var intermediateFilesUsed = false;
+    var testTranslation = false;
 
     // 1) Parse CMD arguments
     for(var i = 2; i < process.argv.length; i++) {
@@ -449,6 +377,11 @@ async function UserInput() {
                     if (process.argv[i] == '-i') inputFiles.push(process.argv[i+1]);
                     if (process.argv[i] == '-o') outputFiles.push(process.argv[i+1]);
                     if (process.argv[i] == '-c') intermediateFiles.push(process.argv[i+1]);
+                    if (process.argv[i] == '-t')
+                    {
+                        testTranslation = true;
+                        inputFiles.push(process.argv[i+1]);
+                    }
                     if (process.argv[i] == '-l') language = process.argv[i+1];
                     i++;
                 }
@@ -489,14 +422,18 @@ async function UserInput() {
     }
 
     // 4) Execute based on settings:
-    //TODO[15]: JS-independent
-    //TODO[07]: Intermediate file
-    const N = inputFiles.length - 1;
-    for (var i = 0; i < N; i++) {
-        var promise = new Promise(
-            resolve => Exec1F2(inputFiles[i], inputFiles[i+1], outputFiles[i], language, resolve)
-            );
-        await promise;
+    if (testTranslation) {
+        SimpleTest(inputFiles[0]);
+    }
+    else {
+        //TODO: Intermediate file
+        const N = inputFiles.length - 1;
+        for (var i = 0; i < N; i++) {
+            var promise = new Promise(
+                resolve => Exec1F2(inputFiles[i], inputFiles[i+1], outputFiles[i], language, resolve)
+                );
+            await promise;
+        }
     }
 }
 

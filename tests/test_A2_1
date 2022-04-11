@@ -1,0 +1,9 @@
+var a = 0;
+/* line1
+line1
+    ine2
+line3
+        line4
+            line5
+*/
+var b = 0;

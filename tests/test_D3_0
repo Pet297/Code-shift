@@ -1,0 +1,33 @@
+class FirstClass {
+    constructor(c, d) {
+        this.c = c;
+        this.d = d;
+    }
+
+    GetFirstNElementsOfC(n) {
+        var ret = [];
+        // Debug:
+        if (n % 2 == 0) {
+            console.log('n is even')
+        }
+        else {
+            console.log('n is odd');
+        }
+        for (var i = 0; i < n; i++) {
+            ret.push(this.c[i]);
+        }
+
+        return ret;
+    }
+}
+
+var a = 0;
+var b = 1;
+var c = 2;
+
+var instance1 = new FirstClass([2,5,8,9,10,11], 'testInstance');
+var instance2 = new FirstClass([1,3,3,4,5,6,7,7,8,9], 'testInstance');
+
+var x = instance1.GetFirstNElementsOfC(3);
+c = instance2.c[0];
+var d = instance1.c[1];

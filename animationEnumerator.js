@@ -18,7 +18,7 @@ export class IntermediateTextEnumerator
         this.destinationChanges = destinationChanges;
         this.animationSequence = animationSequence;
 
-        BuildInitialArray(this.sourceChanges, [], this.unproccessedList);
+        BuildInitialArray(this.sourceChanges, this.unproccessedList);
     }
 
     // Returns a quintuple of form [c, p, m, u1, u2], where
@@ -143,7 +143,7 @@ function GetStillText(sourceChanges, destinationChanges, currentBlocks)
 
 // Builds array of blocks of code, representing the initial code,
 //  before it was changes
-function BuildInitialArray(sourceChanges, addressArray, unproccessedList) {
+function BuildInitialArray(sourceChanges, unproccessedList) {
     for (var index in sourceChanges)
     {
         unproccessedList.push([index,'o']);
