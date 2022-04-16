@@ -1,44 +1,79 @@
 import VariableRename from './variableRenamer.js';
 
-export function GetAnimationSequence(sourceChanges, destinationChanges, parentRenames = {})
+export function GetAnimationSequence(sourceChanges, destinationChanges, renames = {}, parentRenames = {})
 {
     var animationList = [];
-    var renames = sourceChanges.renames;
 
     // Step 1 - List removals
-    for (var index in sourceChanges) {
-        if (sourceChanges[index].address == 'x') animationList.push(new DeletingAnimation(index));
+    for (var index = 0; index < sourceChanges.length; ) {
+
+        var deletionsList = [];
+
+        while (sourceChanges[index]?.address == 'x') {
+            deletionsList.push(index);
+            index++;
+        }
+
+        if (deletionsList.length == 0) index++;
+        else animationList.push(new DeletingCommand(deletionsList));
     }
 
-    // Step 1.5 - Add renames
+    // Step 2 - Add renames
         for (var origName in renames) {
             if (!(origName in parentRenames)) {
             var affectedTokens = [];
             VariableRename(sourceChanges, origName, affectedTokens);
 
-            var anim = new RenamingAnimation(origName, renames[origName], affectedTokens);
+            var anim = new RenamingCommand(origName, renames[origName], affectedTokens);
             animationList.push(anim);
         }
-        // TODO: Check propagation
     }
 
-    // Step 2 - From top to bottom move things up.
-    for (var index in destinationChanges) {
+    // Step 3 - From top to bottom move things up.
+    for (var index = 0; index < destinationChanges.length; index++) {
         if (destinationChanges[index].address == '+') {
-            animationList.push(new AddingAnimation(index));
+
+            var additionsList = [];
+
+            while (destinationChanges[index]?.address == '+') {
+                additionsList.push(index);
+                index++;
+            }
+
+            animationList.push(new AddingCommand(additionsList));
+            index--;
         }
         else {
             var srcaddress = destinationChanges[index].address;
 
-            // Move up
-            animationList.push(new MovingUpAnimation(srcaddress));
+            // List of what will move up
+            var toMoveUp = [srcaddress];
 
-            // Apply changes, or do internal animation
-            if (sourceChanges[srcaddress].children.length != 0 && destinationChanges[index].children != 0) animationList.push(new InternalAnimationSequence(srcaddress, GetAnimationSequence(sourceChanges[srcaddress].children, destinationChanges[index].children, renames)));
-            else if (!CheckTokensSame(sourceChanges[srcaddress].tokens, destinationChanges[index].tokens)) animationList.push(new ChangingAnimation(srcaddress));
+            // Look ahead for grouped renames
+            var expected = index + 1;
+            var toSkip = 0;
+            for (var index2 = srcaddress + 1; index2 < sourceChanges.length; index2++) {
+                if (sourceChanges[index2]?.address == 'x');
+                else if (sourceChanges[index2]?.address == expected) {
+                    // Add to group
+                    toMoveUp.push(index2);
+                    expected++;
+                    toSkip++;
+                }
+                else break;
+            }
+
+            // Push Moving Animation
+            animationList.push(new MovingUpCommand(toMoveUp));
+
+            // Apply changes to everything that was moved up (or do its internal animation)
+            for (var i = 0; i <= toSkip; i++) {
+                if (sourceChanges[toMoveUp[i]].children.length != 0 && destinationChanges[index].children != 0) animationList.push(new InternalCommandSequence(toMoveUp[i], GetAnimationSequence(sourceChanges[toMoveUp[i]].children, destinationChanges[index].children, sourceChanges[toMoveUp[i]].renames, renames)));
+                else if (!CheckTokensSame(sourceChanges[toMoveUp[i]].tokens, destinationChanges[index].tokens)) animationList.push(new ChangingCommand(toMoveUp[i]));
+                if (i != toSkip) index++;
+            }
         }
     }
-    // TODO[09]: Reduce number of animations by grouping related ones.
     return animationList;
 }
 
@@ -50,28 +85,28 @@ function CheckTokensSame(tokens1, tokens2) {
     return true;
 }
 
-export class DeletingAnimation {
+export class DeletingCommand {
     constructor (sourceAddress)
     {
         this.sourceAddress = sourceAddress;
     }
 }
 
-export class MovingUpAnimation {
+export class MovingUpCommand {
     constructor (sourceAddress)
     {
         this.sourceAddress = sourceAddress;
     }
 }
 
-export class ChangingAnimation {
+export class ChangingCommand {
     constructor (sourceAddress)
     {
         this.sourceAddress = sourceAddress;
     }
 }
 
-export class InternalAnimationSequence {
+export class InternalCommandSequence {
     constructor (sourceAddress, animationSequence)
     {
         this.sourceAddress = sourceAddress;
@@ -79,14 +114,14 @@ export class InternalAnimationSequence {
     }
 }
 
-export class AddingAnimation {
+export class AddingCommand {
     constructor (destinationAddress)
     {
         this.destinationAddress = destinationAddress;
     }
 }
 
-export class RenamingAnimation {
+export class RenamingCommand {
     constructor (origName, newName, tokensToRename)
     {
         this.origName = origName;

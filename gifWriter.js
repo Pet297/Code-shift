@@ -1,6 +1,9 @@
+import fs from 'fs';
+import path from 'path';
 import gm from 'gm';
 import os from 'os';
 import { LevenChangesColored, ChangingLevenPart, UnchangedLevenPart } from './levenAnimator.js';
+import { MovingUpAnimation, ChangingAnimation, AddingAnimation, RemovingAnimation, RenamingAnimation, EndingAnimation } from './animationEnumerator.js';
 import { TokenInfo } from './languageInterface.js';
 
 // CONSTANTS
@@ -13,6 +16,186 @@ const lineHighlightOffset = 5;
 const fontSize = 15;
 const fontWidth = 8; // Specific for Consolas at 15
 const tabSpaces = 4;
+
+// The important class
+export class GIFWriter {
+    
+    _gifNumber = 100001;
+    _finalText = [];
+    _outputFile = undefined;
+
+    constructor() {
+    }
+    async Begin (outputFile, resolve) {
+        ClearTemporaryFiles();
+        this._gifNumber = 100001;
+        this._outputFile = outputFile;
+        resolve();
+    }
+    async ApplyAnimation (animation, resolve) {
+        if (animation instanceof MovingUpAnimation) {
+            var promises = [];
+            for (var i=0; i<20; i++)
+            {
+                let promise = new Promise(
+                    resolve => WriteGifFileSHMoveUp(
+                        animation.textAbove,
+                        animation.textMovingUp,
+                        animation.textMovingDown,
+                        animation.textBelow,
+                        i/19.0,
+                        '.output\\frame' + (this._gifNumber).toString() + '.gif',
+                        resolve)
+                );
+                promises.push(promise);
+                this._gifNumber++;
+            }
+            await Promise.all(promises);
+            resolve();
+        }
+
+        else if (animation instanceof AddingAnimation) {
+            var promises = [];
+            for (var i=0; i<20; i++)
+            {
+                let promise = new Promise(
+                    resolve => WriteGifFileSHAdd(
+                        animation.textAbove,
+                        animation.textBeingAdded,
+                        animation.textBelow,
+                        i/19.0,
+                        '.output\\frame' + (this._gifNumber).toString() + '.gif',
+                        resolve)
+                );
+                promises.push(promise);
+                this._gifNumber++;
+            }
+            await Promise.all(promises);
+            resolve();
+        }
+
+        else if (animation instanceof RemovingAnimation) {
+            var promises = [];
+            for (var i=0; i<20; i++)
+            {
+                let promise = new Promise(
+                    resolve => WriteGifFileSHRemove(
+                        animation.textAbove,
+                        animation.textBeingRemoved,
+                        animation.textBelow,
+                        i/19.0,
+                        '.output\\frame' + (this._gifNumber).toString() + '.gif',
+                        resolve)
+                );
+                promises.push(promise);
+                this._gifNumber++;
+            }
+            await Promise.all(promises);
+            resolve();
+        }
+
+        else if (animation instanceof ChangingAnimation) {
+            var tokenList = [];
+
+            tokenList = tokenList.concat(animation.textAbove);
+            tokenList.push([animation.textChangingFrom,animation.textChangingTo]);
+            tokenList = tokenList.concat(animation.textBelow);
+
+            var promises = [];
+            for (var i=0; i<20; i++)
+            {
+                let promise = new Promise(
+                    resolve => WriteGifFileSHTransform(
+                    tokenList,
+                    i/19.0,
+                    '.output\\frame' + (this._gifNumber).toString() + '.gif',
+                    resolve)
+                );
+                promises.push(promise);
+                this._gifNumber++;
+            }
+            await Promise.all(promises);
+            resolve();
+        }
+
+        else if (animation instanceof RenamingAnimation)
+        {
+            var tokenList = [];
+
+            tokenList = tokenList.concat(animation.textAbove);
+            for (var token of animation.textChanging) {
+                if (token.isIdentifier && token.text == animation.renameFrom) {
+                    var ti2 = token.Clone();
+                    ti2.text = animation.renameTo;
+                    tokenList.push([
+                        [ti2],
+                        [token]              
+                    ]);
+                }
+                else tokenList.push(token);
+            }
+            tokenList = tokenList.concat(animation.textBelow);
+
+            var promises = [];
+            for (var i=0; i<20; i++)
+            {
+                let promise = new Promise(
+                    resolve => WriteGifFileSHTransform(
+                    tokenList,
+                    i/19.0,
+                    '.output\\frame' + (this._gifNumber).toString() + '.gif',
+                    resolve)
+                );
+                promises.push(promise);
+                this._gifNumber++;
+            }
+            await Promise.all(promises);
+            resolve();
+        }
+
+        else if (animation instanceof EndingAnimation) {
+            var promises = [];
+            for (var i=0; i<20; i++)
+            {
+                let promise = new Promise(
+                    resolve => WriteGifFileSH(
+                        animation.text,
+                        '.output\\frame' + (this._gifNumber).toString() + '.gif',
+                        resolve)
+                );
+                promises.push(promise);
+                this._gifNumber++;
+            }
+            await Promise.all(promises);
+            resolve();
+        }
+    }
+    async End (resolve) {
+        var promise = new Promise(
+            resolve => WriteGifFile('.output/frame*.gif', '.output/result.gif', resolve)
+            )
+        await promise;
+        
+        //move result
+        const outputPath = path.join(".", ".output", "result.gif");
+        promise = new Promise(
+            resolve => fs.rename(outputPath, this._outputFile, resolve)
+        )
+        await promise;
+            
+        //delete individual frames
+        ClearTemporaryFiles();
+        resolve();
+    }   
+}
+function ClearTemporaryFiles() {
+    fs.readdir('.output', (err, files) => {
+        if (err) throw err; 
+        for (const file of files) {
+                fs.unlink(path.join('.output', file), err => { if (err) throw err; });
+        }
+    })
+}
 
 // IMPORTANT FUNCTIONS
 function StartNewGIF() {

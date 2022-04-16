@@ -1,4 +1,6 @@
+import fs from 'fs';
 import JSToTree from './javaScriptTranslator.js';
+import { TokenInfo, SemanticAction, SemanticDecision, SemanticDefinition, NonsemanticText, NonsemanticCommandList, BaseCodeBlock, BaseCommandList, BaseTokenList } from './languageInterface.js';
 
 const languageDefinitions = [
     {
@@ -7,14 +9,21 @@ const languageDefinitions = [
         method : (file) => { return JSToTree(file); }
     },
     {
+        names : ["NONE"],
+        extensions : [],
+        method : (file) => { return TranslateFile(file); }
+    },
+    {
         names : ["C#"],
         extensions : [".cs"],
         method : (file) => { throw new Error("C# parser is not implemented yet.") }
     }
 ];
 
-export function TrnaslateFileNoLang(filename) {
-    // TODO dummy
+export function TrnaslateFileNoLang(filename) {   
+    var text = fs.readFileSync(filename).toString();
+    var token = new TokenInfo(text, 0, text.length-1, 0, false, false, 0);
+    return new NonsemanticText([token], "Only block");
 }
 
 export function TranslateFileDefault(filename) {
@@ -22,7 +31,12 @@ export function TranslateFileDefault(filename) {
 
     for (var definition of languageDefinitions) {
         if (definition.extensions.includes(extension)) {
-            return TranslateFile(filename, definition.method);
+            try {
+                return TranslateFile(filename, definition.method);
+            }
+            catch {
+
+            }
         }
     }
 

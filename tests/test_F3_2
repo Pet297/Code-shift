@@ -1,0 +1,6 @@
+v = a;
+d = 0;
+d = v + d * 2;
+v = a + b;
+e = f + g;
+return a + b;

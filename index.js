@@ -1,227 +1,31 @@
 import fs from 'fs';
 import path from 'path';
-import { FindCodeChanges, SupplyCodeChanges } from './distance.js'
-import { GetAnimationSequence } from './animationSequence.js'
-import { IntermediateTextEnumerator, CollapseIntermediateText } from './animationEnumerator.js'
-import { WriteGifFile, WriteGifFileSH, WriteGifFileSHTransform, WriteGifFileSHAdd, WriteGifFileSHMoveUp, WriteGifFileSHRemove } from './gifWriter.js'
+import { FindCodeChanges, SupplyCodeChanges } from './distance.js';
+import { GetAnimationSequence } from './animationSequence.js';
+import { IntermediateTextEnumerator } from './animationEnumerator.js';
+import { GIFWriter } from './gifWriter.js';
 import { ListOfChangesToFile, FileToListOfChanges } from './intermediateOutput.js';
-import RenmameVariable from './variableRenamer.js';
-import { checkTokensEqual } from './distance.js';
-import { TranslateFileDefault, TranslateFileByLanguage } from './languageDefinitions.js'
+import { TranslateFileDefault, TranslateFileByLanguage } from './languageDefinitions.js';
 
-function CallbackMove(callback)
-{
-    //TODO
-}
+async function DoGifOutput2(resenum, output, resolve) {    
+    var gw = new GIFWriter();
 
-function CallbackRemove(callback)
-{
-    //TODO
-}
+    var promise1 = new Promise( resolve => gw.Begin(output, resolve));
+    await promise1;
 
-async function DoGifOutput2(resenum, output, resolve) {
-    var gifnumber = 0;
-    var prevText;
-    var text;
-    while (true) {
-        prevText = text;
-        text = resenum.GetNextStillText();
-        if (text === undefined) break;
-        else {
-            text = CollapseIntermediateText(text);
-
-            if (text[0]=='^' && text[3].length > 0)
-            {
-                var promises = [];
-                for (var i=0; i<20; i++)
-                {
-                    let promise = new Promise(
-                        resolve => WriteGifFileSHMoveUp(
-                            text[1],
-                            text[2],
-                            text[3],
-                            text[4],
-                            i/19.0,
-                            '.output\\frame' + (gifnumber+1001).toString() + '.gif',
-                            resolve)
-                    );
-                    promises.push(promise);
-                    gifnumber++;
-                }
-                await Promise.all(promises);
-            }
-
-            if (text[0]=='+' && text[2].length > 0)
-            {
-                var promises = [];
-                for (var i=0; i<20; i++)
-                {
-                    let promise = new Promise(
-                        resolve => WriteGifFileSHAdd(
-                            text[1],
-                            text[2],
-                            text[3].concat(text[4]),
-                            i/19.0,
-                            '.output\\frame' + (gifnumber+1001).toString() + '.gif',
-                            resolve)
-                    );
-                    promises.push(promise);
-                    gifnumber++;
-                }
-                await Promise.all(promises);
-            }
-
-            if (text[0]=='x' && text[2].length > 0)
-            {
-                var promises = [];
-                for (var i=0; i<20; i++)
-                {
-                    let promise = new Promise(
-                        resolve => WriteGifFileSHRemove(
-                            text[3],
-                            text[2],
-                            text[4],
-                            i/19.0,
-                            '.output\\frame' + (gifnumber+1001).toString() + '.gif',
-                            resolve)
-                    );
-                    promises.push(promise);
-                    gifnumber++;
-                }
-                await Promise.all(promises);
-            }
-
-            if (text[0]=='*' && (!checkTokensEqual(text[2], text[4]))) {
-                var tokenList = [];
-
-                tokenList = tokenList.concat(text[1]);
-                tokenList.push([text[4],text[2]]);
-                tokenList = tokenList.concat(text[3]);
-
-                var promises = [];
-                for (var i=0; i<20; i++)
-                {
-                    let promise = new Promise(
-                        resolve => WriteGifFileSHTransform(
-                        tokenList,
-                        i/19.0,
-                        '.output\\frame' + (gifnumber+1001).toString() + '.gif',
-                        resolve)
-                    );
-                    promises.push(promise);
-                    gifnumber++;
-                }
-                await Promise.all(promises);
-            }
-
-            if (text[0]=='R' && text[5] !== undefined)
-            {
-                var tokenList = [];
-
-                tokenList = tokenList.concat(text[1]);
-                for (var token of text[3]) {
-                    if (token.isIdentifier && token.text == text[5][0]) {
-                        var ti2 = token.Clone();
-                        ti2.text = text[5][1];
-                        tokenList.push([
-                            [ti2],
-                            [token]              
-                        ]);
-                    }
-                    else tokenList.push(token);
-                }
-
-                var promises = [];
-                for (var i=0; i<20; i++)
-                {
-                    let promise = new Promise(
-                        resolve => WriteGifFileSHTransform(
-                        tokenList,
-                        i/19.0,
-                        '.output\\frame' + (gifnumber+1001).toString() + '.gif',
-                        resolve)
-                    );
-                    promises.push(promise);
-                    gifnumber++;
-                }
-                await Promise.all(promises);
-            }
-        }
+    for (var anim of resenum.EnumerateStillTexts()) {
+        var promise2 = new Promise( resolve => gw.ApplyAnimation(anim, resolve));
+        await promise2;
     }
-
-    var promises = [];
-                for (var i=0; i<20; i++)
-                {
-                    let promise = new Promise(
-                        resolve => WriteGifFileSH(
-                            prevText[1].concat(prevText[3], prevText[4], prevText[2]),
-                            '.output\\frame' + (gifnumber+1001).toString() + '.gif',
-                            resolve)
-                    );
-                    promises.push(promise);
-                    gifnumber++;
-                }
-                await Promise.all(promises);
-
-    let promise = new Promise(
-        resolve => WriteGifFile('.output/frame*.gif', '.output/result.gif', resolve)
-        )
-    await promise;
-
-    //delete individual frames
-    for (var i=0; i < gifnumber;i++) {
-        var framePath = path.join(".", ".output", "frame"+ (i+1001).toString() +".gif");
-        fs.unlink(framePath, CallbackRemove);
-    }
-
-    //move result
-    const outputPath = path.join(".", ".output", "result.gif");
-    fs.rename(outputPath, output, CallbackMove);
+    var promise3 = new Promise( resolve => gw.End(resolve));
+    await promise3;
 
     resolve();
 }
 
 // Find differences between two source codes,
 //  output lists of changes to a file.
-async function Exec1N(code1, code2, output, resolve) {
-    //TODO:
-    /*const tree1 = CodeToTree(code1);
-    let root1 = TranslateRule(tree1);
-    const tree2 = CodeToTree(code2);
-    let root2 = TranslateRule(tree2);
-    AddText(root1, tree1.start.source[1].strdata);
-    AddText(root2, tree2.start.source[1].strdata);
-
-    var result = FindCodeChanges([root1], [root2], tree1.start.source[1].strdata, tree2.start.source[1].strdata);
-    ListOfChangesToFile(result.inputDestinations, result.outputSources, result.renames, output, resolve)*/
-}
-
-// Find differences between two source codes,
-//  output resulting animation to a GIF.
-//  The list of changes is given.
-async function Exec1M(code1, code2, changes12, output, resolve) {
-
-    //TODO:
-    /*const tree1 = CodeToTree(code1);
-    let root1 = TranslateRule(tree1);
-    const tree2 = CodeToTree(code2);
-    let root2 = TranslateRule(tree2);
-    AddText(root1, tree1.start.source[1].strdata);
-    AddText(root2, tree2.start.source[1].strdata);
-
-    var changes = FileToListOfChanges(changes12);
-    var result = SupplyCodeChanges([root1], [root2], changes.renames, changes.src, changes.dst);
-    var result2 = GetAnimationSequence(result.inputDestinations, result.outputSources);
-
-    var resenum = new IntermediateTextEnumerator(result.inputDestinations, result.outputSources, result2);
-    var promise = new Promise(
-        resolve => DoGifOutput2(resenum, output, resolve)
-        );
-    promise.then(()=>resolve());
-    await promise;*/
-}
-
-async function Exec1F2(code1, code2, output, language, resolve) { 
+async function MidOutputExecutionSingle(code1, code2, output, language, resolve) {
 
     var root1 = undefined;
     var root2 = undefined;
@@ -235,7 +39,30 @@ async function Exec1F2(code1, code2, output, language, resolve) {
         root2 = TranslateFileByLanguage(code2, language);
     }
 
-    var result = FindCodeChanges([root1], [root2], undefined, undefined);
+    var result = FindCodeChanges([root1], [root2]);
+    ListOfChangesToFile(result.inputDestinations, result.outputSources, output, resolve);
+}
+// Find differences between two source codes,
+//  output resulting animation to a GIF.
+//  The list of changes is given.
+async function MidInputExecutionSingle(code1, code2, changes12, output, language, resolve) {
+
+    //TODO:
+    var root1 = undefined;
+    var root2 = undefined;
+
+    if (language === undefined) {
+        root1 = TranslateFileDefault(code1);
+        root2 = TranslateFileDefault(code2);
+    }
+    else {
+        root1 = TranslateFileByLanguage(code1, language);
+        root2 = TranslateFileByLanguage(code2, language);
+    }
+
+    var changeObject = FileToListOfChanges(changes12);
+
+    var result = SupplyCodeChanges([root1], [root2], changeObject.src, changeObject.dst);
     var result2 = GetAnimationSequence(result.inputDestinations, result.outputSources, result.renames);
 
     var resenum = new IntermediateTextEnumerator(result.inputDestinations, result.outputSources, result2);
@@ -246,10 +73,52 @@ async function Exec1F2(code1, code2, output, language, resolve) {
     await promise;
 }
 
-//TODO: clear unfinished run
-//TODO: group anim
+async function FullExecutionSingle(code1, code2, output, language, resolve) { 
+
+    var root1 = undefined;
+    var root2 = undefined;
+
+    try
+    {
+        if (language === undefined) {
+            root1 = TranslateFileDefault(code1);
+            root2 = TranslateFileDefault(code2);
+        }
+        else {
+            root1 = TranslateFileByLanguage(code1, language);
+            root2 = TranslateFileByLanguage(code2, language);
+        }
+    }
+    catch
+    {
+    }
+
+    // Find changes and generate animation sequence
+    var result = FindCodeChanges([root1], [root2]);
+    var result2 = GetAnimationSequence(result.inputDestinations, result.outputSources, result.renames);
+    // Define animation enumerator
+    var resenum = new IntermediateTextEnumerator(result.inputDestinations, result.outputSources, result2);
+    // Gif genereation
+    var promise = new Promise(
+        resolve => DoGifOutput2(resenum, output, resolve)
+        );
+    promise.then(()=>resolve());
+    await promise;
+    
+}
+
+// Does full execution on multiple files
+async function FullExecutionMulti(codeFiles, outputFiles, language, resolve) {
+    for (var i = 0; i < codeFiles.length - 1; i++) {
+        var promise = new Promise(
+            resolve0 => FullExecutionSingle(codeFiles[i], codeFiles[i+1], outputFiles[i], language, resolve0)
+            );
+        await promise;
+    }
+    if (i == codeFiles.length - 2) promise.then(()=>resolve());
+}
+
 //TODO: 1-to-N
-//TODO: move or not
 
 async function RunTests() {
 
@@ -265,9 +134,13 @@ async function RunTests() {
 
         // NEW TESTS:
         //'./tests/test_C3_0', './tests/test_C3_1', '../C3',
-        //'./tests/test_D3_0', './tests/test_D3_1', '../D3',
+        './tests/test_D3_0', './tests/test_D3_1', '../D3',
         //'./tests/test_A1_0', './tests/test_A1_1', '../A1',
         //'./tests/test_A2_0', './tests/test_A2_1', '../A2',
+        //'./tests/test_G1_0', './tests/test_G1_1', '../G1',
+        //'./tests/test_F4_0', './tests/test_F4_1', '../F4',
+        //'./tests/test_F5_0', './tests/test_F5_1', '../F5',
+        //'./tests/test_F6_0', './tests/test_F6_1', '../F6',
 
     ]
     const fullExecution = true;
@@ -277,19 +150,19 @@ async function RunTests() {
     for (var i = 0; i < tests.length; i+=3) {
         if (fullExecution) {
             var promise = new Promise(
-                resolve => Exec1F2(tests[i+0], tests[i+1], tests[i+2] + '.gif', "JS", resolve)
+                resolve => FullExecutionSingle(tests[i+0], tests[i+1], tests[i+2] + '.gif', "JS", resolve)
                 );
             await promise;
         }
         if (intermediateFileGen) {
             var promise = new Promise(
-                resolve => Exec1N(tests[i+0], tests[i+1], tests[i+2] + '.xml', resolve)
+                resolve => MidOutputExecutionSingle(tests[i+0], tests[i+1], tests[i+2] + '.xml', "JS", resolve)
                 );
             await promise;
         }
         if (supplyChangesExecution) {
             var promise = new Promise(
-                resolve => Exec1M(tests[i+0], tests[i+1], tests[i+2] + '.xml', tests[i+2] + '.gif', resolve)
+                resolve => MidInputExecutionSingle(tests[i+0], tests[i+1], tests[i+2] + '.xml', tests[i+2] + '.gif', "JS", resolve)
                 );
             await promise;
         }
@@ -430,22 +303,12 @@ async function UserInput() {
         const N = inputFiles.length - 1;
         for (var i = 0; i < N; i++) {
             var promise = new Promise(
-                resolve => Exec1F2(inputFiles[i], inputFiles[i+1], outputFiles[i], language, resolve)
+                resolve => FullExecutionMulti(inputFiles, outputFiles, language, resolve)
                 );
             await promise;
         }
     }
 }
-
-//FIX
-//SimpleTest4('20'); PASS
-//SimpleTest4('21'); PASS
-//SimpleTest4('27'); PASS
-//SimpleTest4('28'); PASS
-//SimpleTest4('42'); PASS
-//SimpleTest4('57'); PASS
-//SimpleTest4('60'); PASS
-//SimpleTest4('71'); PASS
 
 //RunTests();
 UserInput();

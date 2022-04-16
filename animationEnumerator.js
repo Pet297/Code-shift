@@ -1,282 +1,273 @@
-import {DeletingAnimation, AddingAnimation, MovingUpAnimation, ChangingAnimation, InternalAnimationSequence, RenamingAnimation} from './animationSequence.js';
-
-//TODO: Renaming Animation
+import { DeletingCommand, AddingCommand, MovingUpCommand, ChangingCommand, InternalCommandSequence, RenamingCommand} from './animationSequence.js';
+import { checkTokensEqual } from './distance.js';
 
 export class IntermediateTextEnumerator
 {
+    _processedText = [];
+    _toProcess = [];
+    _unprocessedText = [];
+
+    _currentChildIndex = -1;
+
+    _sourceChanges = [];
+    _destinationChanges = [];
+    _animationSequence = [];
+
     // Prepares everething to enumerate intermediate code states between the versions.
     constructor(sourceChanges, destinationChanges, animationSequence)
     {
-        this.unproccessedList2 = [];
-        this.unproccessedList = [];
-        this.proccessedList = [];
-        this.changedList = [];
-        this.changedType = {};
+        this._sourceChanges = sourceChanges;
+        this._destinationChanges = destinationChanges;
+        this._animationSequence = animationSequence;
 
-        this.currentAddress = [];
-        this.sourceChanges = sourceChanges;
-        this.destinationChanges = destinationChanges;
-        this.animationSequence = animationSequence;
-
-        BuildInitialArray(this.sourceChanges, this.unproccessedList);
+        BuildInitialArray(this._sourceChanges, this._unprocessedText);
     }
 
-    // Returns a quintuple of form [c, p, m, u1, u2], where
-    //  -c is the performed animation.
-    //  -p is stationary processed text.
-    //  -m is the text which is moving, or changing.
-    //  -u1 and u2 are unprocessed parts of the text.
-    //  In case of swapping 'm' is moving up and 'u1' is moving down.
-    GetNextStillText()
+    // Enumerates animations to do for GIF output
+    *EnumerateStillTexts()
     {
-        // If there is anything to do, do it. (Either do local animation if there is no nested animation, or do the nested animation)
-        while (this.animationSequence.length != 0 || 'currentChild' in this) {
+        // While there are animations to do, do them
+        for (var anim of this._animationSequence) {
+            yield* this._yieldAndApply(anim);
+        }
+        // If there is nothing left to do, yield the final state of the code.
+        yield new EndingAnimation(this._getTokens(this._processedText));
+    }
 
-            // A) Clear state after the previous animation
-            CollapseAnimation(this);
-
-            // B) If there is a nested animation to do, do it.
-            if ('currentChild' in this) {
-
-                var childText = this.currentChild.GetNextStillText();
-
-                // B1) The child animation was performed, so return it.
-                if (childText !== undefined)
-                {
-                    return [
-                        'I',
-                        GetStillText(this.sourceChanges, this.destinationChanges, this.proccessedList),
-                        childText,
-                        GetStillText(this.sourceChanges, this.destinationChanges, this.unproccessedList),
-                        [],
-                        [this.renameFrom, this.renameTo]
-                    ];
-                }
-
-                // B2) The child animation has ended, time to step out and continue to C.
-                else
-                {
-                    this.proccessedList.push([this.currentChildIndex,'*']);
-                    delete this.currentChild;
-                    delete this.currentChildIndex;
-                }
+    *_yieldAndApply(command) {
+        if (command instanceof MovingUpCommand) {
+            // Clear previous moving up if uncleared          
+            this._processedText = this._processedText.concat(this._toProcess);
+            this._toProcess = [];
+            // Get bounds of the moving text
+            var index0 = IndexOfBlock(command.sourceAddress[0], this._unprocessedText);
+            var index1 = index0 + command.sourceAddress.length;
+            // Isolate the moving text
+            var unproccessedAbove = this._unprocessedText.slice(0, index0);
+            var changedList = this._unprocessedText.slice(index0, index1);
+            var unproccessedBelow = this._unprocessedText.slice(index1);
+            // Yield the animation
+            var ret = new MovingUpAnimation(
+                this._getTokens(this._processedText),
+                this._getTokens(unproccessedAbove),
+                this._getTokens(changedList),
+                this._getTokens(unproccessedBelow)
+            );
+            if (ChangesAnything(ret)) yield ret;
+            // Return to normalized state
+            this._toProcess = changedList;
+            this._unprocessedText = unproccessedAbove.concat(unproccessedBelow);
+        }
+        else if (command instanceof ChangingCommand) {
+            // Find the changing text
+            var index = IndexOfBlock(command.sourceAddress, this._toProcess);
+            // Partially clear the 'toProcess' list
+            this._processedText = this._processedText.concat(this._toProcess.slice(0,index));
+            this._toProcess = this._toProcess.slice(index + 1);
+            // Yield the animation
+            var ret = new ChangingAnimation(
+                this._getTokens(this._processedText),
+                this._getTokens([[command.sourceAddress,'*']]),
+                this._getTokens([[command.sourceAddress,'o']]),
+                this._getTokens(this._toProcess.concat(this._unprocessedText))
+            );
+            if (ChangesAnything(ret)) yield ret;
+            // Return to normalized state
+            this._processedText = this._processedText.concat([[command.sourceAddress,'*']]);
+        }
+        else if (command instanceof AddingCommand) {
+            // Clear previous moving up if uncleared          
+            this._processedText = this._processedText.concat(this._toProcess);
+            this._toProcess = [];
+            // Build up the list of blocks
+            var added = [];
+            for (var i of command.destinationAddress) {
+                added.push([i,'+']);
             }
-
-            // C) There is no nested animation, so do next animation on the list.
-            var anim = this.animationSequence.shift();
-
-            // D) The next animation is nested, start it in a child object.
-            if (anim instanceof InternalAnimationSequence) {
-
-                // D1) Start the child object
-                this.currentChild = new IntermediateTextEnumerator(
-                    this.sourceChanges[anim.sourceAddress].children,
-                    this.destinationChanges[this.sourceChanges[anim.sourceAddress].address].children,
-                    anim.animationSequence);
-                this.currentChildIndex = anim.sourceAddress;
-
-                // D2) Update state to reflect D1
-                ApplySimpleAnimation(this, anim);
-
-                // D3) Start the while cycle again to perform the child animation
+            // Yield the animation
+            var ret = new AddingAnimation(
+                this._getTokens(this._processedText),
+                this._getTokens(added),
+                this._getTokens(this._unprocessedText)
+            );
+            if (ChangesAnything(ret)) yield ret;
+            // Add the new text
+            this._processedText = this._processedText.concat(added);
+        }
+        else if (command instanceof DeletingCommand) {
+            // Clear previous moving up if uncleared          
+            this._processedText = this._processedText.concat(this._toProcess);
+            this._toProcess = [];
+            // Get bounds of the deleted text
+            var index0 = IndexOfBlock(command.sourceAddress[0], this._unprocessedText);
+            var index1 = index0 + command.sourceAddress.length;
+            // Isolate the deleted text
+            var unproccessedAbove = this._unprocessedText.slice(0, index0);
+            var changedList = this._unprocessedText.slice(index0, index1);
+            var unproccessedBelow = this._unprocessedText.slice(index1);
+            // Yield the animation
+            var ret = new RemovingAnimation(
+                this._getTokens(this._processedText.concat(unproccessedAbove)),
+                this._getTokens(changedList),
+                this._getTokens(unproccessedBelow)
+            );
+            if (ChangesAnything(ret)) yield ret;
+            // Return to normalized state
+            this._unprocessedText = unproccessedAbove.concat(unproccessedBelow);
+        }
+        else if (command instanceof RenamingCommand) {
+            // Clear previous moving up if uncleared          
+            this._processedText = this._processedText.concat(this._toProcess);
+            this._toProcess = [];
+            // Yield the animation
+            var ret = new RenamingAnimation(
+                this._getTokens(this._processedText),
+                this._getTokens(this._unprocessedText),
+                [],
+                command.origName,
+                command.newName
+            );
+            if (ChangesAnything(ret)) yield ret;
+            // Actually apply the rename
+            for (var token of command.tokens) {
+                token.text = command.newName;
             }
+        }
+        else if (command instanceof InternalCommandSequence) {
+            // Find the changing text
+            var index = IndexOfBlock(command.sourceAddress, this._toProcess);
+            // Partially clear the 'toProcess' list
+            this._processedText = this._processedText.concat(this._toProcess.slice(0,index));
+            this._toProcess = this._toProcess.slice(index + 1);       
+            // Start the child object
+            var childIndex = command.sourceAddress;
+            var innerEnumerator = new IntermediateTextEnumerator(
+                this._sourceChanges[childIndex].children,
+                this._destinationChanges[this._sourceChanges[childIndex].address].children,
+                command.animationSequence);
+            // Do the inner cycle of yields to perform the child animation
+            for(var childAnimation of innerEnumerator.EnumerateStillTexts()) {
+                // Finished ?
+                if (childAnimation instanceof EndingAnimation) break;
+                // Yield result of child animation (flatten it first)
+                var ret = MergeAnimationIntoParent(
+                    childAnimation,
+                    this._getTokens(this._processedText),
+                    this._getTokens(this._toProcess.concat(this._unprocessedText)),
+                    );
+                if (ChangesAnything(ret)) yield ret;
+            }
+            // Return to normalized state
+            this._processedText = this._processedText.concat([[command.sourceAddress,'*']]);
+        }
+    }
 
-            // E) There is no nested animation and next animation isn't nested either
-            else
-            {
-                // E1) Update state
-                ApplySimpleAnimation(this, anim);
+    _getTokens(blockList) {
+        var tokens = [];
 
-                // E2) Based on the updated state, return the text.
-                return [
-                    this.changedType.type,
-                    GetStillText(this.sourceChanges, this.destinationChanges, this.proccessedList),
-                    GetStillText(this.sourceChanges, this.destinationChanges, this.changedList),
-                    GetStillText(this.sourceChanges, this.destinationChanges, this.unproccessedList),
-                    GetStillText(this.sourceChanges, this.destinationChanges, this.unproccessedList2),
-                    [this.renameFrom, this.renameTo]
-                ];
+        for (var block of blockList) {
+            if (block[1] == 'o') {
+                var tokens1 = FindByAddress(this._sourceChanges,block[0]);
+                tokens = tokens.concat(tokens1);
+            }
+            else if (block[1] == '+') {
+                var tokens1 = FindByAddress(this._destinationChanges,block[0]);
+                tokens = tokens.concat(tokens1);
+            }
+            else if (block[1] == 'x') {
+                var tokens1 = FindByAddress(this._sourceChanges,block[0]);
+                tokens = tokens.concat(tokens1);
+            }
+            else if (block[1] == '*') {
+                var tokens1 = FindByAddress(this._destinationChanges,this._sourceChanges[block[0]].address);
+                tokens = tokens.concat(tokens1);
             }
         }
 
-        // F) The animation ended, we've reached the final state of the code.
-        return undefined;
+        return tokens;
     }
 }
 
-// Based on code block type (of form [adress, tye])\
-//  returns coresponding text from original or new source code.
-function GetStillText(sourceChanges, destinationChanges, currentBlocks)
-{
-    var stillText = [];
-
-    for (var block of currentBlocks)
-    {
-        if (block[1] == 'o') {
-            var tokens = FindByAddress(sourceChanges,block[0]);
-            for (var token of tokens) {
-                stillText.push(token);
-            }
-        }
-        else if (block[1] == '+') {
-            var tokens = FindByAddress(destinationChanges,block[0]);
-            for (var token of tokens) {
-                stillText.push(token);
-            }
-        }
-        else if (block[1] == 'x') {
-            var tokens = FindByAddress(sourceChanges,block[0]);
-            for (var token of tokens) {
-                stillText.push(token);
-            }
-        }
-        else if (block[1] == '*') {
-            var tokens = FindByAddress(destinationChanges,sourceChanges[block[0]].address);
-            for (var token of tokens) {
-                stillText.push(token);
-            }
-        }
+function IndexOfBlock(blockId, blockList) {
+    for (var key = 0; key < blockList.length; key++) {
+        if (blockList[key][0] == blockId) return key;
     }
+    throw Error("Index out of range in 'IndexOfBlock' in 'animationEnumerator.js'.");
+}
 
-    return stillText;
+// Check whether given animation object actually changes something about the code.
+//  eg. moving 0 tokens doesn't change anything.
+function ChangesAnything(animation) {
+    if (animation instanceof MovingUpAnimation && (animation.textMovingDown.length == 0 || animation.textMovingUp.length == 0)) return false;
+    if (animation instanceof AddingAnimation && animation.textBeingAdded.length == 0) return false;
+    if (animation instanceof RemovingAnimation && animation.textBeingRemoved.length == 0) return false;
+    if (animation instanceof ChangingAnimation && checkTokensEqual(animation.textChangingFrom, animation.textChangingTo)) return false;
+    if (animation instanceof RenamingAnimation && (animation.renameFrom == undefined || animation.renameTo == undefined || animation.renameFrom == animation.renameTo)) return false;
+    return true;
 }
 
 // Builds array of blocks of code, representing the initial code,
 //  before it was changes
 function BuildInitialArray(sourceChanges, unproccessedList) {
-    for (var index in sourceChanges)
+    for (var i = 0; i < sourceChanges.length; i++)
     {
-        unproccessedList.push([index,'o']);
+        unproccessedList.push([i,'o']);
     }
 }
 
 // Edits code blocks and moves them around lists based on performed animation,
 //  so that intermediate code after the performed animation is drawn properly
 //  by the GIF writer.
-function ApplySimpleAnimation(enumerator, animation) {
-    if (animation instanceof DeletingAnimation) {
-        for (var key in enumerator.unproccessedList) {
-            if (enumerator.unproccessedList[key][0] == animation.sourceAddress) {
-                enumerator.changedList = enumerator.unproccessedList.slice(Number(key), Number(key) + 1);
-                enumerator.changedType.type = 'x';
-                enumerator.unproccessedList2 = enumerator.unproccessedList.slice(Number(key) + 1, enumerator.unproccessedList.length);
-                enumerator.unproccessedList = enumerator.unproccessedList.slice(0, Number(key));
-                break;
-            }
-        }
-    }
-    else if (animation instanceof AddingAnimation) {
-        enumerator.changedList = [[animation.destinationAddress,'+']];
-        enumerator.changedType.type = '+';
-    }
-    else if (animation instanceof MovingUpAnimation) {
-        for (var key in enumerator.unproccessedList) {
-            if (enumerator.unproccessedList[key][0] == animation.sourceAddress) {
-                enumerator.changedList = [[animation.sourceAddress,'o']];
-                enumerator.changedType.type = '^';
-                enumerator.unproccessedList2 = enumerator.unproccessedList.slice(Number(key) + 1, enumerator.unproccessedList.length);
-                enumerator.unproccessedList = enumerator.unproccessedList.slice(0, Number(key));
-                break;
-            }
-        }
-    }
-    else if (animation instanceof ChangingAnimation) {
-        for (var key in enumerator.proccessedList) {
-            if (enumerator.proccessedList[key][0] == animation.sourceAddress) {
-                enumerator.proccessedList.splice(key, 1);
-                enumerator.changedList = [[animation.sourceAddress,'o']];
-                enumerator.unproccessedList2 = [[animation.sourceAddress,'*']];
-                enumerator.changedType.type = '*';
-                break;
-            }
-        }
-    }
-    else if (animation instanceof InternalAnimationSequence) {
-        for (var key in enumerator.proccessedList) {
-            if (enumerator.proccessedList[key][0] == animation.sourceAddress) {
-                enumerator.proccessedList.splice(key, 1);
-                break;
-            }
-        }
-    }
-    else if (animation instanceof RenamingAnimation) {
-        enumerator.changedList = [];
-        enumerator.changedType.type = 'R';
-        enumerator.renameFrom = animation.origName;
-        enumerator.renameTo = animation.newName;
-        enumerator.affected = animation.tokens;
-    }
-}
 
-// Moves code blocks between list to prepare them for the next animation.
-function CollapseAnimation(enumerator) {
-    if (enumerator.changedType.type == 'x')
-    {
-        enumerator.unproccessedList = enumerator.unproccessedList.concat(enumerator.unproccessedList2);
-        enumerator.unproccessedList2 = [];
-        enumerator.changedList = [];
-    }
-    else if (enumerator.changedType.type == '+')
-    {
-        enumerator.proccessedList = enumerator.proccessedList.concat(enumerator.changedList);
-        enumerator.changedList = [];
-    }
-    else if (enumerator.changedType.type == '^')
-    {
-        enumerator.proccessedList = enumerator.proccessedList.concat(enumerator.changedList);
-        enumerator.unproccessedList = enumerator.unproccessedList.concat(enumerator.unproccessedList2);
-        enumerator.unproccessedList2 = [];
-        enumerator.changedList = [];
-    }
-    else if (enumerator.changedType.type == '*')
-    {
-        enumerator.proccessedList = enumerator.proccessedList.concat(enumerator.unproccessedList2);
-        enumerator.changedList = [];
-        enumerator.unproccessedList2 = [];
-    }
-    else if (enumerator.changedType.type == 'I') {
-    }
-    else if (enumerator.changedType.type == 'R') {
-        for (var token of enumerator.affected) {
-            token.text = enumerator.renameTo;
-        }
-    }
-}
-
-// TODO: Do this here, not export.
 
 // Converts nested representation of code blocks positions to flat representation,
 //  to work with the GIF animator.
-export function CollapseIntermediateText(intermediateText) {
-    while (intermediateText[0] == 'I') {
-        if (intermediateText[2][0] == '*')
-        {
-            intermediateText[0] = intermediateText[2][0];
-            intermediateText[1] = intermediateText[1].concat(intermediateText[2][1]);
-            intermediateText[3] = intermediateText[2][3].concat(intermediateText[3].concat(intermediateText[4]));
-            intermediateText[4] = intermediateText[2][4];
-            intermediateText[2] = intermediateText[2][2];
-        }
-        else if (intermediateText[2][0] == 'x')
-        {
-            intermediateText[0] = intermediateText[2][0];
-            intermediateText[4] = intermediateText[2][4].concat(intermediateText[3].concat(intermediateText[4]));
-            intermediateText[3] = intermediateText[1].concat(intermediateText[2][1].concat(intermediateText[2][3]));
-            intermediateText[1] = [];
-            intermediateText[2] = intermediateText[2][2];
-        }
-        // TODO: rename
-        else
-        {
-            intermediateText[0] = intermediateText[2][0];
-            intermediateText[1] = intermediateText[1].concat(intermediateText[2][1]);
-            intermediateText[4] = intermediateText[2][4].concat(intermediateText[3].concat(intermediateText[4]));
-            intermediateText[3] = intermediateText[2][3];
-            intermediateText[2] = intermediateText[2][2];
-            intermediateText[5] = intermediateText[2][5];
-        }
+function MergeAnimationIntoParent(childAnimation, parentTextAbove, parentTextBelow) {  
+    if (childAnimation instanceof MovingUpAnimation) {
+        return new MovingUpAnimation(
+            parentTextAbove.concat(childAnimation.textAbove),
+            childAnimation.textMovingDown,
+            childAnimation.textMovingUp,
+            childAnimation.textBelow.concat(parentTextBelow)
+            )
     }
-    return intermediateText;
+    else if (childAnimation instanceof ChangingAnimation) {
+        return new ChangingAnimation(
+            parentTextAbove.concat(childAnimation.textAbove),
+            childAnimation.textChangingFrom,
+            childAnimation.textChangingTo,
+            childAnimation.textBelow.concat(parentTextBelow)
+        )
+    }
+    else if (childAnimation instanceof AddingAnimation) {
+        return new AddingAnimation(
+            parentTextAbove.concat(childAnimation.textAbove),
+            childAnimation.textBeingAdded,
+            childAnimation.textBelow.concat(parentTextBelow)
+        )
+    }
+    else if (childAnimation instanceof RemovingAnimation) {
+        return new RemovingAnimation(
+            parentTextAbove.concat(childAnimation.textAbove),
+            childAnimation.textBeingRemoved,
+            childAnimation.textBelow.concat(parentTextBelow)
+        )
+    }
+    else if (childAnimation instanceof RenamingAnimation) {
+        return new RenamingAnimation(
+            parentTextAbove.concat(childAnimation.textAbove),
+            childAnimation.textChanging,
+            childAnimation.textBelow.concat(parentTextBelow),
+            childAnimation.renameFrom,
+            childAnimation.renameTo
+        )
+    }
+    else if (childAnimation instanceof EndingAnimation) {
+        return new EndingAnimation(
+            parentTextAbove.concat(childAnimation.text, parentTextBelow)
+        )
+    }
+    else throw Error('Unexpected object type passed into "MergeAnimationIntoParent" in "animationEnumerator.js"');
 }
 
 // Given a list of changes and an adress, returns part of one of the original source codes.
@@ -300,4 +291,86 @@ function GetAllText(change) {
         }
     }
     return text;
+}
+
+export class MovingUpAnimation {
+    
+    textAbove = [];
+    textMovingDown = [];
+    textMovingUp = [];
+    textBelow = [];
+    
+    constructor(textAbove, textMovingDown, textMovingUp, textBelow) {
+        this.textAbove = textAbove;
+        this.textMovingDown = textMovingDown;
+        this.textMovingUp = textMovingUp;
+        this.textBelow = textBelow;
+    }
+}
+
+export class ChangingAnimation {
+    
+    textAbove = [];
+    textChangingFrom = [];
+    textChangingTo = [];
+    textBelow = [];
+    
+    constructor(textAbove, textChangingFrom, textChangingTo, textBelow) {
+        this.textAbove = textAbove;
+        this.textChangingFrom = textChangingFrom;
+        this.textChangingTo = textChangingTo;
+        this.textBelow = textBelow;
+    }
+}
+
+export class AddingAnimation {
+    
+    textAbove = [];
+    textBeingAdded = [];
+    textBelow = [];
+    
+    constructor(textAbove, textBeingAdded, textBelow) {
+        this.textAbove = textAbove;
+        this.textBeingAdded = textBeingAdded;
+        this.textBelow = textBelow;
+    }
+}
+
+export class RemovingAnimation {
+    
+    textAbove = [];
+    textBeingRemoved = [];
+    textBelow = [];
+    
+    constructor(textAbove, textBeingRemoved, textBelow) {
+        this.textAbove = textAbove;
+        this.textBeingRemoved = textBeingRemoved;
+        this.textBelow = textBelow;
+    }
+}
+
+export class RenamingAnimation {
+    
+    textAbove = [];
+    textChanging = [];
+    textBelow = [];
+    renameFrom = "";
+    renameTo = "";
+    
+    constructor(textAbove, textChanging, textBelow, renameFrom, renameTo) {
+        this.textAbove = textAbove;
+        this.textChanging = textChanging;
+        this.textBelow = textBelow;
+        this.renameFrom = renameFrom;
+        this.renameTo = renameTo;
+    }
+}
+
+export class EndingAnimation {
+    
+    text = [];
+    
+    constructor(text) {
+        this.text = text;
+    }
 }

@@ -15,7 +15,7 @@ const JS_OPERATOR = 6;
 const JS_COMMENT = 7;
 
 export default function JSToTree(codeFile) {
-    const input = fs.readFileSync(codeFile).toString()
+    const input = fs.readFileSync(codeFile).toString();
 
     const chars = new antlr4.InputStream(input);
     const lexer = new JavaScriptLexer(chars);
@@ -42,6 +42,9 @@ else switch (treeNode.ruleIndex) {
         }
         // Clean Up
         CleanUp(treeNode, cmdList);
+        // Remove <EOF>
+        cmdList.innerCode.splice(cmdList.innerCode.length - 1, 1);
+
         return new SemanticDefinition([], [], cmdList.innerCode, 'program', undefined);
 
     case 1: // sourceElement(1) -> (2)

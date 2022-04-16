@@ -40,8 +40,11 @@ export function FindCodeChanges(codeBefore, codeAfter, parentRenames = {}) {
     }
 
     // 0) Setup variables to hold final or intermediate results
-    var inputDestinations = {};
-    var outputSources = {};
+    var inputDestinations = [];
+    var outputSources = [];
+    inputDestinations.length = codeBefore.length;
+    outputSources.length = codeAfter.length;
+
     var difference = 0.0;
     var sameness = 0.0;
     var unpairedBefore = [];
@@ -70,8 +73,8 @@ export function FindCodeChanges(codeBefore, codeAfter, parentRenames = {}) {
                         sameness += innerChanges.sameness * innerCodeMultiplierBonus;
                         sameness += listSimilarity(codeBefore[unpairedBefore[i]].paramList, codeAfter[unpairedAfter[j]].paramList, parentRenames) * sharedParamBonus;
 
-                        inputDestinations[unpairedBefore[i]] = new CodeChange(unpairedAfter[j].toString(),innerChanges.inputDestinations, {...parentRenames});
-                        outputSources[unpairedAfter[j]] = new CodeChange(unpairedBefore[i].toString(),innerChanges.outputSources, {...parentRenames});
+                        inputDestinations[unpairedBefore[i]] = new CodeChange(unpairedAfter[j],innerChanges.inputDestinations, {...parentRenames});
+                        outputSources[unpairedAfter[j]] = new CodeChange(unpairedBefore[i],innerChanges.outputSources, {...parentRenames});
 
                         unpairedBefore.splice(i, 1);
                         unpairedAfter.splice(j, 1);
@@ -91,8 +94,8 @@ export function FindCodeChanges(codeBefore, codeAfter, parentRenames = {}) {
                 if (codeAfter[unpairedAfter[j]] instanceof NonsemanticText) {
                     if (codeBefore[unpairedBefore[i]].specialType !== undefined && codeBefore[unpairedBefore[i]].specialType == codeAfter[unpairedAfter[j]].specialType) {
 
-                        inputDestinations[unpairedBefore[i]] = new CodeChange(unpairedAfter[j].toString(), {...parentRenames});
-                        outputSources[unpairedAfter[j]] = new CodeChange(unpairedBefore[i].toString(), {...parentRenames});
+                        inputDestinations[unpairedBefore[i]] = new CodeChange(unpairedAfter[j], [], {...parentRenames});
+                        outputSources[unpairedAfter[j]] = new CodeChange(unpairedBefore[i], [], {...parentRenames});
 
                         unpairedBefore.splice(i, 1);
                         unpairedAfter.splice(j, 1);
@@ -133,8 +136,8 @@ export function FindCodeChanges(codeBefore, codeAfter, parentRenames = {}) {
                 }
             }
             if (appearances == 1) {
-                inputDestinations[equalPairs[index][0]] = new CodeChange(equalPairs[index][1].toString(), [], {...parentRenames});
-                outputSources[equalPairs[index][1]] = new CodeChange(equalPairs[index][0].toString(), [], {...parentRenames});
+                inputDestinations[equalPairs[index][0]] = new CodeChange(equalPairs[index][1], [], {...parentRenames});
+                outputSources[equalPairs[index][1]] = new CodeChange(equalPairs[index][0], [], {...parentRenames});
 
                 unpairedBefore = unpairedBefore.filter(id => id != equalPairs[index][0]);
                 unpairedAfter = unpairedAfter.filter(id => id != equalPairs[index][1]);
@@ -153,8 +156,8 @@ export function FindCodeChanges(codeBefore, codeAfter, parentRenames = {}) {
                 }
             }
             if (appearances == 1) {
-                inputDestinations[equalPairs[index][0]] = new CodeChange(equalPairs[index][1].toString(), [], {...parentRenames});
-                outputSources[equalPairs[index][1]] = new CodeChange(equalPairs[index][0].toString(), [], {...parentRenames});
+                inputDestinations[equalPairs[index][0]] = new CodeChange(equalPairs[index][1], [], {...parentRenames});
+                outputSources[equalPairs[index][1]] = new CodeChange(equalPairs[index][0], [], {...parentRenames});
                 
                 unpairedBefore = unpairedBefore.filter(id => id != equalPairs[index][0]);
                 unpairedAfter = unpairedAfter.filter(id => id != equalPairs[index][1]);
@@ -188,8 +191,6 @@ export function FindCodeChanges(codeBefore, codeAfter, parentRenames = {}) {
         if (norenameRel === Infinity) break;
         var minDist = Infinity;
         var minRename = null;
-        var minIndexBefore = -1;
-        var minIndexAfter = -1;
 
         for (var i in definitionsBefore) {
             for (var j in definitionsAfter) {
@@ -207,8 +208,6 @@ export function FindCodeChanges(codeBefore, codeAfter, parentRenames = {}) {
                 if (rel !== Infinity && (rel < minDist || minDist === Infinity)) {
                     minDist = rel;
                     minRename = [origName, newName];
-                    minIndexBefore = i;
-                    minIndexAfter = j;
                 }
             }
         }
@@ -240,8 +239,13 @@ export function FindCodeChanges(codeBefore, codeAfter, parentRenames = {}) {
     while (distances.length > 0) {
         var i = distances[0][2]; // Index before
         var j = distances[0][3]; // Index after
-        inputDestinations[i] = new CodeChange(j.toString(), [], {...renamesList});
-        outputSources[j] = new CodeChange(i.toString(), [], {...renamesList});
+
+        if (codeBefore[i] instanceof SemanticDefinition && codeAfter[j] instanceof SemanticDefinition) {
+            if (codeBefore[i].name != codeAfter[j].name) renamesList[codeBefore[i].name] = codeAfter[j].name;
+        }
+
+        inputDestinations[i] = new CodeChange(j, [], {...renamesList});
+        outputSources[j] = new CodeChange(i, [], {...renamesList});
 
         distances = distances.filter(l => l[2] != i && l[3] != j);
         unpairedBefore = unpairedBefore.filter(id => id != i);
@@ -270,8 +274,8 @@ export function FindCodeChanges(codeBefore, codeAfter, parentRenames = {}) {
             (codeAfter[goalAdress] instanceof BaseCommandList && codeBefore[i] instanceof BaseCommandList)) {
                 var innerChanges = FindCodeChanges(codeBefore[i].innerCode, codeAfter[goalAdress].innerCode, renamesList);
 
-                inputDestinations[i] = new CodeChange(goalAdress.toString(),innerChanges.inputDestinations, {...renamesList});
-                outputSources[goalAdress] = new CodeChange(i.toString(),innerChanges.outputSources, {...renamesList});
+                inputDestinations[i] = new CodeChange(goalAdress,innerChanges.inputDestinations, {...renamesList});
+                outputSources[goalAdress] = new CodeChange(parseInt(i),innerChanges.outputSources, {...renamesList});
         }
     }
     
@@ -322,7 +326,7 @@ export function FindCodeChanges(codeBefore, codeAfter, parentRenames = {}) {
     }
 
     // ZZ) FINISH
-    return new ListOfChanges(inputDestinations, outputSources, renamesList, difference, sameness);
+    return new ListOfChanges(inputDestinations, outputSources, difference, sameness, renamesList);
 }
 
 // Same like previous function, but does only 1-level and doesn't go deeper.
@@ -333,8 +337,11 @@ function CheckForRenames(codeBefore, codeAfter, unpairedBefore, unpairedAfter, r
     
     var unpairedBeforeLocal = [];
     var unpairedAfterLocal = [];
+
     var inputDestinations = [];
     var outputSources = [];
+    inputDestinations.length = codeBefore.length;
+    outputSources.length = codeAfter.length;
 
     for (var x of unpairedBefore) unpairedBeforeLocal.push(x);
     for (var x of unpairedAfter) unpairedAfterLocal.push(x);
@@ -354,8 +361,8 @@ function CheckForRenames(codeBefore, codeAfter, unpairedBefore, unpairedAfter, r
     {
         var i = distances[0][2]; // Index before
         var j = distances[0][3]; // Index after
-        inputDestinations[i] = new CodeChange(j.toString(), [], {...renames});
-        outputSources[j] = new CodeChange(i.toString(), [], {...renames});
+        inputDestinations[i] = new CodeChange(j, [], {...renames});
+        outputSources[j] = new CodeChange(i, [], {...renames});
 
         distances = distances.filter(l => l[2] != i && l[3] != j);
         unpairedBeforeLocal = unpairedBeforeLocal.filter(id => id != i);
@@ -365,13 +372,13 @@ function CheckForRenames(codeBefore, codeAfter, unpairedBefore, unpairedAfter, r
     // C) AUTO DELETIONS AND ADDITIONS
     for (var i = 0; i < codeBefore.length; i++) {
         if (!(i in inputDestinations)) {
-            inputDestinations[i] = new CodeChange('x', []);
+            inputDestinations[i] = new CodeChange('x', [], {...renames});
         }
     }
 
     for (var i = 0; i < codeAfter.length; i++) {
         if (!(i in outputSources)) {
-            outputSources[i] = new CodeChange('+', []);
+            outputSources[i] = new CodeChange('+', [], {...renames});
         }
     }
 
@@ -440,11 +447,11 @@ function AddTokenData(code, changes) {
 
 function FindCodeChanges_Special_OneBlock(codeBefore, codeAfter, parentRenames = {}) {
     var localChanges = FindCodeChanges(codeBefore[0].innerCode, codeAfter[0].innerCode, parentRenames);
-    var inputDestinations = {};
-    var outputSources = {};
-    inputDestinations[0] = new CodeChange('0', localChanges.inputDestinations);
-    outputSources[0] = new CodeChange('0', localChanges.outputSources);
-    return new ListOfChanges(inputDestinations, outputSources, localChanges.difference, localChanges.sameness);
+    var inputDestinations = [undefined];
+    var outputSources = [undefined];
+    inputDestinations[0] = new CodeChange(0, localChanges.inputDestinations, {...localChanges.renames});
+    outputSources[0] = new CodeChange(0, localChanges.outputSources, {...localChanges.renames});
+    return new ListOfChanges(inputDestinations, outputSources, localChanges.difference, localChanges.sameness, {...localChanges.renames});
 }
 
 export class CodeChange {
@@ -455,15 +462,20 @@ export class CodeChange {
         this.renames = renames;
     }
 
+    get length() {
+        this.children.length;
+    }
+
 }
 
 export class ListOfChanges {
 
-    constructor (inputDestinations, outputSources, difference, sameness) {
+    constructor (inputDestinations, outputSources, difference, sameness, renames) {
         this.inputDestinations = inputDestinations;
         this.outputSources = outputSources;
         this.difference = difference;
         this.sameness = sameness;
+        this.renames = renames;
     }
 
 }
