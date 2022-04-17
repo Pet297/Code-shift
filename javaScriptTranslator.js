@@ -13,6 +13,8 @@ const JS_STRINGCONSTANT = 4;
 const JS_CONSTANT = 5;
 const JS_OPERATOR = 6;
 const JS_COMMENT = 7;
+// colors for syntax high-lighting in JS
+const JSColors = ['#606060', '#C040C0', '#A0A0FF', '#80FF40', '#E04040', '#4040FF', '#BBBBBB', '#00A000']
 
 export default function JSToTree(codeFile) {
     const input = fs.readFileSync(codeFile).toString();
@@ -248,8 +250,6 @@ else switch (treeNode.ruleIndex) {
             }
         }
         if (tokensAfter.length > 0) cmdList.innerCode.push(new NonsemanticText(tokensAfter, 'Iteration end'));
-        
-        // TODO: flatten deps(?)
 
         // Clean up
         CleanUp(treeNode, cmdList);
@@ -488,7 +488,7 @@ else switch (treeNode.ruleIndex) {
         cmdList.innerCode.splice(0,0,cmd01);
 
         CleanUp(treeNode, cmdList);
-        //TODO: inner params?
+
         return new SemanticDefinition([], [], cmdList.innerCode,"class",name);
 
     case 41: // classTail(41) -> ['Extends' (57)]? '{' (42)* '}'
@@ -625,7 +625,7 @@ else switch (treeNode.ruleIndex) {
         // Determine, if we are dealing with a getter, a setter or a method.
         if (rule53 != null) {
             var name = FirstOrNone(Array.from(TranslateNodeAndCleanUp(rule53).getIdentifiers()));
-            return new SemanticDefinition([], params, cmdList.innerCode, "method", name); // TODO: first id or nothing
+            return new SemanticDefinition([], params, cmdList.innerCode, "method", name);
         }
         else if (rule67 != null) {
             var name = FirstOrNone(Array.from(TranslateNodeAndCleanUp(rule67).getIdentifiers()));
@@ -779,7 +779,6 @@ else switch (treeNode.ruleIndex) {
         return TranslateAsNonSemanticText(treeNode);
     }
 }
-
 function ContainsChild(treeNode, rule) {
     if (treeNode == null) return false;
     for (const child of treeNode.children)
@@ -808,7 +807,6 @@ function FindChild(treeNode, index) {
     }
     return null;
 }
-// TODO: More comments
 function TreenodeToTokens(treeNode) {
     var tokens = [];
 
@@ -865,7 +863,7 @@ export function GetTokenInfo(commonToken) {
     if (commonToken.type >= 118 && commonToken.type <= 119) { colorClass = JS_STRINGCONSTANT; literal = true; }
     if (commonToken.type >= 122 && commonToken.type <= 123) colorClass = JS_COMMENT;
 
-    return new TokenInfo(text, commonToken.start, commonToken.stop, commonToken.tokenIndex, literal, identifier, colorClass);
+    return new TokenInfo(text, commonToken.start, commonToken.stop, commonToken.tokenIndex, literal, identifier, JSColors[colorClass]);
 }
 function ToCommandList(command) {
     if (command instanceof NonsemanticCommandList) {
@@ -883,6 +881,8 @@ function ToCommandList(command) {
         throw Error("No if clause executed in 'ToCommandList' in 'JavaScriptTranslator.js'.");
     }
 }
+// WARNING: _input, a 'private' field is being accessed.
+// As of yet, no workaround to include whitespace tokens was found.
 function ExpandSingleCommand(treeNode, block) {
     if ('symbol' in treeNode) {
         block.tokens = [GetTokenInfo(treeNode.symbol)];
@@ -894,7 +894,7 @@ function ExpandSingleCommand(treeNode, block) {
         block.tokens = [];
 
         for(var i = from; i < to; i++) {
-            block.tokens.push(GetTokenInfo(treeNode.parser._input.tokens[i])); // TODO: not _input
+            block.tokens.push(GetTokenInfo(treeNode.parser._input.tokens[i]));
         }
     }
 }
@@ -902,7 +902,7 @@ function ExpandSingleCommand2(treeNode, from, to, block) {
     block.tokens = [];
 
     for(var i = from; i <= to; i++) {
-        block.tokens.push(GetTokenInfo(treeNode.parser._input.tokens[i])); // TODO: not _input
+        block.tokens.push(GetTokenInfo(treeNode.parser._input.tokens[i]));
     }
 }
 function FillInTokens(treeNode, block, from = undefined, to = undefined) {
@@ -967,7 +967,6 @@ function MoveTabs(commandList) {
     }
     return commandList;
 }
-//TODO: Single colon
 function MoveNewlines(blockList) {
     for (var i = 0; i < blockList.innerCode.length - 1; i++) {
         while (IsNewline(blockList.innerCode[i+1].getFirstToken()) || (IsSemicolon(blockList.innerCode[i+1].getFirstToken()))) {
@@ -978,6 +977,25 @@ function MoveNewlines(blockList) {
                 if (i >= blockList.innerCode.length - 1) break;
 
             }
+        }
+    }
+    return blockList;
+}
+function MergeElseIf(blockList) {
+    var elseifNum = 0;
+    for (var i = 0; i < blockList.innerCode.length - 1; i++) {
+        if (blockList.innerCode[i].specialType?.startsWith('ELSE IF')) {
+            blockList.innerCode[i].specialType = 'ELSE IF ' + elseifNum.toString();
+            elseifNum++;
+        }
+        if (blockList.innerCode[i].specialType == 'ELSE' && blockList.innerCode[i+1].specialType == 'IF') {
+            while (!blockList.innerCode[i+1].isEmpty()) {
+                var token = blockList.innerCode[i+1].removeFirstToken();
+                blockList.innerCode[i].addTokensToEnd([token]);
+            }
+            blockList.innerCode.splice(i+1,1);
+            blockList.innerCode[i].specialType = 'ELSE IF ' + elseifNum.toString();
+            elseifNum++;
         }
     }
     return blockList;
@@ -1004,8 +1022,11 @@ function IsSemicolon(token) {
 function CleanUp(node, commandList)
 {
     FillInTokens(node, commandList);
-    if (commandList instanceof BaseCommandList) MoveTabs(commandList);
-    if (commandList instanceof BaseCommandList) MoveNewlines(commandList);
+    if (commandList instanceof BaseCommandList) {
+        MergeElseIf(commandList);
+        MoveTabs(commandList);
+        MoveNewlines(commandList);
+    }
 }
 function TranslateNodeAndCleanUp(node)
 {

@@ -27,7 +27,13 @@ export class GIFWriter {
     constructor() {
     }
     async Begin (outputFile, resolve) {
-        ClearTemporaryFiles();
+        
+        //delete individual frames
+        var promise = new Promise(
+            resolve0 => ClearTemporaryFiles(resolve0)
+        )
+        await promise;
+
         this._gifNumber = 100001;
         this._outputFile = outputFile;
         resolve();
@@ -184,17 +190,24 @@ export class GIFWriter {
         await promise;
             
         //delete individual frames
-        ClearTemporaryFiles();
+        promise = new Promise(
+            resolve => ClearTemporaryFiles(resolve)
+        )
+        await promise;
+        
         resolve();
     }   
 }
-function ClearTemporaryFiles() {
-    fs.readdir('.output', (err, files) => {
-        if (err) throw err; 
-        for (const file of files) {
-                fs.unlink(path.join('.output', file), err => { if (err) throw err; });
-        }
-    })
+async function ClearTemporaryFiles(resolve) {
+    var promises = [];
+    var files = fs.readdirSync('.output');
+    for (const file of files) {
+        var promise = new Promise( (resolve0) => fs.unlink(path.join('.output', file), err => { if (err) throw err; else resolve0(); }));
+        promises.push(promise);
+    }
+    var promiseAll = Promise.all(promises);
+    promiseAll.then(() => resolve())
+    await Promise.all(promises);
 }
 
 // IMPORTANT FUNCTIONS
@@ -268,7 +281,6 @@ function DrawColoredText(gms, text, textColor, y0, xoffset = 0) {
 }
 function DrawHighlitedLines(gms, lines, highlightColor, textColor, y0, xoffset = 0) {
     for(var i = 0; i <= lines.length - 1; i++) {
-        //TODO: chyba?
         gms.fill(highlightColor);
         gms.drawRectangle(0, y0 + lineSpacing * i + lineHighlightOffset, lineWidth, y0 + lineSpacing * i + lineHighlightOffset - lineSpacing);
         gms.fill(textColor);
@@ -299,9 +311,7 @@ function DrawHighlitedLines(gms, lines, highlightColor, textColor, y0, xoffset =
 
 // PUBLIC INTERFACE
 
-const JS_COLOR = ['#606060', '#C040C0', '#A0A0FF', '#80FF40', '#E04040', '#4040FF', '#BBBBBB', '#00A000'];
-
-export function WriteGifFileSH(tokens,filename,resolve) {
+function WriteGifFileSH(tokens,filename,resolve) {
     var gms = StartNewGIF();
     var x = 0;
     var y = 0;
@@ -309,7 +319,7 @@ export function WriteGifFileSH(tokens,filename,resolve) {
     if (os.EOL == '\r') nl = '\r';
 
     for (var token of tokens) {
-        var textC = JS_COLOR[token.colorClass];
+        var textC = token.color;
 
         DrawColoredText(gms,token.text,textC,y * lineSpacing + firstLineY,x);
         
@@ -324,7 +334,7 @@ export function WriteGifFileSH(tokens,filename,resolve) {
     gms.write(filename, ()=>{resolve()});
 }
 
-export function WriteGifFileSHTransform(tokens,percentage,filename,resolve) {
+function WriteGifFileSHTransform(tokens,percentage,filename,resolve) {
     var gms = StartNewGIF();
 
     var x = 0;
@@ -387,7 +397,7 @@ export function WriteGifFileSHTransform(tokens,percentage,filename,resolve) {
 
     // Draw
     for (var i = 0; i < tokens.length; i++) { 
-        var textC = JS_COLOR[tokens[i].colorClass];
+        var textC = tokens[i].color;
 
         if (!(tokens[i] instanceof TokenInfo)) {
             var coloredText1 = [];
@@ -396,12 +406,12 @@ export function WriteGifFileSHTransform(tokens,percentage,filename,resolve) {
             // 1) Build colored strings
             for (var token2 of tokens[i][0]) {
                 for (var j = 0; j < token2.text.length; j++) {
-                    coloredText1.push([token2.text[j],token2.colorClass]);
+                    coloredText1.push([token2.text[j],token2.color]);
                 }
             }
             for (var token2 of tokens[i][1]) {
                 for (var j = 0; j < token2.text.length; j++) {
-                    coloredText2.push([token2.text[j],token2.colorClass]);
+                    coloredText2.push([token2.text[j],token2.color]);
                 }
             }
 
@@ -460,20 +470,20 @@ export function WriteGifFileSHTransform(tokens,percentage,filename,resolve) {
             // 5) Draw every character individualy
             //if (percentage < 0.5) {
                 for (var c of listDel) {
-                    var color = MixColors(JS_COLOR[c[1]],'#000000',percentDissappear);
+                    var color = MixColors(c[1],'#000000',percentDissappear);
                     DrawColoredText(gms,c[0],color,c[3] * lineSpacing + firstLineY,c[2]);
                 }
             //}
             //else {
                 for (var c of listAdd) {
-                    var color = MixColors('#000000',JS_COLOR[c[1]],percentAppear);
+                    var color = MixColors('#000000',c[1],percentAppear);
                     DrawColoredText(gms,c[0],color,c[3] * lineSpacing + firstLineY,c[2]);
                 }
             //}
             for (var c of listMove) {
                 var xa = (1 - percentMove) * c[3] + percentMove * c[5];
                 var ya = (1 - percentMove) * c[4] + percentMove * c[6];
-                var color = MixColors(JS_COLOR[c[1]],JS_COLOR[c[2]],1 - percentage);
+                var color = MixColors(c[1],c[2],1 - percentage);
                 DrawColoredText(gms,c[0],color,ya * lineSpacing + firstLineY,xa);
             }
         }
@@ -487,7 +497,7 @@ export function WriteGifFileSHTransform(tokens,percentage,filename,resolve) {
     gms.write(filename, ()=>{resolve()});
 }
 
-export function WriteGifFileSHMoveUp(tokensPreceding, tokensMovingDown, tokensMovingUp, tokensAfter, percentage, filename, resolve) {
+function WriteGifFileSHMoveUp(tokensPreceding, tokensMovingDown, tokensMovingUp, tokensAfter, percentage, filename, resolve) {
     var gms = StartNewGIF();
     
     // Determine position of each token (preceding)
@@ -518,7 +528,7 @@ export function WriteGifFileSHMoveUp(tokensPreceding, tokensMovingDown, tokensMo
     gms.write(filename, ()=>{resolve()});
 }
 
-export function WriteGifFileSHRemove(tokensPreceding, tokensRemoved, tokensAfter, percentage, filename, resolve) {
+function WriteGifFileSHRemove(tokensPreceding, tokensRemoved, tokensAfter, percentage, filename, resolve) {
     var gms = StartNewGIF();
     
     // Determine position of each token (preceding)
@@ -544,7 +554,7 @@ export function WriteGifFileSHRemove(tokensPreceding, tokensRemoved, tokensAfter
     gms.write(filename, ()=>{resolve()});
 }
 
-export function WriteGifFileSHAdd(tokensPreceding, tokensAdded, tokensAfter, percentage, filename, resolve) {
+function WriteGifFileSHAdd(tokensPreceding, tokensAdded, tokensAfter, percentage, filename, resolve) {
     var gms = StartNewGIF();
     
     // Determine position of each token (preceding)
@@ -608,13 +618,13 @@ function InterpolatePositions(array0, array1, percentage) {
 
 function DrawTokens(tokens, positions, gms, opacity = 1) {
     for (var i = 0; i < tokens.length; i++) {
-        var opacColor = MixColors('#000000', JS_COLOR[tokens[i].colorClass], opacity);
+        var opacColor = MixColors('#000000', tokens[i].color, opacity);
         DrawColoredText(gms,tokens[i].text,opacColor,positions[i].y * lineSpacing + firstLineY, positions[i].x);
     }   
 }
 
 // Given list of input image filenames (wildcard '*'), writes GIF file
-export function WriteGifFile(inputFilenames, outputFilename, resolve) {
+function WriteGifFile(inputFilenames, outputFilename, resolve) {
     let imageMagick = gm.subClass({imageMagick: true});
 
     imageMagick().delay(10).loop(-1).in(inputFilenames).write(outputFilename, ()=>{resolve()});

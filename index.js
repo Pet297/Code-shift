@@ -1,5 +1,3 @@
-import fs from 'fs';
-import path from 'path';
 import { FindCodeChanges, SupplyCodeChanges } from './distance.js';
 import { GetAnimationSequence } from './animationSequence.js';
 import { IntermediateTextEnumerator } from './animationEnumerator.js';
@@ -7,7 +5,7 @@ import { GIFWriter } from './gifWriter.js';
 import { ListOfChangesToFile, FileToListOfChanges } from './intermediateOutput.js';
 import { TranslateFileDefault, TranslateFileByLanguage } from './languageDefinitions.js';
 
-async function DoGifOutput2(resenum, output, resolve) {    
+async function DoGifOutput(resenum, output, resolve) {    
     var gw = new GIFWriter();
 
     var promise1 = new Promise( resolve => gw.Begin(output, resolve));
@@ -23,8 +21,8 @@ async function DoGifOutput2(resenum, output, resolve) {
     resolve();
 }
 
-// Find differences between two source codes,
-//  output lists of changes to a file.
+// Finds differences between two source codes,
+//  outputs lists of changes to a file.
 async function MidOutputExecutionSingle(code1, code2, output, language, resolve) {
 
     var root1 = undefined;
@@ -40,14 +38,16 @@ async function MidOutputExecutionSingle(code1, code2, output, language, resolve)
     }
 
     var result = FindCodeChanges([root1], [root2]);
-    ListOfChangesToFile(result.inputDestinations, result.outputSources, output, resolve);
+    var promise = new Promise(
+        resolve => ListOfChangesToFile(result.inputDestinations, result.outputSources, output, resolve)
+        );
+    promise.then(()=>resolve());
+    await promise;
 }
-// Find differences between two source codes,
-//  output resulting animation to a GIF.
+// Finds differences between two source codes,
+//  outputs resulting animation to a GIF.
 //  The list of changes is given.
 async function MidInputExecutionSingle(code1, code2, changes12, output, language, resolve) {
-
-    //TODO:
     var root1 = undefined;
     var root2 = undefined;
 
@@ -67,12 +67,15 @@ async function MidInputExecutionSingle(code1, code2, changes12, output, language
 
     var resenum = new IntermediateTextEnumerator(result.inputDestinations, result.outputSources, result2);
     var promise = new Promise(
-        resolve => DoGifOutput2(resenum, output, resolve)
+        resolve => DoGifOutput(resenum, output, resolve)
         );
     promise.then(()=>resolve());
     await promise;
 }
 
+// Finds differences between two source codes,
+//  outputs resulting animation to a GIF.
+//  The list of changes is found automatically.
 async function FullExecutionSingle(code1, code2, output, language, resolve) { 
 
     var root1 = undefined;
@@ -100,11 +103,33 @@ async function FullExecutionSingle(code1, code2, output, language, resolve) {
     var resenum = new IntermediateTextEnumerator(result.inputDestinations, result.outputSources, result2);
     // Gif genereation
     var promise = new Promise(
-        resolve => DoGifOutput2(resenum, output, resolve)
+        resolve => DoGifOutput(resenum, output, resolve)
         );
     promise.then(()=>resolve());
     await promise;
     
+}
+
+// Does 1st part of partial execution on multiple files
+async function MidOutputExecutionMulti(codeFiles, outputFiles, language, resolve) {
+    for (var i = 0; i < codeFiles.length - 1; i++) {
+        var promise = new Promise(
+            resolve0 => MidOutputExecutionSingle(codeFiles[i], codeFiles[i+1], outputFiles[i], language, resolve0)
+            );
+        if (i == codeFiles.length - 2) promise.then(()=>resolve());
+        await promise;
+    }
+}
+
+// Does 2nd part of partial execution on multiple files
+async function MidInputExecutionMulti(codeFiles, changeFiles, outputFiles, language, resolve) {
+    for (var i = 0; i < codeFiles.length - 1; i++) {
+        var promise = new Promise(
+            resolve0 => MidInputExecutionSingle(codeFiles[i], codeFiles[i+1], changeFiles[i], outputFiles[i], language, resolve0)
+            );
+        if (i == codeFiles.length - 2) promise.then(()=>resolve());
+        await promise;
+    }
 }
 
 // Does full execution on multiple files
@@ -113,73 +138,22 @@ async function FullExecutionMulti(codeFiles, outputFiles, language, resolve) {
         var promise = new Promise(
             resolve0 => FullExecutionSingle(codeFiles[i], codeFiles[i+1], outputFiles[i], language, resolve0)
             );
+        if (i == codeFiles.length - 2) promise.then(()=>resolve());
         await promise;
     }
-    if (i == codeFiles.length - 2) promise.then(()=>resolve());
 }
 
 //TODO: 1-to-N
+//TODO: otestovat 1. a 2. exekuci
+//TODO: test vyberu jazyka
 
-async function RunTests() {
-
-    const tests = [
-        // OLD TESTS:
-        //'./tests/test_F1_0', './tests/test_F1_1', '../F1',
-        //'./tests/test_F2_0', './tests/test_F2_1', '../F2',
-        //'./tests/test_F3_0', './tests/test_F3_1', '../F3',
-        //'./tests/test_C1_0', './tests/test_C1_1', '../C1',
-        //'./tests/test_C2_0', './tests/test_C2_1', '../C2',
-        //'./tests/test_D1_0', './tests/test_D1_1', '../D1',
-        //'./tests/test_D2_0', './tests/test_D2_1', '../D2',
-
-        // NEW TESTS:
-        //'./tests/test_C3_0', './tests/test_C3_1', '../C3',
-        './tests/test_D3_0', './tests/test_D3_1', '../D3',
-        //'./tests/test_A1_0', './tests/test_A1_1', '../A1',
-        //'./tests/test_A2_0', './tests/test_A2_1', '../A2',
-        //'./tests/test_G1_0', './tests/test_G1_1', '../G1',
-        //'./tests/test_F4_0', './tests/test_F4_1', '../F4',
-        //'./tests/test_F5_0', './tests/test_F5_1', '../F5',
-        //'./tests/test_F6_0', './tests/test_F6_1', '../F6',
-
-    ]
-    const fullExecution = true;
-    const intermediateFileGen = false;
-    const supplyChangesExecution = false;
-
-    for (var i = 0; i < tests.length; i+=3) {
-        if (fullExecution) {
-            var promise = new Promise(
-                resolve => FullExecutionSingle(tests[i+0], tests[i+1], tests[i+2] + '.gif', "JS", resolve)
-                );
-            await promise;
-        }
-        if (intermediateFileGen) {
-            var promise = new Promise(
-                resolve => MidOutputExecutionSingle(tests[i+0], tests[i+1], tests[i+2] + '.xml', "JS", resolve)
-                );
-            await promise;
-        }
-        if (supplyChangesExecution) {
-            var promise = new Promise(
-                resolve => MidInputExecutionSingle(tests[i+0], tests[i+1], tests[i+2] + '.xml', tests[i+2] + '.gif', "JS", resolve)
-                );
-            await promise;
-        }
-    }
+async function SimpleTest(file, language, resolve) {
+    var root = TranslateFileByLanguage(file, language);
+    console.log(root);
+    resolve();
 }
 
-async function SimpleTest4(id) {
-    let root1 = TranslateFileByLanguage('./tests/test_T' + id, 'JS');
-    console.log(root1);
-}
-
-async function SimpleTest(file) {
-    let root1 = TranslateFileByLanguage(file, 'JS');
-    console.log(root1);
-}
-
-const recognizedFlags = ['-i', '-o', '-c', '-l', '-n', '-f', '-h', '-t']
+const recognizedFlags = ['-i', '-o', '-c', '-l', '-f', '-h', '-t']
 function IsRecognizedFlag(flag)
 {
     for (var flag0 of recognizedFlags) {
@@ -189,9 +163,9 @@ function IsRecognizedFlag(flag)
 }
 
 function ShowHelp() {
-    console.log("Code shift pre-release v0.4");
-    console.log("Tool for automatic comparison of different varisons of source code");
-    console.log("and generating animation of its possible intermediate states.");
+    console.log("Code shift pre-release v0.6.1");
+    console.log("Tool for automatic comparison of different versions of source code");
+    console.log("and generating animation of its supposed intermediate states.");
     console.log("---------------------------");
     console.log("Author: Petr Martinek");
     console.log("Licence: ISC");
@@ -202,26 +176,31 @@ function ShowHelp() {
     console.log("-o <filename>     : Output file for GIF animation");
     console.log("-c <filename>     : Input file with manual list of changes");
     console.log("-l <language name>: Language of the source code");
-    console.log("-n                : Do not generate GIF");
     console.log("-f                : Generate XML file with changes instead of GIF");
     console.log("-h                : Show this help");
+    console.log("-t                : Do translation test");
     console.log("---------------------------");
     console.log("Basic usage:");
-    console.log("-i [old source code] -i [new source code] -o [GIF filename]");
+    console.log("> Regular full exection - input: source codes, output: GIF");
+    console.log("  -i [old source code] -i [new source code] -o [GIF filename]");
+    console.log("> Partial exection - input: source codes, output: XML list of changes");
+    console.log("  -f -i [old source code] -i [new source code] -o [XML filename]");
+    console.log("> Partial exection - input: source codes and XML list of changes, output: GIF");
+    console.log("  -i [old source code] -i [new source code] -c [XML filename] -o [GIF filename]");
+    console.log("> For debuging - tests whether a file translates to simple representation.");
+    console.log("-t [source code]");
     console.log("---------------------------");
     console.log("Notes:");
     console.log("-The number of input files must be 1 more than the number of output files.");
-    console.log("-If lists of animations are present,");
-    console.log(" there must be as much of them as output files.");
-    console.log("-If flag -f is present, output files are XML files.");
+    console.log("-If lists of XML files with changes are present,");
+    console.log("  there must be as much of them as output files.");
+    console.log("-If flag -f is present, output files are XML files with list of changes.");
     console.log("-If no language option is specified,");
-    console.log(" it is assumed based on filename of 1st input file.");
+    console.log("  it is assumed based on filename of 1st input file.");
 }
 
-async function UserInput() {
-    console.log(process.argv);
+async function UserInput(args, resolve) {
 
-    var outputGif = true;
     var outputIntermediateFile = false;
     var inputFiles = [];
     var outputFiles = [];
@@ -232,36 +211,35 @@ async function UserInput() {
     var testTranslation = false;
 
     // 1) Parse CMD arguments
-    for(var i = 2; i < process.argv.length; i++) {
+    for(var i = 2; i < args.length; i++) {
 
         // Expected flag
-        if (IsRecognizedFlag(process.argv[i])) {
+        if (IsRecognizedFlag(args[i])) {
 
             // No-param flags
-            if (process.argv[i] == '-h') showHelp = true;
-            else if (process.argv[i] == '-n') outputGif = false;
-            else if (process.argv[i] == '-f') outputIntermediateFile = true;
+            if (args[i] == '-h') showHelp = true;
+            else if (args[i] == '-f') outputIntermediateFile = true;
 
             // Single-param flags
             else {
 
                 // Next argument is param for the flag
-                if (i + 1 < process.argv.length) {
-                    if (process.argv[i] == '-i') inputFiles.push(process.argv[i+1]);
-                    if (process.argv[i] == '-o') outputFiles.push(process.argv[i+1]);
-                    if (process.argv[i] == '-c') intermediateFiles.push(process.argv[i+1]);
-                    if (process.argv[i] == '-t')
+                if (i + 1 < args.length) {
+                    if (args[i] == '-i') inputFiles.push(args[i+1]);
+                    if (args[i] == '-o') outputFiles.push(args[i+1]);
+                    if (args[i] == '-c') intermediateFiles.push(args[i+1]);
+                    if (args[i] == '-t')
                     {
                         testTranslation = true;
-                        inputFiles.push(process.argv[i+1]);
+                        inputFiles.push(args[i+1]);
                     }
-                    if (process.argv[i] == '-l') language = process.argv[i+1];
+                    if (args[i] == '-l') language = args[i+1];
                     i++;
                 }
 
                 // There is no next argument
                 else {
-                    console.error('ERROR: Expected a parameter after flag ' + process.argv[i] + '.');
+                    console.error('ERROR: Expected a parameter after flag ' + args[i] + '.');
                     return;
                 }
             }
@@ -269,8 +247,8 @@ async function UserInput() {
 
         // Unrecognized flag
         else {
-            if (process.argv[i].startsWith('-')) console.error('ERROR: Flag ' + process.argv[i] + ' is not recognized.');
-            else console.error('ERROR: Next Argument was expected to be a flag, not \"' + process.argv[i] + '\".');
+            if (args[i].startsWith('-')) console.error('ERROR: Flag ' + args[i] + ' is not recognized.');
+            else console.error('ERROR: Next Argument was expected to be a flag, not \"' + args[i] + '\".');
             return;
         }
     }
@@ -293,22 +271,52 @@ async function UserInput() {
         console.error('ERROR: The difference of input and output files specified wasn\'t 1.');
         return;
     }
+    if (intermediateFilesUsed && outputIntermediateFile) {
+        console.error('ERROR: Two execution modes specified at once.');
+        return;
+    }
 
     // 4) Execute based on settings:
+    // 4A) translation test
     if (testTranslation) {
-        SimpleTest(inputFiles[0]);
+        var promise = new Promise(
+            resolve0 => SimpleTest(inputFiles[0], language, resolve0)
+            );
+        promise.then(() => (resolve()));    
+        await promise; 
     }
+    // 4B) intermediate input
+    else if (intermediateFilesUsed) {
+        var promise = new Promise(
+            resolve0 => MidInputExecutionMulti(inputFiles, intermediateFiles, outputFiles, language, resolve0)
+            );
+        promise.then(() => (resolve()));    
+        await promise;    
+    }
+    // 4C) intermediate output
+    else if (outputIntermediateFile) {
+        var promise = new Promise(
+            resolve0 => MidOutputExecutionMulti(inputFiles, outputFiles, language, resolve0)
+            );
+        promise.then(() => (resolve()));    
+        await promise; 
+    }
+    // 4D) regular execution
     else {
-        //TODO: Intermediate file
-        const N = inputFiles.length - 1;
-        for (var i = 0; i < N; i++) {
-            var promise = new Promise(
-                resolve => FullExecutionMulti(inputFiles, outputFiles, language, resolve)
-                );
-            await promise;
-        }
+        var promise = new Promise(
+            resolve0 => FullExecutionMulti(inputFiles, outputFiles, language, resolve0)
+            );
+        promise.then(() => (resolve()));    
+        await promise; 
     }
 }
 
-//RunTests();
-UserInput();
+// Testing:
+// var testId = 'D3';
+// UserInput([undefined, undefined, '-l', 'JS', '-i', './tests/test_' + testId + '_0', '-i', './tests/test_' + testId + '_1', '-o', '../' + testId + '.gif'], ()=>{});
+// UserInput([undefined, undefined, '-l', 'JS', '-f', '-i', './tests/test_' + testId + '_0', '-i', './tests/test_' + testId + '_1', '-o', '../' + testId + '.xml'], ()=>{});
+// UserInput([undefined, undefined, '-l', 'JS', '-i', './tests/test_' + testId + '_0', '-i', './tests/test_' + testId + '_1', '-c', '../' + testId + '.xml', '-o', '../' + testId + '.gif'], ()=>{});
+// UserInput(['-l', 'JS', '-t', './tests/test_' + testId + '_0', ()=>{});
+
+// Runs the program:
+UserInput(process.argv, ()=>{});

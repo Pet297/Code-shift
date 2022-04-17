@@ -9,6 +9,10 @@ else if (a == b + 1) {
     b += a;
     a += a;
 }
+else if (a == b + 2) {
+    b += a;
+    a += a;
+}
 else {
     a += 2;
     b -= 3;

@@ -2,18 +2,18 @@
  * Class for storing basic information about tokens from given grammar within Code-shift.
  */
 export class TokenInfo {
-    constructor (text, start, stop, tokenIndex, isLiteral, isIdentifier, colorClass) {
+    constructor (text, start, stop, tokenIndex, isLiteral, isIdentifier, color) {
         this.text = text;
         this.start = start;
         this.stop = stop;
         this.tokenIndex = tokenIndex;
         this.isLiteral = isLiteral;
         this.isIdentifier = isIdentifier;
-        this.colorClass = colorClass;
+        this.color = color;
     }
 
     Clone() {
-        return new TokenInfo(this.text, this.start, this.stop, this.tokenIndex, this.isLiteral, this.isIdentifier, this.colorClass);
+        return new TokenInfo(this.text, this.start, this.stop, this.tokenIndex, this.isLiteral, this.isIdentifier, this.color);
     }
 }
 

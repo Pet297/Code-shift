@@ -11,7 +11,7 @@ const languageDefinitions = [
     {
         names : ["NONE"],
         extensions : [],
-        method : (file) => { return TranslateFile(file); }
+        method : (file) => { return TranslateFileNoLang(file); }
     },
     {
         names : ["C#"],
@@ -20,19 +20,41 @@ const languageDefinitions = [
     }
 ];
 
-export function TrnaslateFileNoLang(filename) {   
+export function TranslateFileNoLang(filename) {   
     var text = fs.readFileSync(filename).toString();
-    var token = new TokenInfo(text, 0, text.length-1, 0, false, false, 0);
+    var token = new TokenInfo(text, 0, text.length-1, 0, false, false, '#ffffff');
     return new NonsemanticText([token], "Only block");
 }
 
 export function TranslateFileDefault(filename) {
+
+    var language = DetermineLanguage(filename);
+    
+    return TranslateFileByLanguage(filename, language);
+
+}
+
+export function TranslateFileByLanguage(filename, language) {
+
+    var langUp = language.toUpperCase();
+
+    for (var definition of languageDefinitions) {
+        if (definition.names.includes(langUp)) {
+            return TranslateFile(filename, definition.method);
+        }
+    }
+
+    // No language matching
+    return TranslateFileNoLang(filename);
+}
+
+export function DetermineLanguage(filename) {
     var extension = filename.substring(filename.lastIndexOf('.') + 1);
 
     for (var definition of languageDefinitions) {
         if (definition.extensions.includes(extension)) {
             try {
-                return TranslateFile(filename, definition.method);
+                return definition.names[0];
             }
             catch {
 
@@ -40,20 +62,7 @@ export function TranslateFileDefault(filename) {
         }
     }
 
-    // No language matching
-    return TrnaslateFileNoLang(filename);
-}
-
-export function TranslateFileByLanguage(filename, language) {
-
-    for (var definition of languageDefinitions) {
-        if (definition.names.includes(language)) {
-            return TranslateFile(filename, definition.method);
-        }
-    }
-
-    // No language matching
-    return TrnaslateFileNoLang(filename);
+    return 'NONE';
 }
 
 function TranslateFile(filename, f) {
