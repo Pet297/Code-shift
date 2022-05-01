@@ -1,7 +1,11 @@
 import { DeletingCommand, AddingCommand, MovingUpCommand, ChangingCommand, InternalCommandSequence, RenamingCommand} from './animationSequence.js';
-import { checkTokensEqual } from './distance.js';
+import { CheckTokensEqual, ListOfChanges } from './distance.js';
+import { TokenInfo } from './languageInterface.js';
 
-export class IntermediateTextEnumerator
+/**
+ * Class, which enumerates animations based on the list of changes, that trasforms original source code into the new one.
+ */
+export class AnimationEnumerator
 {
     _processedText = [];
     _toProcess = [];
@@ -13,7 +17,12 @@ export class IntermediateTextEnumerator
     _destinationChanges = [];
     _animationSequence = [];
 
-    // Prepares everething to enumerate intermediate code states between the versions.
+    /**
+     * Creates an instance of AnimationEnumerator
+     * @param {ListOfChanges} sourceChanges List of changes applied to original source code.
+     * @param {ListOfChanges} destinationChanges List of changes to get to the destination source code.
+     * @param {*[]} animationSequence List of animation commands to process.
+     */
     constructor(sourceChanges, destinationChanges, animationSequence)
     {
         this._sourceChanges = sourceChanges;
@@ -23,8 +32,10 @@ export class IntermediateTextEnumerator
         BuildInitialArray(this._sourceChanges, this._unprocessedText);
     }
 
-    // Enumerates animations to do for GIF output
-    *EnumerateStillTexts()
+    /**
+     * Enumerates all animations to transform the original source code.
+     */
+    *EnumerateAnimations()
     {
         // While there are animations to do, do them
         for (var anim of this._animationSequence) {
@@ -34,14 +45,18 @@ export class IntermediateTextEnumerator
         yield new EndingAnimation(this._getTokens(this._processedText));
     }
 
+    /**
+     * Given an animation command, translates it into an animation, yields it, and cleans up to state of this AnimationEnumerator.
+     * @param {*} command Animation command to execute.
+     */
     *_yieldAndApply(command) {
         if (command instanceof MovingUpCommand) {
             // Clear previous moving up if uncleared          
             this._processedText = this._processedText.concat(this._toProcess);
             this._toProcess = [];
             // Get bounds of the moving text
-            var index0 = IndexOfBlock(command.sourceAddress[0], this._unprocessedText);
-            var index1 = index0 + command.sourceAddress.length;
+            var index0 = IndexOfBlock(command.sourceAddresses[0], this._unprocessedText);
+            var index1 = index0 + command.sourceAddresses.length;
             // Isolate the moving text
             var unproccessedAbove = this._unprocessedText.slice(0, index0);
             var changedList = this._unprocessedText.slice(index0, index1);
@@ -60,20 +75,26 @@ export class IntermediateTextEnumerator
         }
         else if (command instanceof ChangingCommand) {
             // Find the changing text
-            var index = IndexOfBlock(command.sourceAddress, this._toProcess);
+            var index = IndexOfBlock(command.sourceAddresses[0], this._toProcess);
             // Partially clear the 'toProcess' list
             this._processedText = this._processedText.concat(this._toProcess.slice(0,index));
-            this._toProcess = this._toProcess.slice(index + 1);
+            this._toProcess = this._toProcess.slice(index + command.sourceAddresses.length);
+            // Build array for animation
+            var from = [];
+            var to = [];
+            for (var a of command.sourceAddresses) from.push([a,'o']);
+            for (var a of command.destinationAddresses) to.push([a,'*']);
+
             // Yield the animation
             var ret = new ChangingAnimation(
                 this._getTokens(this._processedText),
-                this._getTokens([[command.sourceAddress,'*']]),
-                this._getTokens([[command.sourceAddress,'o']]),
+                this._getTokens(to),
+                this._getTokens(from),
                 this._getTokens(this._toProcess.concat(this._unprocessedText))
             );
             if (ChangesAnything(ret)) yield ret;
             // Return to normalized state
-            this._processedText = this._processedText.concat([[command.sourceAddress,'*']]);
+            this._processedText = this._processedText.concat(to);
         }
         else if (command instanceof AddingCommand) {
             // Clear previous moving up if uncleared          
@@ -81,7 +102,7 @@ export class IntermediateTextEnumerator
             this._toProcess = [];
             // Build up the list of blocks
             var added = [];
-            for (var i of command.destinationAddress) {
+            for (var i of command.destinationAddresses) {
                 added.push([i,'+']);
             }
             // Yield the animation
@@ -99,8 +120,8 @@ export class IntermediateTextEnumerator
             this._processedText = this._processedText.concat(this._toProcess);
             this._toProcess = [];
             // Get bounds of the deleted text
-            var index0 = IndexOfBlock(command.sourceAddress[0], this._unprocessedText);
-            var index1 = index0 + command.sourceAddress.length;
+            var index0 = IndexOfBlock(command.sourceAddresses[0], this._unprocessedText);
+            var index1 = index0 + command.sourceAddresses.length;
             // Isolate the deleted text
             var unproccessedAbove = this._unprocessedText.slice(0, index0);
             var changedList = this._unprocessedText.slice(index0, index1);
@@ -141,16 +162,16 @@ export class IntermediateTextEnumerator
             this._toProcess = this._toProcess.slice(index + 1);       
             // Start the child object
             var childIndex = command.sourceAddress;
-            var innerEnumerator = new IntermediateTextEnumerator(
+            var innerEnumerator = new AnimationEnumerator(
                 this._sourceChanges[childIndex].children,
                 this._destinationChanges[this._sourceChanges[childIndex].address].children,
                 command.animationSequence);
             // Do the inner cycle of yields to perform the child animation
-            for(var childAnimation of innerEnumerator.EnumerateStillTexts()) {
+            for(var childAnimation of innerEnumerator.EnumerateAnimations()) {
                 // Finished ?
                 if (childAnimation instanceof EndingAnimation) break;
                 // Yield result of child animation (flatten it first)
-                var ret = MergeAnimationIntoParent(
+                var ret = FlattenAnimation(
                     childAnimation,
                     this._getTokens(this._processedText),
                     this._getTokens(this._toProcess.concat(this._unprocessedText)),
@@ -158,28 +179,33 @@ export class IntermediateTextEnumerator
                 if (ChangesAnything(ret)) yield ret;
             }
             // Return to normalized state
-            this._processedText = this._processedText.concat([[command.sourceAddress,'*']]);
+            this._processedText = this._processedText.concat([[this._sourceChanges[command.sourceAddress].address,'*']]);
         }
     }
 
+    /**
+     * Gets tokens addressed by the intermediate code state representation.
+     * @param {[number, string][]} blockList The intermediate code state representation to get tokens from.
+     * @returns {TokenInfo[]} The list of the tokens.
+     */
     _getTokens(blockList) {
         var tokens = [];
 
         for (var block of blockList) {
             if (block[1] == 'o') {
-                var tokens1 = FindByAddress(this._sourceChanges,block[0]);
+                var tokens1 = TokensByAdress(this._sourceChanges,block[0]);
                 tokens = tokens.concat(tokens1);
             }
             else if (block[1] == '+') {
-                var tokens1 = FindByAddress(this._destinationChanges,block[0]);
+                var tokens1 = TokensByAdress(this._destinationChanges,block[0]);
                 tokens = tokens.concat(tokens1);
             }
             else if (block[1] == 'x') {
-                var tokens1 = FindByAddress(this._sourceChanges,block[0]);
+                var tokens1 = TokensByAdress(this._sourceChanges,block[0]);
                 tokens = tokens.concat(tokens1);
             }
             else if (block[1] == '*') {
-                var tokens1 = FindByAddress(this._destinationChanges,this._sourceChanges[block[0]].address);
+                var tokens1 = TokensByAdress(this._destinationChanges,block[0]);
                 tokens = tokens.concat(tokens1);
             }
         }
@@ -188,6 +214,12 @@ export class IntermediateTextEnumerator
     }
 }
 
+/**
+ * Given the intermediate code state, finds position of a block in the list.
+ * @param {number} blockId The original index of the block to find.
+ * @param {[number,string][]} blockList The intermediate code state to search in.
+ * @returns {number} Position of the block within the list.
+ */
 function IndexOfBlock(blockId, blockList) {
     for (var key = 0; key < blockList.length; key++) {
         if (blockList[key][0] == blockId) return key;
@@ -195,19 +227,26 @@ function IndexOfBlock(blockId, blockList) {
     throw Error("Index out of range in 'IndexOfBlock' in 'animationEnumerator.js'.");
 }
 
-// Check whether given animation object actually changes something about the code.
-//  eg. moving 0 tokens doesn't change anything.
+/**
+ * Checks, whether the given animation object visualy changes anything.
+ * For example, moving 0 block doesn't visualy change anything.
+ * @param {*} animation The animation object to check.
+ * @returns {boolean} boolean value indicating if anything is changed.
+ */
 function ChangesAnything(animation) {
     if (animation instanceof MovingUpAnimation && (animation.textMovingDown.length == 0 || animation.textMovingUp.length == 0)) return false;
     if (animation instanceof AddingAnimation && animation.textBeingAdded.length == 0) return false;
     if (animation instanceof RemovingAnimation && animation.textBeingRemoved.length == 0) return false;
-    if (animation instanceof ChangingAnimation && checkTokensEqual(animation.textChangingFrom, animation.textChangingTo)) return false;
+    if (animation instanceof ChangingAnimation && CheckTokensEqual(animation.textChangingFrom, animation.textChangingTo)) return false;
     if (animation instanceof RenamingAnimation && (animation.renameFrom == undefined || animation.renameTo == undefined || animation.renameFrom == animation.renameTo)) return false;
     return true;
 }
 
-// Builds array of blocks of code, representing the initial code,
-//  before it was changes
+/**
+ * Builds initial intermediate code state, consisting of unchanged blocks in original order.
+ * @param {ListOfChanges} sourceChanges The list of changes to follow.
+ * @param {[]} unproccessedList Output list to store the intermediate code state.
+ */
 function BuildInitialArray(sourceChanges, unproccessedList) {
     for (var i = 0; i < sourceChanges.length; i++)
     {
@@ -215,14 +254,14 @@ function BuildInitialArray(sourceChanges, unproccessedList) {
     }
 }
 
-// Edits code blocks and moves them around lists based on performed animation,
-//  so that intermediate code after the performed animation is drawn properly
-//  by the GIF writer.
-
-
-// Converts nested representation of code blocks positions to flat representation,
-//  to work with the GIF animator.
-function MergeAnimationIntoParent(childAnimation, parentTextAbove, parentTextBelow) {  
+/**
+ * Flattens nested animation into a single animation object for output.
+ * @param {*} childAnimation The nested animation.
+ * @param {TokenInfo[]} parentTextAbove List of stationary parent tokens to prepend.
+ * @param {TokenInfo[]} parentTextBelow List of stationary parent tokens to append.
+ * @returns {*} The flattened animation.
+ */
+function FlattenAnimation(childAnimation, parentTextAbove, parentTextBelow) {  
     if (childAnimation instanceof MovingUpAnimation) {
         return new MovingUpAnimation(
             parentTextAbove.concat(childAnimation.textAbove),
@@ -270,8 +309,13 @@ function MergeAnimationIntoParent(childAnimation, parentTextAbove, parentTextBel
     else throw Error('Unexpected object type passed into "MergeAnimationIntoParent" in "animationEnumerator.js"');
 }
 
-// Given a list of changes and an adress, returns part of one of the original source codes.
-function FindByAddress(listOfChanges, address) {
+/**
+ * Given a list of changes and an address, returns all tokens of the addressed block.
+ * @param {ListOfChanges} listOfChanges Either source or destination list, containing the adressed block.
+ * @param {number} address Adress of the block.
+ * @returns {TokenInfo[]} List of tokens of the addressed block.
+ */
+function TokensByAdress(listOfChanges, address) {
     if ('tokens' in listOfChanges[address]) return listOfChanges[address].tokens;
     else
     {
@@ -279,7 +323,11 @@ function FindByAddress(listOfChanges, address) {
     }
 }
 
-// Gets all text from a non-leaf block of code.
+/**
+ * Gets all tokens of a block of code (possibly non-leaf).
+ * @param {ListOfChanges} change The list of changes to get the tokens from.
+ * @returns {TokenInfo[]} List of all of the tokens.
+ */
 function GetAllText(change) {
     var text = [];
     for (var index in change.children) {
@@ -293,6 +341,9 @@ function GetAllText(change) {
     return text;
 }
 
+/**
+ * Class representing all required information for animating blocks moving up.
+ */
 export class MovingUpAnimation {
     
     textAbove = [];
@@ -300,6 +351,13 @@ export class MovingUpAnimation {
     textMovingUp = [];
     textBelow = [];
     
+    /**
+     * Creates an instace of MovingUpAnimation.
+     * @param {TokenInfo[]} textAbove List of stationary tokens above the moving text.
+     * @param {TokenInfo[]} textMovingDown List of tokens switching place by moving down.
+     * @param {TokenInfo[]} textMovingUp List of tokens switching place by moving up.
+     * @param {TokenInfo[]} textBelow List of stationary tokens below the moving text.
+     */
     constructor(textAbove, textMovingDown, textMovingUp, textBelow) {
         this.textAbove = textAbove;
         this.textMovingDown = textMovingDown;
@@ -307,7 +365,9 @@ export class MovingUpAnimation {
         this.textBelow = textBelow;
     }
 }
-
+/**
+ * Class representing all required information for animating blocks being rewritten.
+ */
 export class ChangingAnimation {
     
     textAbove = [];
@@ -315,6 +375,13 @@ export class ChangingAnimation {
     textChangingTo = [];
     textBelow = [];
     
+    /**
+     * Creates an instace of ChangingAnimation.
+     * @param {TokenInfo[]} textAbove List of stationary tokens above the changing text.
+     * @param {TokenInfo[]} textChangingFrom List of tokens being rewritten, before the rewrite.
+     * @param {TokenInfo[]} textChangingTo List of tokens being rewritten, after the rewrite.
+     * @param {TokenInfo[]} textBelow List of stationary tokens below the changing text.
+     */
     constructor(textAbove, textChangingFrom, textChangingTo, textBelow) {
         this.textAbove = textAbove;
         this.textChangingFrom = textChangingFrom;
@@ -322,33 +389,51 @@ export class ChangingAnimation {
         this.textBelow = textBelow;
     }
 }
-
+/**
+ * Class representing all required information for animating blocks being added.
+ */
 export class AddingAnimation {
     
     textAbove = [];
     textBeingAdded = [];
     textBelow = [];
     
+    /**
+     * Creates an instace of AddingAnimation.
+     * @param {TokenInfo[]} textAbove List of stationary tokens above the added text.
+     * @param {TokenInfo[]} textBeingAdded List of tokens being added.
+     * @param {TokenInfo[]} textBelow List of stationary tokens below the added text.
+     */
     constructor(textAbove, textBeingAdded, textBelow) {
         this.textAbove = textAbove;
         this.textBeingAdded = textBeingAdded;
         this.textBelow = textBelow;
     }
 }
-
+/**
+ * Class representing all required information for animating blocks being deleted.
+ */
 export class RemovingAnimation {
     
     textAbove = [];
     textBeingRemoved = [];
     textBelow = [];
     
+    /**
+     * Creates an instace of RemovingAnimation.
+     * @param {TokenInfo[]} textAbove List of stationary tokens above the deleted text.
+     * @param {TokenInfo[]} textBeingRemoved List of tokens being deleted.
+     * @param {TokenInfo[]} textBelow List of stationary tokens below the deleted text.
+     */
     constructor(textAbove, textBeingRemoved, textBelow) {
         this.textAbove = textAbove;
         this.textBeingRemoved = textBeingRemoved;
         this.textBelow = textBelow;
     }
 }
-
+/**
+ * Class representing all required information for animating identifiers being renamed.
+ */
 export class RenamingAnimation {
     
     textAbove = [];
@@ -357,6 +442,14 @@ export class RenamingAnimation {
     renameFrom = "";
     renameTo = "";
     
+    /**
+     * Creates an instace of RenamingAnimation.
+     * @param {TokenInfo[]} textAbove List of unchanged tokens above the edited text.
+     * @param {TokenInfo[]} textChanging List of tokens, where renames are happening.
+     * @param {TokenInfo[]} textBelow List of unchanged tokens below the edited text.
+     * @param {string} renameFrom Original name of the identifiers.
+     * @param {string} renameTo New name of the identifiers.
+     */
     constructor(textAbove, textChanging, textBelow, renameFrom, renameTo) {
         this.textAbove = textAbove;
         this.textChanging = textChanging;
@@ -365,11 +458,17 @@ export class RenamingAnimation {
         this.renameTo = renameTo;
     }
 }
-
+/**
+ * Class representing the end of an animation sequence with resulting code.
+ */
 export class EndingAnimation {
     
     text = [];
     
+    /**
+     * Creates an instace of EndingAnimation.
+     * @param {TokenInfo[]} text List of all tokens in the resulting code.
+     */
     constructor(text) {
         this.text = text;
     }

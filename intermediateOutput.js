@@ -1,9 +1,15 @@
 import xmljs from 'xml2js';
 import fs from 'fs';
-import { CodeChange } from './distance.js';
+import { CodeChange, ListOfChanges } from './distance.js';
 
-// Given 2 lists of changes between source and destination, serializes them as XML into given file
-export function ListOfChangesToFile(sourceChanges, destinationChanges, outputFile, resolve) {
+/**
+ * Serializes given list of changes to an XML file.
+ * @param {ListOfChanges} sourceChanges 
+ * @param {ListOfChanges} destinationChanges 
+ * @param {string} outputFile 
+ * @param {(value: any) => void} callback Callback function for asynchronous execution.
+ */
+export function ListOfChangesToFile(sourceChanges, destinationChanges, outputFile, callback) {
 
     // A) Convert list of changes to library-friendly representation
     var srcc = ChangesToSimpleObject(sourceChanges);
@@ -15,10 +21,14 @@ export function ListOfChangesToFile(sourceChanges, destinationChanges, outputFil
     var xml = builder.buildObject(obj);
 
     // C) Write it to a file
-    fs.writeFile(outputFile, xml, 'utf8', ()=>{resolve()})
+    fs.writeFile(outputFile, xml, 'utf8', ()=>{callback()})
 }
 
-// Given a file, deserializes it into two lists of changes, returned as one object
+/**
+ * Deserializes a list of changes from an XML file.
+ * @param {string} file 
+ * @returns {object} Object containing two ListOfChanges, one for source and one for destination.
+ */
 export function FileToListOfChanges(file) {
 
     // A) Read XML file
@@ -37,7 +47,11 @@ export function FileToListOfChanges(file) {
     return {src:srcc, dst:dstc};
 }
 
-// Converts a list of changes into a different representation to work well with the XML library
+/**
+ * Converts a list of changes into a different representation for the xml2js library.
+ * @param {ListOfChanges} listOfChanges The list of changes that is to be serialized.
+ * @returns {object} A different representation of the list of changes.
+ */
 function ChangesToSimpleObject(listOfChanges) {
     var obj = {};
     for (var id in listOfChanges) {
@@ -49,7 +63,11 @@ function ChangesToSimpleObject(listOfChanges) {
     return obj;
 }
 
-// Converts a XML-library-friendly representation back to list of changes
+/**
+ * Converts xml2js-friendly representation of list of changes back to internal representation.
+ * @param {object} obj The object that was deserialized.
+ * @returns {ListOfChanges} The resulting list of changes that was deserialized.
+ */
 function SimpleObjectToChanges(obj) {
     if (obj[0] == '') return[];
     var output = [];

@@ -1,159 +1,172 @@
 import { FindCodeChanges, SupplyCodeChanges } from './distance.js';
 import { GetAnimationSequence } from './animationSequence.js';
-import { IntermediateTextEnumerator } from './animationEnumerator.js';
+import { AnimationEnumerator } from './animationEnumerator.js';
 import { GIFWriter } from './gifWriter.js';
 import { ListOfChangesToFile, FileToListOfChanges } from './intermediateOutput.js';
-import { TranslateFileDefault, TranslateFileByLanguage } from './languageDefinitions.js';
+import { TranslateFileByLanguage } from './languageDefinitions.js';
 
-async function DoGifOutput(resenum, output, resolve) {    
+/**
+ * Writes a GIF animation showing edits on a code, given an animation enumerator.
+ * @param {IntermediateTextEnumerator} resenum The animation enumerator.
+ * @param {string} output Output GIF file path.
+ * @param {(value: any) => void} callback Callback function for asynchronous execution.
+ */
+async function DoGifOutput(resenum, output, callback) {    
     var gw = new GIFWriter();
 
-    var promise1 = new Promise( resolve => gw.Begin(output, resolve));
+    var promise1 = new Promise( callback0 => gw.Begin(output, callback0));
     await promise1;
 
-    for (var anim of resenum.EnumerateStillTexts()) {
-        var promise2 = new Promise( resolve => gw.ApplyAnimation(anim, resolve));
+    for (var anim of resenum.EnumerateAnimations()) {
+        var promise2 = new Promise( callback0 => gw.ApplyAnimation(anim, callback0));
         await promise2;
     }
-    var promise3 = new Promise( resolve => gw.End(resolve));
+    var promise3 = new Promise( callback0 => gw.End(callback0));
     await promise3;
 
-    resolve();
+    callback();
 }
 
-// Finds differences between two source codes,
-//  outputs lists of changes to a file.
-async function MidOutputExecutionSingle(code1, code2, output, language, resolve) {
+/**
+ * Generates list of changes between two source codes and stores it as an XML file.
+ * @param {string} code1 Path to the 'before' source code.
+ * @param {string} code2 Path to the 'after' source code.
+ * @param {string} output Output XML file path.
+ * @param {string} language The language to use while translating representation.
+ * @param {(value: any) => void} callback Callback function for asynchronous execution.
+ */
+async function MidOutputExecutionSingle(code1, code2, output, language, callback) {
+    var root1 = TranslateFileByLanguage(code1, language);
+    var root2 = TranslateFileByLanguage(code2, language);
 
-    var root1 = undefined;
-    var root2 = undefined;
+    var changes = FindCodeChanges([root1], [root2]);
 
-    if (language === undefined) {
-        root1 = TranslateFileDefault(code1);
-        root2 = TranslateFileDefault(code2);
-    }
-    else {
-        root1 = TranslateFileByLanguage(code1, language);
-        root2 = TranslateFileByLanguage(code2, language);
-    }
-
-    var result = FindCodeChanges([root1], [root2]);
     var promise = new Promise(
-        resolve => ListOfChangesToFile(result.inputDestinations, result.outputSources, output, resolve)
+        callback0 => ListOfChangesToFile(changes.inputDestinations, changes.outputSources, output, callback0)
         );
-    promise.then(()=>resolve());
-    await promise;
-}
-// Finds differences between two source codes,
-//  outputs resulting animation to a GIF.
-//  The list of changes is given.
-async function MidInputExecutionSingle(code1, code2, changes12, output, language, resolve) {
-    var root1 = undefined;
-    var root2 = undefined;
-
-    if (language === undefined) {
-        root1 = TranslateFileDefault(code1);
-        root2 = TranslateFileDefault(code2);
-    }
-    else {
-        root1 = TranslateFileByLanguage(code1, language);
-        root2 = TranslateFileByLanguage(code2, language);
-    }
-
-    var changeObject = FileToListOfChanges(changes12);
-
-    var result = SupplyCodeChanges([root1], [root2], changeObject.src, changeObject.dst);
-    var result2 = GetAnimationSequence(result.inputDestinations, result.outputSources, result.renames);
-
-    var resenum = new IntermediateTextEnumerator(result.inputDestinations, result.outputSources, result2);
-    var promise = new Promise(
-        resolve => DoGifOutput(resenum, output, resolve)
-        );
-    promise.then(()=>resolve());
+    promise.then(()=>callback());
     await promise;
 }
 
-// Finds differences between two source codes,
-//  outputs resulting animation to a GIF.
-//  The list of changes is found automatically.
-async function FullExecutionSingle(code1, code2, output, language, resolve) { 
+/**
+ * Given two source codes and a list of changes, generates a GIF animation showing edits on the code.
+ * @param {string} code1 Path to the 'before' source code.
+ * @param {string} code2 Path to the 'after' source code.
+ * @param {string} changes12 Path to the XML list of changes.
+ * @param {string} output Output GIF file path.
+ * @param {string} language The language to use while translating representation.
+ * @param {(value: any) => void} callback Callback function for asynchronous execution.
+ */
+async function MidInputExecutionSingle(code1, code2, changes12, output, language, callback) {
+    var root1 = TranslateFileByLanguage(code1, language);
+    var root2 = TranslateFileByLanguage(code2, language);
+    var changeList = FileToListOfChanges(changes12);
+    if (root1 === undefined || root2 === undefined) throw Error("Input file doesn't exist");
 
-    var root1 = undefined;
-    var root2 = undefined;
+    var changes = SupplyCodeChanges([root1], [root2], changeList.src, changeList.dst);
+    var animationSequennce = GetAnimationSequence(changes.inputDestinations, changes.outputSources, changes.renames);
+    var animationEnumerator = new AnimationEnumerator(changes.inputDestinations, changes.outputSources, animationSequennce);
 
-    try
-    {
-        if (language === undefined) {
-            root1 = TranslateFileDefault(code1);
-            root2 = TranslateFileDefault(code2);
-        }
-        else {
-            root1 = TranslateFileByLanguage(code1, language);
-            root2 = TranslateFileByLanguage(code2, language);
-        }
-    }
-    catch
-    {
-    }
-
-    // Find changes and generate animation sequence
-    var result = FindCodeChanges([root1], [root2]);
-    var result2 = GetAnimationSequence(result.inputDestinations, result.outputSources, result.renames);
-    // Define animation enumerator
-    var resenum = new IntermediateTextEnumerator(result.inputDestinations, result.outputSources, result2);
-    // Gif genereation
     var promise = new Promise(
-        resolve => DoGifOutput(resenum, output, resolve)
+        callback0 => DoGifOutput(animationEnumerator, output, callback0)
         );
-    promise.then(()=>resolve());
+    promise.then(()=>callback());
     await promise;
-    
 }
 
-// Does 1st part of partial execution on multiple files
-async function MidOutputExecutionMulti(codeFiles, outputFiles, language, resolve) {
+/**
+ * Generates list of changes between two source codes and stores it as an XML file.
+ * @param {string} code1 Path to the 'before' source code.
+ * @param {string} code2 Path to the 'after' source code.
+ * @param {string} output Output GIF file path.
+ * @param {string} language The language to use while translating representation.
+ * @param {(value: any) => void} callback Callback function for asynchronous execution.
+ */
+async function FullExecutionSingle(code1, code2, output, language, callback) { 
+    var root1 = TranslateFileByLanguage(code1, language);
+    var root2 = TranslateFileByLanguage(code2, language);
+    if (root1 === undefined || root2 === undefined) throw Error("Input file doesn't exist");
+
+    var changes = FindCodeChanges([root1], [root2]);
+    var animationSequence = GetAnimationSequence(changes.inputDestinations, changes.outputSources, changes.renames);
+    var animationEnumerator = new AnimationEnumerator(changes.inputDestinations, changes.outputSources, animationSequence);
+
+    var promise = new Promise(
+        callback0 => DoGifOutput(animationEnumerator, output, callback0)
+        );
+    promise.then(()=>callback());
+    await promise;
+}
+
+/**
+ * Does partial execution with output in the middle on multiple pairs of files.
+ * @param {string[]} codeFiles List of paths to individual versions of the source code.
+ * @param {string[]} outputFiles List of output XML paths.
+ * @param {string} language The language to use while translating representation.
+ * @param {(value: any) => void} callback Callback function for asynchronous execution.
+ */
+async function MidOutputExecutionMulti(codeFiles, outputFiles, language, callback) {
     for (var i = 0; i < codeFiles.length - 1; i++) {
         var promise = new Promise(
-            resolve0 => MidOutputExecutionSingle(codeFiles[i], codeFiles[i+1], outputFiles[i], language, resolve0)
+            callback0 => MidOutputExecutionSingle(codeFiles[i], codeFiles[i+1], outputFiles[i], language, callback0)
             );
-        if (i == codeFiles.length - 2) promise.then(()=>resolve());
+        if (i == codeFiles.length - 2) promise.then(()=>callback());
         await promise;
     }
 }
 
-// Does 2nd part of partial execution on multiple files
-async function MidInputExecutionMulti(codeFiles, changeFiles, outputFiles, language, resolve) {
+/**
+ * Does partial execution with input in the middle on multiple pairs of files.
+ * @param {[string]} codeFiles List of paths to individual versions of the source code.
+ * @param {[string]} changeFiles List of paths to individual XML files with changes.
+ * @param {[string]} outputFiles List of output GIF paths.
+ * @param {string} language The language to use while translating representation.
+ * @param {(value: any) => void} callback Callback function for asynchronous execution.
+ */
+async function MidInputExecutionMulti(codeFiles, changeFiles, outputFiles, language, callback) {
     for (var i = 0; i < codeFiles.length - 1; i++) {
         var promise = new Promise(
-            resolve0 => MidInputExecutionSingle(codeFiles[i], codeFiles[i+1], changeFiles[i], outputFiles[i], language, resolve0)
+            callback0 => MidInputExecutionSingle(codeFiles[i], codeFiles[i+1], changeFiles[i], outputFiles[i], language, callback0)
             );
-        if (i == codeFiles.length - 2) promise.then(()=>resolve());
+        if (i == codeFiles.length - 2) promise.then(()=>callback());
         await promise;
     }
 }
 
-// Does full execution on multiple files
-async function FullExecutionMulti(codeFiles, outputFiles, language, resolve) {
+/**
+ * Does full execution on multiple pairs of files.
+ * @param {string[]} codeFiles List of paths to individual versions of the source code.
+ * @param {string[]} outputFiles List of output GIF paths.
+ * @param {string} language The language to use while translating representation.
+ * @param {(value: any) => void} callback Callback function for asynchronous execution.
+ */
+async function FullExecutionMulti(codeFiles, outputFiles, language, callback) {
     for (var i = 0; i < codeFiles.length - 1; i++) {
         var promise = new Promise(
-            resolve0 => FullExecutionSingle(codeFiles[i], codeFiles[i+1], outputFiles[i], language, resolve0)
+            callback0 => FullExecutionSingle(codeFiles[i], codeFiles[i+1], outputFiles[i], language, callback0)
             );
-        if (i == codeFiles.length - 2) promise.then(()=>resolve());
+        if (i == codeFiles.length - 2) promise.then(()=>callback());
         await promise;
     }
 }
 
-//TODO: 1-to-N
-//TODO: otestovat 1. a 2. exekuci
-//TODO: test vyberu jazyka
-
-async function SimpleTest(file, language, resolve) {
+/**
+ * Tests whether a file translates in the given language.
+ * @param {string} file Path to the file with source code.
+ * @param {string} language The language to use while translating representation.
+ * @param {(value: any) => void} callback Callback function for asynchronous execution.
+ */
+async function SimpleTest(file, language, callback) {
     var root = TranslateFileByLanguage(file, language);
     console.log(root);
-    resolve();
+    callback();
 }
 
-const recognizedFlags = ['-i', '-o', '-c', '-l', '-f', '-h', '-t']
+const recognizedFlags = ['-i', '-o', '-c', '-l', '-f', '-h', '-t'];
+/**
+ * Checks whether given parameter flag or switch is valid.
+ * @param {string} flag Flag or switch to test.
+ */
 function IsRecognizedFlag(flag)
 {
     for (var flag0 of recognizedFlags) {
@@ -162,10 +175,13 @@ function IsRecognizedFlag(flag)
     return false;
 }
 
+/**
+ * Prints help for this software to the output.
+ */
 function ShowHelp() {
-    console.log("Code shift pre-release v0.6.1");
+    console.log("Code shift pre-release v0.8.0");
     console.log("Tool for automatic comparison of different versions of source code");
-    console.log("and generating animation of its supposed intermediate states.");
+    console.log("and generating animation of its possible intermediate states.");
     console.log("---------------------------");
     console.log("Author: Petr Martinek");
     console.log("Licence: ISC");
@@ -197,9 +213,16 @@ function ShowHelp() {
     console.log("-If flag -f is present, output files are XML files with list of changes.");
     console.log("-If no language option is specified,");
     console.log("  it is assumed based on filename of 1st input file.");
+    console.log("-Due to JS limitations, output path must be relative.");
 }
 
-async function UserInput(args, resolve) {
+/**
+ * Parses list of input console arguments and takes an action based on them.
+ * @param {*} args List of command line arguments. Note that args[0] is what runs node.js and args[1] is what runs code-shift.
+ * @param {(value: any) => void} callback Callback function for asynchronous execution.
+ * @returns 
+ */
+async function UserInput(args, callback) {
 
     var outputIntermediateFile = false;
     var inputFiles = [];
@@ -222,8 +245,6 @@ async function UserInput(args, resolve) {
 
             // Single-param flags
             else {
-
-                // Next argument is param for the flag
                 if (i + 1 < args.length) {
                     if (args[i] == '-i') inputFiles.push(args[i+1]);
                     if (args[i] == '-o') outputFiles.push(args[i+1]);
@@ -236,20 +257,16 @@ async function UserInput(args, resolve) {
                     if (args[i] == '-l') language = args[i+1];
                     i++;
                 }
-
-                // There is no next argument
                 else {
-                    console.error('ERROR: Expected a parameter after flag ' + args[i] + '.');
-                    return;
+                    throw Error('ERROR: Expected a parameter after flag ' + args[i] + '.');
                 }
             }
         }
 
         // Unrecognized flag
         else {
-            if (args[i].startsWith('-')) console.error('ERROR: Flag ' + args[i] + ' is not recognized.');
-            else console.error('ERROR: Next Argument was expected to be a flag, not \"' + args[i] + '\".');
-            return;
+            if (args[i].startsWith('-')) throw Error('ERROR: Flag ' + args[i] + ' is not recognized.');
+            else throw Error('ERROR: Next Argument was expected to be a flag, not \"' + args[i] + '\".');
         }
     }
 
@@ -259,64 +276,61 @@ async function UserInput(args, resolve) {
         return;
     }
 
-    // 3) Check logical correctness:
+    // 3) Check logical correctness otherwise:
     if (intermediateFiles.length > 0) intermediateFilesUsed = true;
     if (intermediateFilesUsed && (inputFiles.length != intermediateFiles.length + 1))
     {
-        console.error('ERROR: The difference of input and intermediate files specified wasn\'t 1.');
-        return;
+        throw Error('ERROR: The difference of input and intermediate files specified wasn\'t 1.');
     }
     if (inputFiles.length != outputFiles.length + 1)
     {
-        console.error('ERROR: The difference of input and output files specified wasn\'t 1.');
-        return;
+        throw Error('ERROR: The difference of input and output files specified wasn\'t 1.');
     }
     if (intermediateFilesUsed && outputIntermediateFile) {
-        console.error('ERROR: Two execution modes specified at once.');
-        return;
+        throw Error('ERROR: Two execution modes specified at once.');
     }
 
     // 4) Execute based on settings:
     // 4A) translation test
     if (testTranslation) {
         var promise = new Promise(
-            resolve0 => SimpleTest(inputFiles[0], language, resolve0)
+            callback0 => SimpleTest(inputFiles[0], language, callback0)
             );
-        promise.then(() => (resolve()));    
+        promise.then(() => (callback()));    
         await promise; 
     }
     // 4B) intermediate input
     else if (intermediateFilesUsed) {
         var promise = new Promise(
-            resolve0 => MidInputExecutionMulti(inputFiles, intermediateFiles, outputFiles, language, resolve0)
+            callback0 => MidInputExecutionMulti(inputFiles, intermediateFiles, outputFiles, language, callback0)
             );
-        promise.then(() => (resolve()));    
+        promise.then(() => (callback()));    
         await promise;    
     }
     // 4C) intermediate output
     else if (outputIntermediateFile) {
         var promise = new Promise(
-            resolve0 => MidOutputExecutionMulti(inputFiles, outputFiles, language, resolve0)
+            callback0 => MidOutputExecutionMulti(inputFiles, outputFiles, language, callback0)
             );
-        promise.then(() => (resolve()));    
+        promise.then(() => (callback()));    
         await promise; 
     }
-    // 4D) regular execution
+    // 4D) full execution
     else {
         var promise = new Promise(
-            resolve0 => FullExecutionMulti(inputFiles, outputFiles, language, resolve0)
+            callback0 => FullExecutionMulti(inputFiles, outputFiles, language, callback0)
             );
-        promise.then(() => (resolve()));    
+        promise.then(() => (callback()));    
         await promise; 
     }
 }
 
-// Testing:
-// var testId = 'D3';
-// UserInput([undefined, undefined, '-l', 'JS', '-i', './tests/test_' + testId + '_0', '-i', './tests/test_' + testId + '_1', '-o', '../' + testId + '.gif'], ()=>{});
+// Manual Testing:
+ var testId = 'D3';
+ UserInput([undefined, undefined, '-l', 'JS', '-i', './tests/test_' + testId + '_0', '-i', './tests/test_' + testId + '_1', '-o', '../' + testId + '.gif'], ()=>{});
 // UserInput([undefined, undefined, '-l', 'JS', '-f', '-i', './tests/test_' + testId + '_0', '-i', './tests/test_' + testId + '_1', '-o', '../' + testId + '.xml'], ()=>{});
 // UserInput([undefined, undefined, '-l', 'JS', '-i', './tests/test_' + testId + '_0', '-i', './tests/test_' + testId + '_1', '-c', '../' + testId + '.xml', '-o', '../' + testId + '.gif'], ()=>{});
 // UserInput(['-l', 'JS', '-t', './tests/test_' + testId + '_0', ()=>{});
 
 // Runs the program:
-UserInput(process.argv, ()=>{});
+//UserInput(process.argv, ()=>{});

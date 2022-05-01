@@ -2,18 +2,30 @@
  * Class for storing basic information about tokens from given grammar within Code-shift.
  */
 export class TokenInfo {
-    constructor (text, start, stop, tokenIndex, isLiteral, isIdentifier, color) {
+    /**
+     * Creates new instance of TokenInfo
+     * @param {string} text The text of the token.
+     * @param {number} start Postion of this token in the original source code.
+     * @param {number} stop Postion of the end of this token in the original source code.
+     * @param {number} tokenIndex Ordinal number of this token within the source code.
+     * @param {boolean} isIdentifier Flag indicating whether this token is an identifier.
+     * @param {string} color Color string used for syntax highliting.
+     */
+    constructor (text, start, stop, tokenIndex, isIdentifier, color) {
         this.text = text;
         this.start = start;
         this.stop = stop;
         this.tokenIndex = tokenIndex;
-        this.isLiteral = isLiteral;
         this.isIdentifier = isIdentifier;
         this.color = color;
     }
 
+    /**
+     * Clones this instance of TokenInfo.
+     * @returns Cloned instance.
+     */
     Clone() {
-        return new TokenInfo(this.text, this.start, this.stop, this.tokenIndex, this.isLiteral, this.isIdentifier, this.color);
+        return new TokenInfo(this.text, this.start, this.stop, this.tokenIndex, this.isIdentifier, this.color);
     }
 }
 
@@ -22,53 +34,97 @@ export class TokenInfo {
  * @abstract
  */
  export class BaseCodeBlock {
+    /**
+     * Abstract class - Do not call
+     */
     constructor() {
         if (this.constructor == BaseCodeBlock) {
             throw new Error("An instance of abstract class 'BaseCodeBlock' was to be crated.");
         }
     }
+    /**
+     * Enumerates all tokens of this codeblock in infix order.
+     */
     *getTokens() {
         throw new Error("A method was to be called on an instance of abstract class 'BaseCodeBlock'.");
     }
-    
+    /**
+     * Determines, whether this codeblock contains any token.
+     * @returns {boolean} boolean indicator.
+     */
     isEmpty() {
         throw new Error("A method was to be called on an instance of abstract class 'BaseCodeBlock'.");
     }
-
+    /**
+     * Adds new tokens to the left-most leaf of this codeblock.
+     * @param {TokenInfo[]} tokens List of tokens to prepend.
+     */
     addTokensToStart(tokens) {
         throw new Error("A method was to be called on an instance of abstract class 'BaseCodeBlock'.");
     }
-
+    /**
+     * Adds new tokens to the right-most leaf of this codeblock.
+     * @param {TokenInfo[]} tokens List of tokens to append.
+     */
     addTokensToEnd(tokens) {
         throw new Error("A method was to be called on an instance of abstract class 'BaseCodeBlock'.");
     }
-
+    /**
+     * Returns the left-most token of this codeblock.
+     * @returns {TokenInfo} The first token.
+     */
     getFirstToken() {
         throw new Error("A method was to be called on an instance of abstract class 'BaseCodeBlock'.");
     }
-
+    /**
+     * Returns the right-most token of this codeblock.
+     * @returns {TokenInfo} The last token.
+     */
     getLastToken() {
         throw new Error("A method was to be called on an instance of abstract class 'BaseCodeBlock'.");
     }
-
+    /**
+     * Removes the left-most token of this codeblock.
+     */
     removeFirstToken() {
         throw new Error("A method was to be called on an instance of abstract class 'BaseCodeBlock'.");
     }
-
+    /**
+     * Removes the right-most token of this codeblock.
+     */
     removeLastToken() {
         throw new Error("A method was to be called on an instance of abstract class 'BaseCodeBlock'.");
     }
-
-    getIdentifiers() {
+    /**
+     * Enumerates all tokens of this codeblock in infix order that are marked as identifiers.
+     */
+    *getIdentifiers() {
+        throw new Error("A method was to be called on an instance of abstract class 'BaseCodeBlock'.");
+    }
+    /**
+     * Returns length of this codeblock in characters.
+     * @returns {number} Length in characters.
+     */
+    getLengthInCharacters() {
+        throw new Error("A method was to be called on an instance of abstract class 'BaseCodeBlock'.");
+    }
+    /**
+     * Gets all text of this codeblock in infix order, applying renames to any identifiers.
+     * @param {object} renames 
+     */
+    getText(renames = {}) {
         throw new Error("A method was to be called on an instance of abstract class 'BaseCodeBlock'.");
     }
 }
 /**
- * Common interface for all LEAF blocks of code
+ * Common interface for all leaf blocks of code.
  * @abstract
  */
  export class BaseTokenList extends BaseCodeBlock {
-
+    /**
+     * Creates a new instance of BaseTokenList
+     * @param {TokenInfo[]} tokens List of tokens.
+     */
     constructor(tokens) {
         super();
         this.tokens = tokens;
@@ -122,13 +178,31 @@ export class TokenInfo {
     *getIdentifiers() {
         for (var token of this.tokens) if (token.isIdentifier) yield token.text;
     }
+
+    getLengthInCharacters() {
+        var length = 0;
+        for (var token of this.tokens) length += token.text.length;
+        return length;
+    }
+
+    getText(renames = {}) {
+        var text = '';
+        for (var token of this.tokens) {
+            if (token.isIdentifier && token.text in renames) renames[token.text];
+            else text += token.text;
+        }
+        return text;
+    }
 }
 /**
- * Common interface for all NON-LEAF blocks of code
+ * Common interface for all non-leaf blocks of code
  * @abstract
  */
  export class BaseCommandList extends BaseCodeBlock {
-
+    /**
+     * Creates a new instance of BaseCommandList
+     * @param {BaseCodeBlock[]} innerCode List of child blocks.
+     */
     constructor(innerCode) {
         super();
         this.innerCode = innerCode;
@@ -201,6 +275,18 @@ export class TokenInfo {
             yield* object.getIdentifiers();
         }
     }
+    
+    getLengthInCharacters() {
+        var length = 0;
+        for (var object of this.innerCode) length += object.getLengthInCharacters();
+        return length;
+    }
+    
+    getText(renames = {}) {
+        var text = '';
+        for (var object of this.innerCode) text += object.getText(renames);
+        return text;
+    }
 }
 /**
  * This class isn't meant to be used for code distance calculation.
@@ -209,6 +295,10 @@ export class TokenInfo {
  * or 'SemanticDefinition' instance.
  */
 export class NonsemanticCommandList extends BaseCommandList {
+    /**
+     * Creates a new instance of NonsemanticCommandList
+     * @param {BaseCodeBlock[]} innerCode List of child blocks.
+     */
     constructor(innerCode) {
         super(innerCode);
     }
@@ -219,6 +309,14 @@ export class NonsemanticCommandList extends BaseCommandList {
  */
 export class SemanticDefinition extends BaseCommandList
 {
+    /**
+     * Creates a new instance of SemanticDefinition
+     * @param {string[]} dependentOn List of identifiers this definition depends on.
+     * @param {string[]} paramList List of new identifiers dependent within this block.
+     * @param {BaseCodeBlock[]} innerCode List of child blocks.
+     * @param {string} definitionType Type of this definition.
+     * @param {string} name Text of the defined identifier.
+     */
     constructor(dependentOn, paramList, innerCode, definitionType, name) {
 
         super(innerCode);
@@ -235,13 +333,20 @@ export class SemanticDefinition extends BaseCommandList
  */
 export class SemanticDecision extends BaseCommandList
 {
-    constructor(dependentOn, paramList, innerCode, conditionType)
+    /**
+     * Creates a new instance of SemanticDecision
+     * @param {string[]} dependentOn List of identifiers the decision depends on.
+     * @param {string[]} paramList List of new identifiers dependent within this block.
+     * @param {BaseCodeBlock[]} innerCode List of child blocks.
+     * @param {string} decisionType Type of this decision.
+     */
+    constructor(dependentOn, paramList, innerCode, decisionType)
     {
         super(innerCode);
 
         this.dependentOn = dependentOn;
         this.paramList = paramList;
-        this.conditionType = conditionType;
+        this.decisionType = decisionType;
     }
 }
 /**
@@ -249,6 +354,12 @@ export class SemanticDecision extends BaseCommandList
  */
 export class SemanticAction extends BaseTokenList
 {
+    /**
+     * Creates a new instance of SemanticAction
+     * @param {string[]} dependingVariables List of identifiers whose value is being changed.
+     * @param {string[]} dependentOn List of identifiers the asigned value depends on, if any.
+     * @param {TokenInfo[]} tokens List of tokens.
+     */
     constructor(dependingVariables, dependentOn, tokens)
     {
         super(tokens);
@@ -263,6 +374,11 @@ export class SemanticAction extends BaseTokenList
  */
 export class NonsemanticText extends BaseTokenList
 {
+    /**
+     * Creates a new instance of NonsemanticText
+     * @param {TokenInfo[]} tokens List of tokens.
+     * @param {string?} specialType Unique identifier within a block for automatic matching.
+     */
     constructor(tokens, specialType)
     {
         super(tokens);

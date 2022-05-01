@@ -1,10 +1,10 @@
 import antlr4 from 'antlr4';
+import { CommonToken } from 'antlr4';
 import JavaScriptLexer from './grammars/JavaScriptLexer.js';
 import JavaScriptParser from './grammars/JavaScriptParser.js';
-import fs from 'fs';
-import { TokenInfo, SemanticAction, SemanticDecision, SemanticDefinition, NonsemanticText, NonsemanticCommandList, BaseCodeBlock, BaseCommandList, BaseTokenList } from './languageInterface.js';
+import { TokenInfo, SemanticAction, SemanticDecision, SemanticDefinition, NonsemanticText, NonsemanticCommandList, BaseCommandList, BaseTokenList, BaseCodeBlock } from './languageInterface.js';
 
-// color classes for syntax high-lighting in JS
+// Color classes for syntax high-lighting in JS:
 const JS_NOCLASS = 0;
 const JS_KEYWORD = 1;
 const JS_IDENTIFIER = 2;
@@ -13,12 +13,15 @@ const JS_STRINGCONSTANT = 4;
 const JS_CONSTANT = 5;
 const JS_OPERATOR = 6;
 const JS_COMMENT = 7;
-// colors for syntax high-lighting in JS
+// Colors for syntax high-lighting in JS:
 const JSColors = ['#606060', '#C040C0', '#A0A0FF', '#80FF40', '#E04040', '#4040FF', '#BBBBBB', '#00A000']
 
-export default function JSToTree(codeFile) {
-    const input = fs.readFileSync(codeFile).toString();
-
+/**
+ * Representation-translating function for Javascript - given source code in JavaScript, returns simplified representation of it.
+ * @param {string} input Source code to translate representation of.
+ * @returns {BaseCodeBlock} Simplified representation of the source code.
+ */
+export default function JSToTree(input) {
     const chars = new antlr4.InputStream(input);
     const lexer = new JavaScriptLexer(chars);
     const tokens = new antlr4.CommonTokenStream(lexer);
@@ -27,7 +30,11 @@ export default function JSToTree(codeFile) {
     const tree = parser.program();
     return TranslateRule(tree);
 }
-
+/**
+ * Transles given ANTLR4 parse tree of JavaScript code into simplified representation.
+ * @param {*} treeNode The root of the ANTLR4 parse tree.
+ * @returns {BaseCodeBlock} Simplified representation of the code.
+ */
 function TranslateRule(treeNode) {
 
 if (treeNode == null) return null;
@@ -42,10 +49,9 @@ else switch (treeNode.ruleIndex) {
             if (child.ruleIndex == 48) TranslateNodeAndConcatInner(child, cmdList);
             else TranslateAsNonSemanticTextAndConcat(child, cmdList);
         }
-        // Clean Up
-        CleanUp(treeNode, cmdList);
-        // Remove <EOF>
-        cmdList.innerCode.splice(cmdList.innerCode.length - 1, 1);
+
+        Normalize(treeNode, cmdList);
+        cmdList.innerCode.splice(cmdList.innerCode.length - 1, 1); // Removes <EOF>
 
         return new SemanticDefinition([], [], cmdList.innerCode, 'program', undefined);
 
@@ -62,8 +68,8 @@ else switch (treeNode.ruleIndex) {
         TranslateAsNonSemanticTextAndConcat(treeNode.children[0], cmdList);
         TranslateNodeAndConcatInner(treeNode.children[1], cmdList);
         TranslateAsNonSemanticTextAndConcat(treeNode.children[2], cmdList);
-        // Clean Up
-        CleanUp(treeNode, cmdList);
+
+        Normalize(treeNode, cmdList);
         return cmdList;
 
     case 4: // statementList(4) -> (2)+
@@ -73,8 +79,8 @@ else switch (treeNode.ruleIndex) {
         {
             TranslateNodeAndConcatInner(child, cmdList);
         }
-        // Clean Up
-        CleanUp(treeNode, cmdList);
+
+        Normalize(treeNode, cmdList);
         return cmdList;
 
     //case 5: // importSatement(5) -> 'Import' (6)
@@ -87,29 +93,27 @@ else switch (treeNode.ruleIndex) {
     case 12: // exportStatement(12) -> 'Export' (13) (74) | 'Export' (14) (74) | 'Export' 'Default' (57) (74)
         
         if (ContainsChild(treeNode, 14)) {
-            var token0 = TranslateNodeAndCleanUp(treeNode.children[0]);
-            var cmd = TranslateNodeAndCleanUp(treeNode.children[1]);
-            var token2 = TranslateNodeAndCleanUp(treeNode.children[2]);
+            var token0 = TranslateNodeAndNormalize(treeNode.children[0]);
+            var cmd = TranslateNodeAndNormalize(treeNode.children[1]);
+            var token2 = TranslateNodeAndNormalize(treeNode.children[2]);
 
             PrependTokens(token0, cmd);
             AppendTokens(cmd, token2);
 
-            // Clean Up
-            CleanUp(treeNode, cmd);
+            Normalize(treeNode, cmd);
             return cmd;
         }
         else if (ContainsChild(treeNode, 57)) {
-            var token0 = TranslateNodeAndCleanUp(treeNode.children[0]);
-            var token1 = TranslateNodeAndCleanUp(treeNode.children[1]);
-            var cmd = TranslateNodeAndCleanUp(treeNode.children[2]);
-            var token3 = TranslateNodeAndCleanUp(treeNode.children[3]);
+            var token0 = TranslateNodeAndNormalize(treeNode.children[0]);
+            var token1 = TranslateNodeAndNormalize(treeNode.children[1]);
+            var cmd = TranslateNodeAndNormalize(treeNode.children[2]);
+            var token3 = TranslateNodeAndNormalize(treeNode.children[3]);
 
             PrependTokens(token1, cmd);
             PrependTokens(token0, cmd);
             AppendTokens(cmd, token3);
 
-            // Clean Up
-            CleanUp(treeNode, cmd);
+            Normalize(treeNode, cmd);
             return cmd;
         }
         else {
@@ -123,46 +127,44 @@ else switch (treeNode.ruleIndex) {
         return ToCommandList(child);
 
     case 15: // variableStatement(15) -> (16) (74)
-        var cmd = TranslateNodeAndCleanUp(treeNode.children[0]);
-        var token1 = TranslateNodeAndCleanUp(treeNode.children[1]);
+        var cmd = TranslateNodeAndNormalize(treeNode.children[0]);
+        var token1 = TranslateNodeAndNormalize(treeNode.children[1]);
 
         AppendTokens(cmd, token1);
 
-        // Clean Up
-        CleanUp(treeNode, cmd);
+        Normalize(treeNode, cmd);
         return cmd;
 
     case 16: // variableDeclarationList(16) -> (22) (17) [',' (17)]*     
         var cmdList = new NonsemanticCommandList([]);
         // Nodes 0, 1
-        var token0 = TranslateNodeAndCleanUp(treeNode.children[0]);
-        var cmd = TranslateNodeAndCleanUp(treeNode.children[1]);
+        var token0 = TranslateNodeAndNormalize(treeNode.children[0]);
+        var cmd = TranslateNodeAndNormalize(treeNode.children[1]);
         PrependTokens(token0, cmd);
         cmdList.innerCode.push(cmd);
         // Nodes [2 3] [4 5] ...
         for (var n = 2; n < treeNode.children.length; n += 2) {
             // Node n - comma
-            var tokenN = TranslateNodeAndCleanUp(treeNode.children[n]); 
+            var tokenN = TranslateNodeAndNormalize(treeNode.children[n]); 
             AppendTokens(cmdList, tokenN);
             // Node (n+1) - next declaration
             TranslateNodeAndConcatBlock(treeNode.children[n+1], cmdList);
         }
-        // Clean Up
-        CleanUp(treeNode, cmd);
+        Normalize(treeNode, cmd);
         return cmd;
 
     case 17: // variableDeclaration(17) -> (58) ['=' (57)]?
 
-        var name = TranslateNodeAndCleanUp(treeNode.children[0]);
+        var name = TranslateNodeAndNormalize(treeNode.children[0]);
         var dependencies = [];
 
         if (treeNode.children.length > 1) {
-            dependencies = TranslateNodeAndCleanUp(treeNode.children[2]);
+            dependencies = TranslateNodeAndNormalize(treeNode.children[2]);
 
             // If we are defining anonymous function
             if (dependencies instanceof SemanticDefinition)
             {
-                CleanUp(treeNode, dependencies.innerCode);
+                Normalize(treeNode, dependencies.innerCode);
                 return new SemanticDefinition(ListOrEmpty(dependencies.dependentOn), [], functionCode.innerCode, dependencies.definitionType, FirstOrNone(Array.from(dependencies.getIdentifiers())));
             }
         }
@@ -174,31 +176,29 @@ else switch (treeNode.ruleIndex) {
 
     case 19: // expressionStatement(19) -> (!!)? (56) (74)
         if (treeNode.children.length == 2) {
-            var cmd = TranslateNodeAndCleanUp(treeNode.children[0]);
-            var token1 = TranslateNodeAndCleanUp(treeNode.children[1]);
+            var cmd = TranslateNodeAndNormalize(treeNode.children[0]);
+            var token1 = TranslateNodeAndNormalize(treeNode.children[1]);
 
             AppendTokens(cmd, token1);
 
-            // Clean Up
-            CleanUp(treeNode, cmd);
+            Normalize(treeNode, cmd);
             return cmd;
         }
         else {
-            var token0 = TranslateNodeAndCleanUp(treeNode.children[0]);
-            var cmd = TranslateNodeAndCleanUp(treeNode.children[1]);
-            var token2 = TranslateNodeAndCleanUp(treeNode.children[2]);
+            var token0 = TranslateNodeAndNormalize(treeNode.children[0]);
+            var cmd = TranslateNodeAndNormalize(treeNode.children[1]);
+            var token2 = TranslateNodeAndNormalize(treeNode.children[2]);
 
             PrependTokens(token0, cmd);
             AppendTokens(cmd, token2);
             
-            // Clean Up
-            CleanUp(treeNode, cmd);
+            Normalize(treeNode, cmd);
             return cmd;
         }
 
     case 20: // ifStatement(20) -> 'If' '(' (56) ')' (2) ['Else' (2)]?
         // Get dependencies
-        var dependencies = Array.from(TranslateNodeAndCleanUp(treeNode.children[2]).getIdentifiers());
+        var dependencies = Array.from(TranslateNodeAndNormalize(treeNode.children[2]).getIdentifiers());
 
         var cmdList = new NonsemanticCommandList([]);
         // Nodes 0,1,2,3 - text about positive condition
@@ -213,8 +213,7 @@ else switch (treeNode.ruleIndex) {
             // Node [6] - semantic block of code
             TranslateNodeAndConcatInner(treeNode.children[6], cmdList);
         }
-        // Clean up
-        CleanUp(treeNode, cmdList);
+        Normalize(treeNode, cmdList);
         return new SemanticDecision(dependencies, [], cmdList.innerCode, "if");
 
     case 21: // iterationStatement(21) -> 'Do' (2) 'While' '(' (56) ')' (74) |
@@ -231,9 +230,9 @@ else switch (treeNode.ruleIndex) {
         for (var child of treeNode.children)
         {
             if (child.ruleIndex == 2) {
-                let block2 = TranslateNodeAndCleanUp(child);
+                let block2 = TranslateNodeAndNormalize(child);
                 if (tokensBefore.length > 0) cmdList.innerCode.push(new NonsemanticText(tokensBefore, 'Iteration head'));
-                cmdList.innerCode.push(block2);
+                cmdList.innerCode = cmdList.innerCode.concat(block2.innerCode);
                 tokensBefore = null;
             }
             else {
@@ -251,8 +250,7 @@ else switch (treeNode.ruleIndex) {
         }
         if (tokensAfter.length > 0) cmdList.innerCode.push(new NonsemanticText(tokensAfter, 'Iteration end'));
 
-        // Clean up
-        CleanUp(treeNode, cmdList);
+        Normalize(treeNode, cmdList);
         return new SemanticDecision(dependencies, [], cmdList.innerCode, "iteration");
 
     //case 22: // varModifier(22) -> 'Var' | (73) | 'Const'
@@ -264,12 +262,12 @@ else switch (treeNode.ruleIndex) {
         if (ContainsChild(treeNode)) {
             var action = TranslateRule(child56);
             var cmd = new SemanticAction([], Array.from(action.innerCode[0].getIdentifiers()), TreenodeToTokens(treeNode));
-            CleanUp(treeNode, cmd);
+            Normalize(treeNode, cmd);
             return cmd;
         }
         else {
             var cmd = new SemanticAction([], [], TreenodeToTokens(treeNode));
-            CleanUp(treeNode, cmd);
+            Normalize(treeNode, cmd);
             return cmd;
         }
 
@@ -278,12 +276,12 @@ else switch (treeNode.ruleIndex) {
         if (child56 != null) {
             var action = TranslateRule(child56);
             var cmd = new SemanticAction([], Array.from(action.innerCode[0].getIdentifiers()), TreenodeToTokens(treeNode));
-            CleanUp(treeNode, cmd);
+            Normalize(treeNode, cmd);
             return cmd;
         }
         else {
             var cmd = new SemanticAction([], [], TreenodeToTokens(treeNode));
-            CleanUp(treeNode, cmd);
+            Normalize(treeNode, cmd);
             return cmd;
         }
 
@@ -299,8 +297,7 @@ else switch (treeNode.ruleIndex) {
     // Node 4 - semantic block of code
     TranslateNodeAndConcatInner(treeNode.children[4], cmdList);
 
-    // Clean up
-    CleanUp(treeNode, cmdList);
+    Normalize(treeNode, cmdList);
     return new SemanticDecision([], dependencies, cmdList.innerCode, "with");
 
     case 28: // switchStatement(28) -> 'Switch' '(' (56) ')' (29)
@@ -316,8 +313,7 @@ else switch (treeNode.ruleIndex) {
     // Node 4 - semantic block of code
     TranslateNodeAndConcatInner(treeNode.children[4], cmdList);
 
-    // Clean up
-    CleanUp(treeNode, cmdList);
+    Normalize(treeNode, cmdList);
     return new SemanticDecision(dependencies, [], cmdList.innerCode, "switch");
 
     case 29: // caseBlock(29) -> '{' (30)? [(32) (30)?]? '}'
@@ -330,8 +326,8 @@ else switch (treeNode.ruleIndex) {
             // Nodes '{' and '}'
             else TranslateAsNonSemanticTextAndConcat(child, cmdList);
         }
-        // Clean Up
-        CleanUp(treeNode, cmdList);
+
+        Normalize(treeNode, cmdList);
         return cmdList;
 
     case 30: // caseClauses(30) -> (31)+
@@ -343,8 +339,8 @@ else switch (treeNode.ruleIndex) {
         {
             TranslateNodeAndConcatInner(child, cmdList);
         }
-        // Clean Up
-        CleanUp(treeNode, cmdList);
+
+        Normalize(treeNode, cmdList);
         return cmdList;
 
     case 31: // caseClause(31) -> 'Case' (56) ':' (4)?
@@ -358,8 +354,8 @@ else switch (treeNode.ruleIndex) {
         cmdList.innerCode.push(cmd012);
         // Node 3 - semantic block of code
         if (treeNode.children.length > 3) TranslateNodeAndConcatInner(treeNode.children[3], cmdList);
-        // Clean up
-        CleanUp(treeNode, cmdList);
+
+        Normalize(treeNode, cmdList);
         return new SemanticDecision(dependencies, [], cmdList.innerCode, "case");
 
     case 32: // defaultClause(32) -> Default ':' (4)?
@@ -372,21 +368,20 @@ else switch (treeNode.ruleIndex) {
         cmdList.innerCode.push(cmd01);
         // Node 2 - semantic block of code
         TranslateNodeAndConcatInner(treeNode.children[2], cmdList);
-        // Clean up
-        CleanUp(treeNode, cmdList);
+
+        Normalize(treeNode, cmdList);
         return new SemanticDecision(dependencies, [], cmdList.innerCode, "default");
 
     case 33: // labelledStatement(33) -> (70) ':' (2)
 
-        var token0 = TranslateNodeAndCleanUp(treeNode.children[0]);
-        var token1 = TranslateNodeAndCleanUp(treeNode.children[1]);
-        var cmd = TranslateNodeAndCleanUp(treeNode.children[2]);
+        var token0 = TranslateNodeAndNormalize(treeNode.children[0]);
+        var token1 = TranslateNodeAndNormalize(treeNode.children[1]);
+        var cmd = TranslateNodeAndNormalize(treeNode.children[2]);
 
         PrependTokens(token1, cmd);
         PrependTokens(token0, cmd);
 
-        // Clean Up
-        CleanUp(treeNode, cmd);
+        Normalize(treeNode, cmd);
         return cmd;
 
     //case 34: // throwStatement(34) -> 'Throw' (!!)? (56) (74)
@@ -406,7 +401,7 @@ else switch (treeNode.ruleIndex) {
             }
         }
 
-        CleanUp(treeNode, cmdList);
+        Normalize(treeNode, cmdList);
         return new SemanticDecision([], [], cmdList.innerCode,"try");
 
     case 36: // catchProduction(36) -> 'Catch' ['(' (58) ')']? (3)
@@ -425,7 +420,7 @@ else switch (treeNode.ruleIndex) {
         // Catch code
         TranslateNodeAndConcatInner(treeNode.children[treeNode.children.length - 1], cmdList);
 
-        CleanUp(treeNode, cmdList);
+        Normalize(treeNode, cmdList);
         return cmdList;
 
     case 37: // finallyProduction(37) -> 'Finally' (3)
@@ -436,7 +431,7 @@ else switch (treeNode.ruleIndex) {
         // Finally code
         TranslateNodeAndConcatInner(treeNode.children[1], cmdList);
         
-        CleanUp(treeNode, cmdList);
+        Normalize(treeNode, cmdList);
         return cmdList;
 
     //case 38: // debuggerStatement(38) -> 'Debugger' (74)
@@ -471,8 +466,8 @@ else switch (treeNode.ruleIndex) {
                 text = text.concat(TranslateAsNonSemanticText(child).tokens);
             }
         }
-        // Clean up
-        CleanUp(treeNode, cmdList);
+
+        Normalize(treeNode, cmdList);
         return new SemanticDefinition([], params, cmdList.innerCode, "function", name);
 
     case 40: // classDeclaration(40) -> 'Class' (70) (41)
@@ -484,10 +479,10 @@ else switch (treeNode.ruleIndex) {
 
         var name = FirstOrNone(Array.from(token1.getIdentifiers()));
 
-        var cmdList = TranslateNodeAndCleanUp(treeNode.children[2]);
+        var cmdList = TranslateNodeAndNormalize(treeNode.children[2]);
         cmdList.innerCode.splice(0,0,cmd01);
 
-        CleanUp(treeNode, cmdList);
+        Normalize(treeNode, cmdList);
 
         return new SemanticDefinition([], [], cmdList.innerCode,"class",name);
 
@@ -502,7 +497,7 @@ else switch (treeNode.ruleIndex) {
 
         for (var child of treeNode.children) {
             if (child.ruleIndex == 42) {
-                var childCode = TranslateNodeAndCleanUp(child);
+                var childCode = TranslateNodeAndNormalize(child);
                 functions.push(childCode);
             }
             else {
@@ -528,8 +523,7 @@ else switch (treeNode.ruleIndex) {
         }
         cmdList.innerCode.push(new NonsemanticText(textAfter, 'CLASS END'));
 
-        // Clean up
-        CleanUp(treeNode, cmdList);
+        Normalize(treeNode, cmdList);
         return cmdList;
 
     case 42: // classElement(42) -> ['Static' | !!? (70) | 'Async']* [(43) | (58) '=' (59) ';'] | (18) | '#'? (53) '=' (57)
@@ -554,7 +548,7 @@ else switch (treeNode.ruleIndex) {
         }
 
         var fullNonsemanticCode = TranslateAsNonSemanticText(treeNode);
-        CleanUp(treeNode, fullNonsemanticCode);
+        Normalize(treeNode, fullNonsemanticCode);
 
         // Based on the bools, determine what to do next
         if (rule43 != null) {
@@ -572,7 +566,7 @@ else switch (treeNode.ruleIndex) {
                 }
             }
 
-            CleanUp(treeNode, cmdList);
+            Normalize(treeNode, cmdList);
             return new SemanticDefinition([], fullCode.paramList, cmdList.innerCode, fullCode.definitionType, fullCode.name);
         }
         else if (rule53 != null) {
@@ -617,22 +611,22 @@ else switch (treeNode.ruleIndex) {
         cmdList.innerCode.push(new NonsemanticText(text, "CLASS g/s/m HEAD"));
         TranslateNodeAndConcatInner(rule47, cmdList);
 
-        CleanUp(treeNode, cmdList);
+        Normalize(treeNode, cmdList);
 
         var params = [];
-        if (rule44 != null) params = Array.from(TranslateNodeAndCleanUp(rule44).getIdentifiers());
+        if (rule44 != null) params = Array.from(TranslateNodeAndNormalize(rule44).getIdentifiers());
 
         // Determine, if we are dealing with a getter, a setter or a method.
         if (rule53 != null) {
-            var name = FirstOrNone(Array.from(TranslateNodeAndCleanUp(rule53).getIdentifiers()));
+            var name = FirstOrNone(Array.from(TranslateNodeAndNormalize(rule53).getIdentifiers()));
             return new SemanticDefinition([], params, cmdList.innerCode, "method", name);
         }
         else if (rule67 != null) {
-            var name = FirstOrNone(Array.from(TranslateNodeAndCleanUp(rule67).getIdentifiers()));
+            var name = FirstOrNone(Array.from(TranslateNodeAndNormalize(rule67).getIdentifiers()));
             return new SemanticDefinition([], params, cmdList.innerCode, "getter", name);
         }
         else if (rule68 != null) {
-            var name = FirstOrNone(Array.from(TranslateNodeAndCleanUp(rule68).getIdentifiers()));
+            var name = FirstOrNone(Array.from(TranslateNodeAndNormalize(rule68).getIdentifiers()));
             return new SemanticDefinition([], params, cmdList.innerCode, "setter", name);
         }
         else {
@@ -649,8 +643,8 @@ else switch (treeNode.ruleIndex) {
         TranslateNodeAndConcatInner(treeNode.children[1], cmdList);
         // '}'
         TranslateAsNonSemanticTextAndConcat(treeNode.children[2], cmdList, "FUNCTION BODY 2");
-        // Clean Up
-        CleanUp(treeNode, cmdList);
+
+        Normalize(treeNode, cmdList);
         return cmdList;
 
     case 48: // sourceElements(48) -> (1)+
@@ -659,8 +653,8 @@ else switch (treeNode.ruleIndex) {
         for (var child of treeNode.children) {
             TranslateNodeAndConcatBlock(child, cmdList);
         }
-        // Clean Up
-        CleanUp(treeNode, cmdList);
+
+        Normalize(treeNode, cmdList);
         return new SemanticDefinition([], [], cmdList.innerCode, "program", null);
 
     //case 49: // arrayLiteral(49) -> '[' (50) ']'
@@ -685,8 +679,8 @@ else switch (treeNode.ruleIndex) {
             // Node (n+1) - next expression
             TranslateNodeAndConcatBlock(treeNode.children[n+1], cmdList);
         }
-        // Clean Up
-        CleanUp(treeNode, cmdList);
+        
+        Normalize(treeNode, cmdList);
         return cmdList;
 
     case 57: // singleExpression(57)       -> (60) | 'Class' (70)? (41) | (57) '[' (56) ']' | (57) '?'? '.' '#'? (69) | (57) (54) | 'New' (57) (54)? | 'New' '.' (70) |
@@ -718,9 +712,9 @@ else switch (treeNode.ruleIndex) {
             if (treeNode.children.length == 2) cmdList.innerCode.push(new NonsemanticText(TreenodesToTokens(treeNode.children[0]), 'A. Function head'));
             else if (treeNode.children.length == 3) cmdList.innerCode.push(new NonsemanticText(TreenodesToTokens(treeNode.children[0], treeNode.children[1]), 'A. Function head'));
             // rule (41)
-            var functionCode = TranslateNodeAndCleanUp(treeNode.children[treeNode.children.length-1]);
+            var functionCode = TranslateNodeAndNormalize(treeNode.children[treeNode.children.length-1]);
             cmdList.innerCode = cmdList.innerCode.concat(functionCode.innerCode);
-            CleanUp(treeNode, cmdList);
+            Normalize(treeNode, cmdList);
             return new SemanticDefinition(functionCode.dependentOn, functionCode.paramList, cmdList, functionCode.definitionType, functionCode.name);
         }
         else if (rule60present) {
@@ -729,17 +723,17 @@ else switch (treeNode.ruleIndex) {
         }
         else if (rule63present) {
             // "(57) (63) (57)" or "(57) '=' (57)"
-            var dependingVariables = Array.from(TranslateNodeAndCleanUp(treeNode.children[0]).getIdentifiers());
-            var dependentOn = Array.from(TranslateNodeAndCleanUp(treeNode.children[2]).getIdentifiers());
+            var dependingVariables = Array.from(TranslateNodeAndNormalize(treeNode.children[0]).getIdentifiers());
+            var dependentOn = Array.from(TranslateNodeAndNormalize(treeNode.children[2]).getIdentifiers());
 
             var tokenListFull = TranslateAsNonSemanticText(treeNode);
-            CleanUp(treeNode, tokenListFull);
+            Normalize(treeNode, tokenListFull);
 
             return new SemanticAction(dependingVariables, dependentOn, tokenListFull.tokens);
         }
         else {
             var tokenListFull = TranslateAsNonSemanticText(treeNode);
-            CleanUp(treeNode, tokenListFull);
+            Normalize(treeNode, tokenListFull);
             return tokenListFull;
         }
 
@@ -757,7 +751,7 @@ else switch (treeNode.ruleIndex) {
         else {
             // Return as an empty function head.        
             var tokenListFull = TranslateAsNonSemanticText(treeNode, "EMPTY A. FUNCTION");
-            CleanUp(treeNode, tokenListFull);
+            Normalize(treeNode, tokenListFull);
             return tokenListFull;
         }
 
@@ -779,6 +773,12 @@ else switch (treeNode.ruleIndex) {
         return TranslateAsNonSemanticText(treeNode);
     }
 }
+/**
+ * Determines, whether given ANTLR4 parse tree node countains a child with given rule index.
+ * @param {*} treeNode The node of the parse tree to search through.
+ * @param {number} rule Rule index to search for.
+ * @returns {boolean} Boolean indicating whether the child was found.
+ */
 function ContainsChild(treeNode, rule) {
     if (treeNode == null) return false;
     for (const child of treeNode.children)
@@ -793,13 +793,19 @@ function ContainsChild(treeNode, rule) {
     }
     return false;
 }
-function FindChild(treeNode, index) {
+/**
+ * Given a parse tree node, searches its children for one with given rule index and returns it.
+ * @param {*} treeNode The node of the parse tree to search through.
+ * @param {number} rule Rule index to search for.
+ * @returns {*} The child node.
+ */
+function FindChild(treeNode, rule) {
     if (treeNode == null) return null;
     for (const child of treeNode.children)
     {
         if (child !== undefined)
         {
-            if (child?.ruleIndex == index)
+            if (child?.ruleIndex == rule)
             {
                 return child;
             }
@@ -807,6 +813,11 @@ function FindChild(treeNode, index) {
     }
     return null;
 }
+/**
+ * Returns tokens of the given parse tree node.
+ * @param {*} treeNode The node of the parse tree to get tokens of.
+ * @returns {TokenInfo[]} Tokens of the parse tree node.
+ */
 function TreenodeToTokens(treeNode) {
     var tokens = [];
 
@@ -820,6 +831,11 @@ function TreenodeToTokens(treeNode) {
 
     return tokens;
 }
+/**
+ * Returns tokens of the given parse tree nodes.
+ * @param  {...any} treeNodes The nodes of the parse tree to get tokens of.
+ * @returns {TokenInfo[]]} Tokens of the parse tree nodes.
+ */
 function TreenodesToTokens(...treeNodes) {
     var tokens = [];
 
@@ -829,6 +845,13 @@ function TreenodesToTokens(...treeNodes) {
 
     return tokens;
 }
+/**
+ * Translates given parse tree node as a single NonsemanticText.
+ * Optionaly applies a specialType property to it.
+ * @param {*} treeNode The node of the parse tree to translate.
+ * @param {string?} specialType The string to set special type of the nonsemantic text to.
+ * @returns {NonsemanticText} The resulting simplified representation node. 
+ */
 function TranslateAsNonSemanticText(treeNode, specialType = undefined) {
     if ('symbol' in treeNode) {
         return new NonsemanticText([GetTokenInfo(treeNode.symbol)],specialType);
@@ -839,16 +862,27 @@ function TranslateAsNonSemanticText(treeNode, specialType = undefined) {
         return ns;
     }
 }
+/**
+ * Translates tokens with given indices (from, to) into a single NonsemanticText.
+ * @param {*} treeNode Any node of the parse tree.
+ * @param {number} from Index of the first token to include.
+ * @param {number} to Index of the last token to include.
+ * @param {string?} specialType The string to set special type of the nonsemantic text to.
+ * @returns {NonsemanticText} The resulting simplified representation node. 
+ */
 function TranslateAsNonSemanticText2(treeNode, from, to, specialType = undefined) {
     var ns = new NonsemanticText([], specialType);
     ExpandSingleCommand2(treeNode, from, to, ns);
     return ns;
 }
-//function 
-export function GetTokenInfo(commonToken) {
+/**
+ * Given an ANTLR4 CommonToken, translates into internal representation as TokenInfo.
+ * @param {CommonToken} commonToken The token to translate.
+ * @returns {TokenInfo} The resulting token.
+ */
+function GetTokenInfo(commonToken) {
     var colorClass = JS_NOCLASS;
     var identifier = false;
-    var literal = false;
 
     var text = commonToken.text;
 
@@ -856,15 +890,20 @@ export function GetTokenInfo(commonToken) {
     if (commonToken.type == 4) colorClass = JS_STRINGCONSTANT;
     if (commonToken.type >= 18 && commonToken.type <= 27) colorClass = JS_OPERATOR;
     if (commonToken.type >= 30 && commonToken.type <= 58) colorClass = JS_OPERATOR;
-    if (commonToken.type >= 59 && commonToken.type <= 60) { colorClass = JS_CONSTANT; literal = true; }
-    if (commonToken.type >= 61 && commonToken.type <= 69) { colorClass = JS_NUMERICCONSTANT; literal = true; }
+    if (commonToken.type >= 59 && commonToken.type <= 60) colorClass = JS_CONSTANT;
+    if (commonToken.type >= 61 && commonToken.type <= 69) colorClass = JS_NUMERICCONSTANT;
     if (commonToken.type >= 70 && commonToken.type <= 116) colorClass = JS_KEYWORD;
-    if (commonToken.type == 117) { colorClass = JS_IDENTIFIER; identifier = true; literal = true; }
-    if (commonToken.type >= 118 && commonToken.type <= 119) { colorClass = JS_STRINGCONSTANT; literal = true; }
+    if (commonToken.type == 117) { colorClass = JS_IDENTIFIER; identifier = true; }
+    if (commonToken.type >= 118 && commonToken.type <= 119) { colorClass = JS_STRINGCONSTANT; }
     if (commonToken.type >= 122 && commonToken.type <= 123) colorClass = JS_COMMENT;
 
-    return new TokenInfo(text, commonToken.start, commonToken.stop, commonToken.tokenIndex, literal, identifier, JSColors[colorClass]);
+    return new TokenInfo(text, commonToken.start, commonToken.stop, commonToken.tokenIndex, identifier, JSColors[colorClass]);
 }
+/**
+ * Given any sort of codeblock, returns it as NonsemanticCommandList either by doing nothing, or by placing a single command in the list.
+ * @param {BaseCodeBlock} command Codeblock to turn into a command list.
+ * @returns {NonsemanticCommandList} The resulting command list.
+ */
 function ToCommandList(command) {
     if (command instanceof NonsemanticCommandList) {
         return command;
@@ -881,8 +920,12 @@ function ToCommandList(command) {
         throw Error("No if clause executed in 'ToCommandList' in 'JavaScriptTranslator.js'.");
     }
 }
-// WARNING: _input, a 'private' field is being accessed.
-// As of yet, no workaround to include whitespace tokens was found.
+/**
+ * Given a leaf simplified representation node, and a parse tree node,
+ * Fills in mssing tokens from the parse tree node into the simplified representation node.
+ * @param {*} treeNode The parse tree node to read tokens of.
+ * @param {BaseTokenList} block The simplified representation node to fill tokens of.
+ */
 function ExpandSingleCommand(treeNode, block) {
     if ('symbol' in treeNode) {
         block.tokens = [GetTokenInfo(treeNode.symbol)];
@@ -898,6 +941,14 @@ function ExpandSingleCommand(treeNode, block) {
         }
     }
 }
+/**
+ * Given a leaf simplified representation node, and an index range,
+ * Fills in mssing tokens given by the index range into the simplified representation node.
+ * @param {*} treeNode Any parse tree node.
+ * @param {number} from Index of the first token to include.
+ * @param {number} to Index of the last token to include.
+ * @param {BaseTokenList} block The simplified representation node to fill tokens of.
+ */
 function ExpandSingleCommand2(treeNode, from, to, block) {
     block.tokens = [];
 
@@ -905,14 +956,20 @@ function ExpandSingleCommand2(treeNode, from, to, block) {
         block.tokens.push(GetTokenInfo(treeNode.parser._input.tokens[i]));
     }
 }
+/**
+ * Fills-in missing tokens into a codeblock in simple representation.
+ * The tokens come from a parse tree node, or are given by two indices.
+ * @param {*} treeNode The parse tree node to get tokens from.
+ * @param {BaseCodeBlock} block The codeblock to fill the tokens in.
+ * @param {number?} from Index of the first token to include.
+ * @param {number?} to Index of the last token to include.
+ */
 function FillInTokens(treeNode, block, from = undefined, to = undefined) {
-    // 1) Auto-set 'from' and 'to'
     if (from == undefined || to == undefined) {
         from = treeNode.start.tokenIndex;
         to = treeNode.stop.tokenIndex;
     }
 
-    // 2) Are we dealing with node with children or a leaf?
     if (block instanceof BaseCommandList) {
         FillInTokensNode(treeNode, block, from, to);
     }
@@ -924,6 +981,14 @@ function FillInTokens(treeNode, block, from = undefined, to = undefined) {
         throw Error("Unexpected type of variable 'block' was passed to 'FillInTokens' in 'JavaScriptTranslator.js'.");
     }
 }
+/**
+ * Fills-in missing tokens into a non-leaf codeblock in simple representation.
+ * The tokens come from a parse tree node, or are given by two indices.
+ * @param {*} treeNode  The parse tree node to get tokens from.
+ * @param {BaseCommandList} commandBlock The codeblock to fill the tokens in.
+ * @param {number?} from Index of the first token to include.
+ * @param {number?} to Index of the last token to include.
+ */
 function FillInTokensNode(treeNode, commandBlock, from, to) {
 
     var pos = from;
@@ -939,13 +1004,20 @@ function FillInTokensNode(treeNode, commandBlock, from, to) {
         pos = commandBlock.innerCode[i].getLastToken().tokenIndex + 1;
     }
 
-    // at the end
     if (pos < to) {
         var childFrom = pos;
         var childTo = to;
         commandBlock.innerCode.splice(i,0,[TranslateAsNonSemanticText2(childFrom, childTo)]);
     }
 }
+/**
+ * Fills-in missing tokens into a leaf codeblock in simple representation.
+ * The tokens come from a parse tree node, or are given by two indices.
+ * @param {*} treeNode  The parse tree node to get tokens from.
+ * @param {BaseTokenList} commandBlock The codeblock to fill the tokens in.
+ * @param {number?} from Index of the first token to include.
+ * @param {number?} to Index of the last token to include.
+ */
 function FillInTokensLeaf(treeNode, tokenBlock, from, to) {
     for (var i = from; i <= to; i++) {
         if (tokenBlock.tokens[i-from].tokenIndex != i) {
@@ -953,6 +1025,11 @@ function FillInTokensLeaf(treeNode, tokenBlock, from, to) {
         }
     }
 }
+/**
+ * Given a list of commands, moves '\t' tokens between neigboring commands so that they are at the begining.
+ * @param {BaseCommandList} commandList List of commands to normalize.
+ * @returns {BaseCommandList} Reference to the input command list. 
+ */
 function MoveTabs(commandList) {
     for (var i = 0; i < commandList.innerCode.length - 1; i++) {
         while (IsTab(commandList.innerCode[i].getLastToken())) {
@@ -967,6 +1044,11 @@ function MoveTabs(commandList) {
     }
     return commandList;
 }
+/**
+ * Given a list of commands, moves newline and semicolon tokens between neigboring commands so that they are at the end.
+ * @param {BaseCommandList} commandList List of commands to normalize.
+ * @returns {BaseCommandList} Reference to the input command list. 
+ */
 function MoveNewlines(blockList) {
     for (var i = 0; i < blockList.innerCode.length - 1; i++) {
         while (IsNewline(blockList.innerCode[i+1].getFirstToken()) || (IsSemicolon(blockList.innerCode[i+1].getFirstToken()))) {
@@ -981,6 +1063,26 @@ function MoveNewlines(blockList) {
     }
     return blockList;
 }
+/**
+ * Unpacks any instance of NonsemanticCommandList as blocks from its innerCode.
+ * @param {BaseCodeBlock[]} blockList 
+ */
+function UnpackNonsemanticCommandLists(blockList) {
+    for (var i = 0; i < blockList.length; i++) {
+        if (blockList[i] instanceof NonsemanticCommandList) {
+            var cmd = blockList.splice(i, 1);
+            var cmds = cmd[0].innerCode;
+            blockList.splice(i, 0, cmds);
+            i--;
+        }
+    }
+}
+/**
+ * Given a list of commands (coming from translation of IF statement),
+ * merges consecutive ELSE and IF commands into a single command with unique special type.
+ * @param {BaseCommandList} commandList List of commands to normalize.
+ * @returns {BaseCommandList} Reference to the input command list. 
+ */
 function MergeElseIf(blockList) {
     var elseifNum = 0;
     for (var i = 0; i < blockList.innerCode.length - 1; i++) {
@@ -1000,6 +1102,11 @@ function MergeElseIf(blockList) {
     }
     return blockList;
 }
+/**
+ * Determines whether given token is a character tabulation.
+ * @param {TokenInfo} token Token to check.
+ * @returns {boolean} Boolean indicating wheter it is one.
+ */
 function IsTab(token) {
     for (var char of token.text) {
         if (char != ' ' && char != '\t') {
@@ -1008,6 +1115,11 @@ function IsTab(token) {
     }
     return true;
 }
+/**
+ * Determines whether given token is a new line token.
+ * @param {TokenInfo} token Token to check.
+ * @returns {boolean} Boolean indicating wheter it is one.
+ */
 function IsNewline(token) {
     for (var char of token.text) {
         if (char != '\r' && char != '\n') {
@@ -1016,26 +1128,47 @@ function IsNewline(token) {
     }
     return true;
 }
+/**
+ * Determines whether given token is a semicolon.
+ * @param {TokenInfo} token Token to check.
+ * @returns {boolean} Boolean indicating wheter it is one.
+ */
 function IsSemicolon(token) {
     return token.text == ';';
 }
-function CleanUp(node, commandList)
+/**
+ * Normalizes token partition into commands in the given codeblock.
+ * @param {*} node Parse tree node that was translated into the given codeblock.
+ * @param {BaseCodeBlock} commandList The codeblock to normalize.
+ */
+function Normalize(node, commandList)
 {
     FillInTokens(node, commandList);
     if (commandList instanceof BaseCommandList) {
+        UnpackNonsemanticCommandLists(commandList);
         MergeElseIf(commandList);
         MoveTabs(commandList);
         MoveNewlines(commandList);
     }
 }
-function TranslateNodeAndCleanUp(node)
+/**
+ * Recursively translates given node as a codeblock.
+ * @param {*} node The parse tree node to translate.
+ * @returns {BaseCodeBlock} Normalized recursively translated codeblock.
+ */
+function TranslateNodeAndNormalize(node)
 {
     var cmd = TranslateRule(node);
-    CleanUp(node, cmd);
+    Normalize(node, cmd);
     return cmd;
 }
+/**
+ * Recursively translates given node and appends resulting codeblock into a command list.
+ * @param {*} treeNode The parse tree node to translate.
+ * @param {BaseCommandList} cmdList The command list to append the result to.
+ */
 function TranslateNodeAndConcatBlock(treeNode, cmdList) {
-    var childCode = TranslateNodeAndCleanUp(treeNode);
+    var childCode = TranslateNodeAndNormalize(treeNode);
     if (childCode instanceof NonsemanticCommandList) {
         for (var block of childCode.innerCode) {
             cmdList.innerCode.push(block);
@@ -1043,28 +1176,59 @@ function TranslateNodeAndConcatBlock(treeNode, cmdList) {
     }
     else cmdList.innerCode.push(childCode);
 }
+/**
+ *  Recursively translates given node and appends it's inner command list into a different command list.
+ * @param {*} treeNode The parse tree node to translate. 
+ * @param {BaseCommandList} cmdList The command list to append the result's commands to. 
+ */
 function TranslateNodeAndConcatInner(treeNode, cmdList) {
-    var childCode = TranslateNodeAndCleanUp(treeNode);
+    var childCode = TranslateNodeAndNormalize(treeNode);
     if (childCode instanceof BaseCommandList) for (var block of childCode.innerCode) {
         cmdList.innerCode.push(block);
     }
     else cmdList.innerCode.push(childCode);
 }
+/**
+ * Translates given node as a nonsemantic text and appens it into a command list.
+ * @param {*} treeNode The parse tree node to translate. 
+ * @param {BaseCommandList} cmdList The command list to append the result to. 
+ * @param {string?} specialType Optional special type to set the nonsemantic text to. 
+ */
 function TranslateAsNonSemanticTextAndConcat(treeNode, cmdList, specialType = undefined) {
     var block = new NonsemanticText([], specialType);
     ExpandSingleCommand(treeNode, block);
     cmdList.innerCode.push(block);
 }
+/**
+ * Given 2 commands, prepends tokens of the first one into the second one.
+ * @param {BaseTokenList} prependedCommand The command to prepend tokens from.
+ * @param {BaseTokenList} affectedCommand The command to prepend tokens into.
+ */
 function PrependTokens(prependedCommand, affectedCommand) {
     affectedCommand.addTokensToStart(prependedCommand.tokens);
 }
+/**
+ * Given 2 commands, appands tokens of the second one into the first one.
+ * @param {BaseTokenList} affectedCommand The command to append tokens into.
+ * @param {BaseTokenList} appendedTokens The command to append tokens from.
+ */
 function AppendTokens(affectedCommand, appendedTokens) {
     affectedCommand.addTokensToEnd(appendedTokens.tokens);
 }
+/**
+ * Given a possibly empty list, returns first element of it if possible, or returns undefined.
+ * @param {*[]} list The list to get first element of.
+ * @returns {*} The first element or 'undefined'.
+ */
 function FirstOrNone(list) {
     if ('0' in list) return list[0];
     else return undefined;
 }
+/**
+ * Given a list or undefined, returns the list itself or empty list respectively.
+ * @param {*[]?} list The list to return, or 'undefined'.
+ * @returns {*[]} The input list or empty list.
+ */
 function ListOrEmpty(list) {
     if (Array.isArray(list)) return list;
     else return [];

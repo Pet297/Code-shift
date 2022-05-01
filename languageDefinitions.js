@@ -1,41 +1,39 @@
 import fs from 'fs';
 import JSToTree from './javaScriptTranslator.js';
-import { TokenInfo, SemanticAction, SemanticDecision, SemanticDefinition, NonsemanticText, NonsemanticCommandList, BaseCodeBlock, BaseCommandList, BaseTokenList } from './languageInterface.js';
+import { TokenInfo, NonsemanticText, BaseCodeBlock } from './languageInterface.js';
 
 const languageDefinitions = [
     {
         names : ["JAVASCRIPT", "JS"],
         extensions : [".js"],
-        method : (file) => { return JSToTree(file); }
+        method : JSToTree
     },
     {
         names : ["NONE"],
         extensions : [],
-        method : (file) => { return TranslateFileNoLang(file); }
-    },
-    {
-        names : ["C#"],
-        extensions : [".cs"],
-        method : (file) => { throw new Error("C# parser is not implemented yet.") }
+        method : TranslateFileNoLang
     }
 ];
 
-export function TranslateFileNoLang(filename) {   
-    var text = fs.readFileSync(filename).toString();
-    var token = new TokenInfo(text, 0, text.length-1, 0, false, false, '#ffffff');
+/**
+ * Translates given source code as a single nonsemantic block as expected in the NONE language.
+ * @param {string} text The source code to translate representation of.
+ * @returns {BaseCodeBlock} The result of the representation translation.
+ */
+function TranslateFileNoLang(text) {
+    var token = new TokenInfo(text, 0, text.length-1, 0, false, '#ffffff');
     return new NonsemanticText([token], "Only block");
 }
 
-export function TranslateFileDefault(filename) {
-
-    var language = DetermineLanguage(filename);
-    
-    return TranslateFileByLanguage(filename, language);
-
-}
-
+/**
+ * Translates representation of given source code in given language.
+ * If language is undefined, determines language by the file extension.
+ * @param {string} filename Path to the source code file.
+ * @param {string?} language Language to use when translating representation.
+ * @returns {BaseCodeBlock} The result of the representation translation.
+ */
 export function TranslateFileByLanguage(filename, language) {
-
+    if (language === undefined) language = DetermineLanguage(filename);
     var langUp = language.toUpperCase();
 
     for (var definition of languageDefinitions) {
@@ -45,9 +43,14 @@ export function TranslateFileByLanguage(filename, language) {
     }
 
     // No language matching
-    return TranslateFileNoLang(filename);
+    return TranslateFile(filename, TranslateFileNoLang);
 }
 
+/**
+ * Determines language of given source code based on the extension of the file.
+ * @param {string} filename The file to determine language of.
+ * @returns {string} Supposed language of the source code, if supported.
+ */
 export function DetermineLanguage(filename) {
     var extension = filename.substring(filename.lastIndexOf('.') + 1);
 
@@ -57,7 +60,7 @@ export function DetermineLanguage(filename) {
                 return definition.names[0];
             }
             catch {
-
+                throw Error('Input file doesn\'t exist - ' + filename);
             }
         }
     }
@@ -65,6 +68,18 @@ export function DetermineLanguage(filename) {
     return 'NONE';
 }
 
+/**
+ * Translates representation of given source code, using given translating function.
+ * @param {string} filename Path to the source code file.
+ * @param {(code: string) => BaseCodeBlock} f Function to use while translating. The first parametr is the source code itself, not the path.
+ * @returns 
+ */
 function TranslateFile(filename, f) {
-    return f(filename);
+    try {
+        var text = fs.readFileSync(filename).toString();
+        return f(text);
+    }
+    catch {
+        throw Error('Input file doesn\'t exist - ' + filename);
+    }
 }
