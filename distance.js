@@ -17,7 +17,7 @@ const levenDifferencePenalty = 0.45;
 const maxDistance = 5000.0;
 
 // Highest ratio of distance before rename and after rename at which to consider the rename:
-const renameTreshold = 1.0;
+const renameTreshold = 0.95;
 
 /**
  * Find distance between two source codes in simplified representation,
@@ -61,7 +61,7 @@ export function FindCodeChanges(codeBefore, codeAfter, parentRenames = {}) {
     var definitionsBefore = [];
     var definitionsAfter = [];
     for (var i of unpairedBefore) {
-        if (codeBefore[i] instanceof SemanticDefinition) {
+        if (codeBefore[i] instanceof SemanticDefinition && !(codeBefore[i].name in parentRenames)) {
             definitionsBefore.push(codeBefore[i].name);
         }
     }
@@ -74,9 +74,10 @@ export function FindCodeChanges(codeBefore, codeAfter, parentRenames = {}) {
     // A2) (Recursively) Calculate distances for potential renames and track lowest distance rename.
     while (true)
     {      
-        var norename = CheckRename(codeBefore, codeAfter, renamesList);
+        var norename = FindCodeChangesShort(codeBefore, codeAfter, renamesList);
         var minDist = norename;
         var minRename = null;
+        var minRenameIndex = null;
 
         for (var i in definitionsBefore) {
             for (var j in definitionsAfter) {
@@ -86,11 +87,12 @@ export function FindCodeChanges(codeBefore, codeAfter, parentRenames = {}) {
                     var newName = definitionsAfter[j];     
                     var renamesList0 = {...renamesList};
                     renamesList0[origName] = newName;
-                    var dist = CheckRename(codeBefore, codeAfter, unpairedBefore, unpairedAfter, renamesList0);
+                    var dist = FindCodeChangesShort(codeBefore, codeAfter, renamesList0);
 
                     if (dist < minDist) {
                         minDist = dist;
                         minRename = [origName, newName];
+                        minRenameIndex = [i, j];
                     }
                 }
             }
@@ -99,8 +101,8 @@ export function FindCodeChanges(codeBefore, codeAfter, parentRenames = {}) {
         // A3) Pick lowest distance and continue if distance is low enough, or stop
         if (minRename !== null && minDist < renameTreshold * norename) {
             renamesList[minRename[0]] = minRename[1];
-            definitionsBefore.splice(i,1);
-            definitionsAfter.splice(j,1);
+            definitionsBefore.splice(minRenameIndex[0],1);
+            definitionsAfter.splice(minRenameIndex[1],1);
         }
         else {
             break;
@@ -136,7 +138,7 @@ export function FindCodeChanges(codeBefore, codeAfter, parentRenames = {}) {
             var multiBefore = [codeBefore[j]];
             var multiAfter = [codeAfter[i]];
             var multiBeforeIndex = [j];
-            distance = MultiStatementDistance(multiBefore, multiAfter, parentRenames);
+            distance = MultiStatementDistance(multiBefore, multiAfter, renamesList);
 
             while(true) {
                 // Try increasing N
@@ -146,7 +148,7 @@ export function FindCodeChanges(codeBefore, codeAfter, parentRenames = {}) {
                     multiBefore2.push(codeBefore[unpairedBefore[j0 + M]]);
                     multiBeforeIndex2.push(unpairedBefore[j0 + M]);
 
-                    var multiDistance = MultiStatementDistance(multiBefore2, multiAfter, parentRenames);
+                    var multiDistance = MultiStatementDistance(multiBefore2, multiAfter, renamesList);
 
                     if (multiDistance < distance) {
                         M++;
@@ -173,7 +175,7 @@ export function FindCodeChanges(codeBefore, codeAfter, parentRenames = {}) {
             multiBefore = [codeBefore[j]];
             multiAfter = [codeAfter[i]];
             var multiAfterIndex = [i];
-            var distance = MultiStatementDistance(multiBefore, multiAfter, parentRenames);
+            var distance = MultiStatementDistance(multiBefore, multiAfter, renamesList);
 
             while(true) {
                 // Try increasing N
@@ -183,7 +185,7 @@ export function FindCodeChanges(codeBefore, codeAfter, parentRenames = {}) {
                     multiAfter2.push(codeAfter[i + N]);
                     multiAfterIndex2.push(i + N);
 
-                    var multiDistance = MultiStatementDistance(multiBefore, multiAfter2, parentRenames);
+                    var multiDistance = MultiStatementDistance(multiBefore, multiAfter2, renamesList);
 
                     if (multiDistance < distance) {
                         N++;
@@ -282,7 +284,7 @@ export function FindCodeChanges(codeBefore, codeAfter, parentRenames = {}) {
  * @param {object} parentRenames List of renames considered from parent scopes.
  * @returns {number} Distance of the two source codes.
  */
-function CheckRename(codeBefore, codeAfter, parentRenames = {}) {
+function FindCodeChangesShort(codeBefore, codeAfter, parentRenames = {}) {
     
     // 0) Setup variables to hold final or intermediate results
     var inputDestinations = [];
@@ -302,8 +304,39 @@ function CheckRename(codeBefore, codeAfter, parentRenames = {}) {
         unpairedAfter.push(i);
     }
     
-    // A) Go from top to bottom in the destination list and compare each destination block with all unmoved source blocks
+    // Go from top to bottom in the destination list and compare each destination block with all unmoved source blocks
     var renamesList = {...parentRenames};
+    for (var i = 0; i < unpairedAfter.length; i++) {
+
+        var minimalDistance = addPenalty * codeAfter[i].getLengthInCharacters();
+        var minimalIndexUB = -1;
+        var minimalIndexB = -1;
+        var moveUpAmount = 0;
+
+        for (var j0 = 0; j0 < unpairedBefore.length; j0++) {
+
+            var j = unpairedBefore[j0];
+
+            // B1) Try semantic matching with other blocks
+            var distance = OneLevelDistance(codeBefore[j], codeAfter[i], renamesList) + moveUpAmount * swapPenalty;
+            if (distance < minimalDistance) {
+                minimalIndexB = j;
+                minimalIndexUB = j0;
+                minimalDistance = distance;
+            }
+
+            moveUpAmount += codeBefore[j].getLengthInCharacters();
+        }
+
+        // 1-to-1 Rewrite
+        if (minimalIndexB != -1) {
+            unpairedBefore.splice(minimalIndexUB, 1);
+        }
+
+        codeDistance += minimalDistance;
+    }
+
+    // B) Go from top to bottom in the destination list and compare each destination block with all unmoved source blocks
     for (var i = 0; i < unpairedAfter.length; i++) {
 
         var minimalDistance = addPenalty * codeAfter[i].getLengthInCharacters();
@@ -432,13 +465,17 @@ function CheckRename(codeBefore, codeAfter, parentRenames = {}) {
         codeDistance += minimalDistance;
     }
 
-    // B) RECURSION: Blocks with innerCode will have their changes calculated as well
+    // D) RECURSION: Blocks with innerCode will have their changes calculated as well
     for (var i in codeBefore)
     {
         var goalAdress = inputDestinations[i]?.address;
         if (goalAdress !== undefined && goalAdress != 'x' && goalAdress in codeAfter &&
             (codeAfter[goalAdress] instanceof BaseCommandList && codeBefore[i] instanceof BaseCommandList)) {
                 var innerChanges = FindCodeChanges(codeBefore[i].innerCode, codeAfter[goalAdress].innerCode, renamesList);
+
+                inputDestinations[i] = new CodeChange(goalAdress,innerChanges.inputDestinations, {...renamesList});
+                outputSources[goalAdress] = new CodeChange(parseInt(i),innerChanges.outputSources, {...renamesList});
+
                 codeDistance += innerCodeMultiplierPenalty * innerChanges.distance;
         }
     }
@@ -746,8 +783,7 @@ function MultiStatementDistance(blocks1, blocks2, renames = {}) {
  * @returns {number} Distance of the two blocks.
  */
 function OneLevelDistance(block1, block2, renames = {}) {
-    //return StatementDistance(ConvertBlockToOneLevel(block1), ConvertBlockToOneLevel(block2), renames);
-    return StatementDistance(block1, block2, renames);
+    return StatementDistance(ConvertBlockToOneLevel(block1), ConvertBlockToOneLevel(block2), renames);
 }
 
 /**
