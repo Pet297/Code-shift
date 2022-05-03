@@ -28,10 +28,10 @@ async function DoGifOutput(resenum, output, callback) {
 }
 
 /**
- * Generates list of changes between two source codes and stores it as an XML file.
+ * Generates list of changes between two source codes and stores it as an JSON file.
  * @param {string} code1 Path to the 'before' source code.
  * @param {string} code2 Path to the 'after' source code.
- * @param {string} output Output XML file path.
+ * @param {string} output Output JSON file path.
  * @param {string} language The language to use while translating representation.
  * @param {(value: any) => void} callback Callback function for asynchronous execution.
  */
@@ -52,7 +52,7 @@ async function MidOutputExecutionSingle(code1, code2, output, language, callback
  * Given two source codes and a list of changes, generates a GIF animation showing edits on the code.
  * @param {string} code1 Path to the 'before' source code.
  * @param {string} code2 Path to the 'after' source code.
- * @param {string} changes12 Path to the XML list of changes.
+ * @param {string} changes12 Path to the JSON list of changes.
  * @param {string} output Output GIF file path.
  * @param {string} language The language to use while translating representation.
  * @param {(value: any) => void} callback Callback function for asynchronous execution.
@@ -75,7 +75,7 @@ async function MidInputExecutionSingle(code1, code2, changes12, output, language
 }
 
 /**
- * Generates list of changes between two source codes and stores it as an XML file.
+ * Generates list of changes between two source codes and stores it as an JSON file.
  * @param {string} code1 Path to the 'before' source code.
  * @param {string} code2 Path to the 'after' source code.
  * @param {string} output Output GIF file path.
@@ -101,7 +101,7 @@ async function FullExecutionSingle(code1, code2, output, language, callback) {
 /**
  * Does partial execution with output in the middle on multiple pairs of files.
  * @param {string[]} codeFiles List of paths to individual versions of the source code.
- * @param {string[]} outputFiles List of output XML paths.
+ * @param {string[]} outputFiles List of output JSON paths.
  * @param {string} language The language to use while translating representation.
  * @param {(value: any) => void} callback Callback function for asynchronous execution.
  */
@@ -118,7 +118,7 @@ async function MidOutputExecutionMulti(codeFiles, outputFiles, language, callbac
 /**
  * Does partial execution with input in the middle on multiple pairs of files.
  * @param {[string]} codeFiles List of paths to individual versions of the source code.
- * @param {[string]} changeFiles List of paths to individual XML files with changes.
+ * @param {[string]} changeFiles List of paths to individual JSON files with changes.
  * @param {[string]} outputFiles List of output GIF paths.
  * @param {string} language The language to use while translating representation.
  * @param {(value: any) => void} callback Callback function for asynchronous execution.
@@ -179,7 +179,7 @@ function IsRecognizedFlag(flag)
  * Prints help for this software to the output.
  */
 function ShowHelp() {
-    console.log("Code shift pre-release v0.8.0");
+    console.log("Code shift Release v1.0");
     console.log("Tool for automatic comparison of different versions of source code");
     console.log("and generating animation of its possible intermediate states.");
     console.log("---------------------------");
@@ -192,25 +192,25 @@ function ShowHelp() {
     console.log("-o <filename>     : Output file for GIF animation");
     console.log("-c <filename>     : Input file with manual list of changes");
     console.log("-l <language name>: Language of the source code");
-    console.log("-f                : Generate XML file with changes instead of GIF");
+    console.log("-f                : Generate JSON file with changes instead of GIF");
     console.log("-h                : Show this help");
     console.log("-t                : Do translation test");
     console.log("---------------------------");
     console.log("Basic usage:");
     console.log("> Regular full exection - input: source codes, output: GIF");
     console.log("  -i [old source code] -i [new source code] -o [GIF filename]");
-    console.log("> Partial exection - input: source codes, output: XML list of changes");
-    console.log("  -f -i [old source code] -i [new source code] -o [XML filename]");
-    console.log("> Partial exection - input: source codes and XML list of changes, output: GIF");
-    console.log("  -i [old source code] -i [new source code] -c [XML filename] -o [GIF filename]");
+    console.log("> Partial exection - input: source codes, output: JSON list of changes");
+    console.log("  -f -i [old source code] -i [new source code] -o [JSON filename]");
+    console.log("> Partial exection - input: source codes and JSON list of changes, output: GIF");
+    console.log("  -i [old source code] -i [new source code] -c [JSON filename] -o [GIF filename]");
     console.log("> For debuging - tests whether a file translates to simple representation.");
     console.log("-t [source code]");
     console.log("---------------------------");
     console.log("Notes:");
     console.log("-The number of input files must be 1 more than the number of output files.");
-    console.log("-If lists of XML files with changes are present,");
+    console.log("-If lists of JSON files with changes are present,");
     console.log("  there must be as much of them as output files.");
-    console.log("-If flag -f is present, output files are XML files with list of changes.");
+    console.log("-If flag -f is present, output files are JSON files with list of changes.");
     console.log("-If no language option is specified,");
     console.log("  it is assumed based on filename of 1st input file.");
     console.log("-Due to JS limitations, output path must be relative.");
@@ -326,11 +326,11 @@ async function UserInput(args, callback) {
 }
 
 // Manual Testing:
-var testId = 'C5';
-UserInput([undefined, undefined, '-l', 'JS', '-i', './tests/test_' + testId + '_0', '-i', './tests/test_' + testId + '_1', '-o', '../' + testId + '.gif'], ()=>{});
+// var testId = 'D3';
+// UserInput([undefined, undefined, '-l', 'JS', '-i', './tests/test_' + testId + '_0', '-i', './tests/test_' + testId + '_1', '-o', '../' + testId + '.gif'], ()=>{});
 // UserInput([undefined, undefined, '-l', 'JS', '-f', '-i', './tests/test_' + testId + '_0', '-i', './tests/test_' + testId + '_1', '-o', '../' + testId + '.json'], ()=>{});
 // UserInput([undefined, undefined, '-l', 'JS', '-i', './tests/test_' + testId + '_0', '-i', './tests/test_' + testId + '_1', '-c', '../' + testId + '.json', '-o', '../' + testId + '.gif'], ()=>{});
 // UserInput(['-l', 'JS', '-t', './tests/test_' + testId + '_0', ()=>{});
 
 // Runs the program:
-// UserInput(process.argv, ()=>{});
+UserInput(process.argv, ()=>{});

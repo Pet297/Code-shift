@@ -1,6 +1,6 @@
 import fs from 'fs';
 import { CodeChange } from './distance.js';
-import { BaseCodeBlock, BaseCommandList, TokenInfo } from './languageInterface.js';
+import { BaseCodeBlock, BaseCommandList } from './languageInterface.js';
 
 /**
  * Serializes given list of changes to an JSON file.

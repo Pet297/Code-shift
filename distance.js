@@ -12,12 +12,10 @@ const innerCodeMultiplierPenalty = 0.95;
 const swapPenalty = 0.0005;
 const addPenalty = 0.2;
 const levenDifferencePenalty = 0.45;
-
-// Limit to use to shorten execution:
 const maxDistance = 5000.0;
 
 // Highest ratio of distance before rename and after rename at which to consider the rename:
-const renameTreshold = 0.95;
+const renameTreshold = 0.975;
 
 /**
  * Find distance between two source codes in simplified representation,
@@ -25,6 +23,8 @@ const renameTreshold = 0.95;
  * @param {BaseCodeBlock[]} codeBefore The first source code in simplified representation.
  * @param {BaseCodeBlock[]} codeAfter The second source code in simplified representation.
  * @param {object} parentRenames List of renames considered from parent scopes.
+ * @param {string[]} parametersBefore List of parameters defined in parent of the 'before' blocks.
+ * @param {string[]} parametersAfterList of parameters defined in parent of the 'after' blocks.
  * @returns {ListOfChanges} Object containing information about related blocks of code, distance and renames.
  */
 export function FindCodeChanges(codeBefore, codeAfter, parentRenames = {}, parametersBefore = [], parametersAfter = []) {
