@@ -1,0 +1,9 @@
+var aaa = 0;
+var bbb = 0;
+var ccc = 0;
+
+function Test(ddd, erre) {
+    erre = ddd + aaa;
+    erre += bbb * ccc;
+    return erre;
+}

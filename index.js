@@ -326,10 +326,10 @@ async function UserInput(args, callback) {
 }
 
 // Manual Testing:
-var testId = 'D3';
-// UserInput([undefined, undefined, '-l', 'JS', '-i', './tests/test_' + testId + '_0', '-i', './tests/test_' + testId + '_1', '-o', '../' + testId + '.gif'], ()=>{});
+var testId = 'C5';
+UserInput([undefined, undefined, '-l', 'JS', '-i', './tests/test_' + testId + '_0', '-i', './tests/test_' + testId + '_1', '-o', '../' + testId + '.gif'], ()=>{});
 // UserInput([undefined, undefined, '-l', 'JS', '-f', '-i', './tests/test_' + testId + '_0', '-i', './tests/test_' + testId + '_1', '-o', '../' + testId + '.json'], ()=>{});
-UserInput([undefined, undefined, '-l', 'JS', '-i', './tests/test_' + testId + '_0', '-i', './tests/test_' + testId + '_1', '-c', '../' + testId + '.json', '-o', '../' + testId + '.gif'], ()=>{});
+// UserInput([undefined, undefined, '-l', 'JS', '-i', './tests/test_' + testId + '_0', '-i', './tests/test_' + testId + '_1', '-c', '../' + testId + '.json', '-o', '../' + testId + '.gif'], ()=>{});
 // UserInput(['-l', 'JS', '-t', './tests/test_' + testId + '_0', ()=>{});
 
 // Runs the program:

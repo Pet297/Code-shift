@@ -1,4 +1,4 @@
-import {SemanticDefinition, SemanticAction, SemanticDecision, NonsemanticText, BaseTokenList, BaseCommandList, BaseCodeBlock, TokenInfo} from './languageInterface.js';
+import {SemanticDefinition, SemanticAction, SemanticDecision, NonsemanticText, BaseCommandList, BaseCodeBlock, TokenInfo} from './languageInterface.js';
 import leven from 'js-levenshtein';
 
 // Constants for measuring code distance:
@@ -27,7 +27,7 @@ const renameTreshold = 0.95;
  * @param {object} parentRenames List of renames considered from parent scopes.
  * @returns {ListOfChanges} Object containing information about related blocks of code, distance and renames.
  */
-export function FindCodeChanges(codeBefore, codeAfter, parentRenames = {}) {
+export function FindCodeChanges(codeBefore, codeAfter, parentRenames = {}, parametersBefore = [], parametersAfter = []) {
 
     // SPECIAL CASE: Only 1 object in the input and output --> If same type of definition, assume they are related
     if (codeBefore.length == 1 && codeAfter.length == 1
@@ -65,9 +65,19 @@ export function FindCodeChanges(codeBefore, codeAfter, parentRenames = {}) {
             definitionsBefore.push(codeBefore[i].name);
         }
     }
+    for (var name of parametersBefore) {
+        if (!(name in parentRenames)) {
+            definitionsBefore.push(name);
+        }
+    }
     for (var j of unpairedAfter) {
         if (codeAfter[j] instanceof SemanticDefinition) {
             definitionsAfter.push(codeAfter[j].name);
+        }
+    }
+    for (var name of parametersAfter) {
+        if (!(name in parentRenames)) {
+            definitionsAfter.push(name);
         }
     }
 
@@ -251,10 +261,15 @@ export function FindCodeChanges(codeBefore, codeAfter, parentRenames = {}) {
         var goalAdress = inputDestinations[i].address;
         if (goalAdress != 'x' && goalAdress in codeAfter &&
             (codeAfter[goalAdress] instanceof BaseCommandList && codeBefore[i] instanceof BaseCommandList)) {
-                var innerChanges = FindCodeChanges(codeBefore[i].innerCode, codeAfter[goalAdress].innerCode, {...renamesList});
+                var paramsB = [];
+                var paramsA = [];
+                if ('paramList' in codeBefore[i]) paramsB = codeBefore[i].paramList;
+                if ('paramList' in codeAfter[goalAdress]) paramsA = codeAfter[goalAdress].paramList;
 
-                inputDestinations[i] = new CodeChange(goalAdress,innerChanges.inputDestinations, GetNewRenames(parentRenames,renamesList));
-                outputSources[goalAdress] = new CodeChange(parseInt(i),innerChanges.outputSources, GetNewRenames(parentRenames,renamesList));
+                var innerChanges = FindCodeChanges(codeBefore[i].innerCode, codeAfter[goalAdress].innerCode, {...renamesList}, paramsB, paramsA);
+
+                inputDestinations[i] = new CodeChange(goalAdress,innerChanges.inputDestinations, GetNewRenames(parentRenames,innerChanges.renames));
+                outputSources[goalAdress] = new CodeChange(parseInt(i),innerChanges.outputSources, GetNewRenames(parentRenames,innerChanges.renames));
 
                 codeDistance += innerCodeMultiplierPenalty * innerChanges.distance;
         }
@@ -732,7 +747,7 @@ function StatementDistance(block1, block2, renames = {}) {
         codeDistance += missingDependentVariablePenalty * ListDistance(RenameElementsOfList(block1.dependentOn, renames), block2.dependentOn);
 
         // Penalty for inner code difference
-        var changes = FindCodeChanges(block1.innerCode, block2.innerCode, renames)
+        var changes = FindCodeChanges(block1.innerCode, block2.innerCode, renames, block1.paramList, block2.paramList)
         codeDistance += innerCodeMultiplierPenalty * changes.distance;
 
         if (codeDistance < mininimal) mininimal = codeDistance;
@@ -749,7 +764,7 @@ function StatementDistance(block1, block2, renames = {}) {
         var rawText2 = block2.getText();
         var levenDistance = leven(rawText1, rawText2);
 
-        codeDistance += innerCodeMultiplierPenalty * levenDistance;
+        codeDistance += innerCodeMultiplierPenalty * levenDistance * levenDifferencePenalty;
 
         if (codeDistance < mininimal) mininimal = codeDistance;
     }
@@ -762,7 +777,7 @@ function StatementDistance(block1, block2, renames = {}) {
         codeDistance += missingDependentVariablePenalty * ListDistance(RenameElementsOfList(block1.dependentOn, renames), block2.dependentOn);
 
         // Penalty for inner code difference
-        var changes = FindCodeChanges(block1.innerCode, block2.innerCode, renames)
+        var changes = FindCodeChanges(block1.innerCode, block2.innerCode, renames, block1.paramList, block2.paramList)
         codeDistance += innerCodeMultiplierPenalty * changes.distance;
 
         if (codeDistance < mininimal) mininimal = codeDistance;

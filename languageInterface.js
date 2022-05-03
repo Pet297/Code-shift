@@ -197,7 +197,7 @@ export class TokenInfo {
     getText(renames = {}) {
         var text = '';
         for (var token of this.tokens) {
-            if (token.isIdentifier && token.text in renames) renames[token.text];
+            if (token.isIdentifier && token.text in renames) text += renames[token.text];
             else text += token.text;
         }
         return text;
