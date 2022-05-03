@@ -1,79 +1,85 @@
-import xmljs from 'xml2js';
 import fs from 'fs';
-import { CodeChange, ListOfChanges } from './distance.js';
+import { CodeChange } from './distance.js';
+import { BaseCodeBlock, BaseCommandList, TokenInfo } from './languageInterface.js';
 
 /**
- * Serializes given list of changes to an XML file.
- * @param {ListOfChanges} sourceChanges 
- * @param {ListOfChanges} destinationChanges 
- * @param {string} outputFile 
+ * Serializes given list of changes to an JSON file.
+ * @param {CodeChange[]} sourceChanges Source list of changes to serialize.
+ * @param {string} outputFile The output JSON file to which the list of changes should be serialized.
  * @param {(value: any) => void} callback Callback function for asynchronous execution.
  */
-export function ListOfChangesToFile(sourceChanges, destinationChanges, outputFile, callback) {
+export function ListOfChangesToFile(sourceChanges, outputFile, callback) {
+    var json = JSON.stringify(sourceChanges);
+    fs.writeFile(outputFile, json, 'utf8', ()=>{callback()})
+}
 
-    // A) Convert list of changes to library-friendly representation
-    var srcc = ChangesToSimpleObject(sourceChanges);
-    var dstc = ChangesToSimpleObject(destinationChanges);
-    var obj = {src: srcc, dst: dstc}
+export function FileToListOfChanges(file, codeAfter) {
+    var json = fs.readFileSync(file).toString();
+    var sourceChanges = JSON.parse(json);
+    sourceChanges = SourceChangesAsCodeChange(sourceChanges);
 
-    // B) Convert the object to an XML string
-    var builder = new xmljs.Builder();
-    var xml = builder.buildObject(obj);
+    var destinationChanges = [];
+    SourceChangesToDestinationChanges(sourceChanges, destinationChanges, codeAfter);
 
-    // C) Write it to a file
-    fs.writeFile(outputFile, xml, 'utf8', ()=>{callback()})
+    return {src:sourceChanges, dst:destinationChanges};
 }
 
 /**
- * Deserializes a list of changes from an XML file.
- * @param {string} file 
- * @returns {object} Object containing two ListOfChanges, one for source and one for destination.
+ * Given a relationships of source blocks to destination blocks, builds the inverse list of relationships.
+ * @param {CodeChange[]} sourceChanges The list relating source blocks to destination blocks.
+ * @param {[]} destinationChanges Output list that will hold relations of destination blocks to source blocks.
+ * @param {BaseCodeBlock[]} codeAfter Simplified representation of source code 'after'.
  */
-export function FileToListOfChanges(file) {
+function SourceChangesToDestinationChanges(sourceChanges, destinationChanges, codeAfter) {
+    destinationChanges.length = codeAfter.length;
+    for (var i = 0; i < sourceChanges.length; i++) {
+        if (typeof sourceChanges[i].address == 'number') {
+            var children = [];
+            if (codeAfter[sourceChanges[i].address] instanceof BaseCommandList) {
+                SourceChangesToDestinationChanges(sourceChanges[i].children, children, codeAfter[sourceChanges[i].address].innerCode);
+            }
+            destinationChanges[sourceChanges[i].address] = new CodeChange(i, children, sourceChanges[i].renames);
+        }
+        else if (typeof  sourceChanges[i].address == 'string') {
+            if (sourceChanges[i].address.startsWith('M')) {
+                // Part of M:1
+                var destinationAddress = parseInt(sourceChanges[i].address.substring(1));
+                var comparisonAddress = sourceChanges[i].address;
+                var related = [i];
 
-    // A) Read XML file
-    var xml = fs.readFileSync(file).toString();
+                for (var j = i + 1; j < sourceChanges.length; j++) {
+                    if (sourceChanges[j].address != comparisonAddress) {
+                        break;
+                    }
+                    else related.push(j);
+                }
+                i = j - 1;
 
-    // B) Using the library, convert it to a simple object
-    var obj = undefined;
-    xmljs.parseString(xml, (err, result) => {
-        obj = result;
-    });
-
-    // C) Convert the simple object to 'CodeChange' type.
-    var srcc = SimpleObjectToChanges(obj.root.src);
-    var dstc = SimpleObjectToChanges(obj.root.dst);
-
-    return {src:srcc, dst:dstc};
-}
-
-/**
- * Converts a list of changes into a different representation for the xml2js library.
- * @param {ListOfChanges} listOfChanges The list of changes that is to be serialized.
- * @returns {object} A different representation of the list of changes.
- */
-function ChangesToSimpleObject(listOfChanges) {
-    var obj = {};
-    for (var id in listOfChanges) {
-        obj['_' + id] = {};
-        obj['_' + id].address = listOfChanges[id].address;
-        obj['_' + id].children = ChangesToSimpleObject(listOfChanges[id].children);
-        obj['_' + id].renames = listOfChanges[id].renames;
+                destinationChanges[destinationAddress] = new CodeChange(related, [], sourceChanges[i].renames);
+            }
+        }
+        else if (Array.isArray(sourceChanges[i].address)) {
+            for (var a of sourceChanges[i].address) {
+                destinationChanges[a] = new CodeChange(i, [], sourceChanges[i].renames);
+            }
+        }
     }
-    return obj;
+    for (var i = 0; i < destinationChanges.length; i++) {
+        if (!(i in destinationChanges)) {
+            destinationChanges[i] = new CodeChange('+', [], sourceChanges[i].renames);
+        }
+    }
 }
 
 /**
- * Converts xml2js-friendly representation of list of changes back to internal representation.
- * @param {object} obj The object that was deserialized.
- * @returns {ListOfChanges} The resulting list of changes that was deserialized.
+ * Recursively converts loaded generic object into instances of CodeChange, without its tokens.
+ * @param {object[]} sourceChanges List of code changes as generic objects.
+ * @returns {CodeChange[]} List of code changes as instances of CodeChange.
  */
-function SimpleObjectToChanges(obj) {
-    if (obj[0] == '') return[];
-    var output = [];
-    for (var key in obj[0]) {
-        var pos = key.substring(1);
-        output[pos] = new CodeChange(obj[0][key][0].address[0], SimpleObjectToChanges(obj[0][key][0].children), obj[0][key][0].renames?.[0]);
+function SourceChangesAsCodeChange(sourceChanges) {
+    var returnList = [];
+    for (var i = 0; i < sourceChanges.length; i++) {
+        returnList[i] = new CodeChange(sourceChanges[i].address, SourceChangesAsCodeChange(sourceChanges[i].children), sourceChanges[i].renames);
     }
-    return output;
+    return returnList;
 }

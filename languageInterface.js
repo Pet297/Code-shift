@@ -1,5 +1,5 @@
 /**
- * Class for storing basic information about tokens from given grammar within Code-shift.
+ * Stores basic information about tokens from given grammar within Code-shift.
  */
 export class TokenInfo {
     /**
@@ -122,11 +122,20 @@ export class TokenInfo {
  */
  export class BaseTokenList extends BaseCodeBlock {
     /**
+     * @property {TokenInfo[]} tokens List of tokens in this node.
+     */
+    tokens = [];
+    
+    /**
      * Creates a new instance of BaseTokenList
      * @param {TokenInfo[]} tokens List of tokens.
      */
     constructor(tokens) {
         super();
+        /**
+         * Individual tokens of this block of code.
+         * @type {TokenInfo[]}
+         */
         this.tokens = tokens;
     }
 
@@ -205,6 +214,10 @@ export class TokenInfo {
      */
     constructor(innerCode) {
         super();
+        /**
+         * List of child blocks.
+         * @type {BaseCodeBlock[]}
+         */
         this.innerCode = innerCode;
     }
 
@@ -304,7 +317,7 @@ export class NonsemanticCommandList extends BaseCommandList {
     }
 }
 /**
- * Class for storing a block of code, which defines something
+ * Stores a block of code, which defines something
  * within the given scope
  */
 export class SemanticDefinition extends BaseCommandList
@@ -315,21 +328,37 @@ export class SemanticDefinition extends BaseCommandList
      * @param {string[]} paramList List of new identifiers dependent within this block.
      * @param {BaseCodeBlock[]} innerCode List of child blocks.
      * @param {string} definitionType Type of this definition.
-     * @param {string} name Text of the defined identifier.
+     * @param {string} name Name of the defined identifier.
      */
     constructor(dependentOn, paramList, innerCode, definitionType, name) {
 
         super(innerCode);
 
+        /**
+         * List of identifiers this definition depends on.
+         * @type {string[]}
+         */
         this.dependentOn = dependentOn;
+        /**
+         * List of new identifiers dependent within this block.
+         * @type {string[]}
+         */
         this.paramList = paramList;
+        /**
+         * Type of this definition.
+         * @type {string}
+         */
         this.definitionType = definitionType;
+        /**
+         * Name of the defined identifier.
+         * @type {string}
+         */
         this.name = name;
     }
 }
 /**
- * Class for storing a block of code, which doesn't define something
- * within the given scope
+ * Stores a block of code,
+ * which doesn't define something within the given scope
  */
 export class SemanticDecision extends BaseCommandList
 {
@@ -344,13 +373,25 @@ export class SemanticDecision extends BaseCommandList
     {
         super(innerCode);
 
+        /**
+         * List of identifiers this decision depends on.
+         * @type {string[]}
+         */
         this.dependentOn = dependentOn;
+        /**
+         * List of new identifiers dependent within this block.
+         * @type {string[]}
+         */
         this.paramList = paramList;
+        /**
+         * Type of this decision.
+         * @type {string}
+         */
         this.decisionType = decisionType;
     }
 }
 /**
- * Class for storing a leaf block of code
+ * Stores a leaf block of code
  */
 export class SemanticAction extends BaseTokenList
 {
@@ -364,12 +405,20 @@ export class SemanticAction extends BaseTokenList
     {
         super(tokens);
 
+        /**
+         * List of identifiers whose value is being changed.
+         * @type {string[]}
+         */
         this.dependingVariables = dependingVariables;
+        /**
+         * List of identifiers the asigned value depends on, if any.
+         * @type {string[]}
+         */
         this.dependentOn = dependentOn;
     } 
 }
 /**
- * Class for storing a block of code, which has no meaning within the given scope,
+ * Stores a block of code, which has no meaning within the given scope,
  * or whose semantic role in measuring distance is to be ignored.
  */
 export class NonsemanticText extends BaseTokenList
@@ -377,12 +426,16 @@ export class NonsemanticText extends BaseTokenList
     /**
      * Creates a new instance of NonsemanticText
      * @param {TokenInfo[]} tokens List of tokens.
-     * @param {string?} specialType Unique identifier within a block for automatic matching.
+     * @param {string} specialType Unique identifier within a block for automatic matching.
      */
     constructor(tokens, specialType)
     {
         super(tokens);
 
+        /**
+         * Unique identifier within a block for automatic matching.
+         * @type {string}
+         */
         this.specialType = specialType;
     }
 }

@@ -1,5 +1,5 @@
 import { DeletingCommand, AddingCommand, MovingUpCommand, ChangingCommand, InternalCommandSequence, RenamingCommand} from './animationSequence.js';
-import { CheckTokensEqual, ListOfChanges } from './distance.js';
+import { CheckTokensEqual, CodeChange } from './distance.js';
 import { TokenInfo } from './languageInterface.js';
 
 /**
@@ -19,8 +19,8 @@ export class AnimationEnumerator
 
     /**
      * Creates an instance of AnimationEnumerator
-     * @param {ListOfChanges} sourceChanges List of changes applied to original source code.
-     * @param {ListOfChanges} destinationChanges List of changes to get to the destination source code.
+     * @param {CodeChange[]} sourceChanges List of changes applied to original source code.
+     * @param {CodeChange[]} destinationChanges List of changes to get to the destination source code.
      * @param {*[]} animationSequence List of animation commands to process.
      */
     constructor(sourceChanges, destinationChanges, animationSequence)
@@ -244,7 +244,7 @@ function ChangesAnything(animation) {
 
 /**
  * Builds initial intermediate code state, consisting of unchanged blocks in original order.
- * @param {ListOfChanges} sourceChanges The list of changes to follow.
+ * @param {CodeChange[]} sourceChanges The list of changes to follow.
  * @param {[]} unproccessedList Output list to store the intermediate code state.
  */
 function BuildInitialArray(sourceChanges, unproccessedList) {
@@ -311,7 +311,7 @@ function FlattenAnimation(childAnimation, parentTextAbove, parentTextBelow) {
 
 /**
  * Given a list of changes and an address, returns all tokens of the addressed block.
- * @param {ListOfChanges} listOfChanges Either source or destination list, containing the adressed block.
+ * @param {CodeChange[]} listOfChanges Either source or destination list, containing the adressed block.
  * @param {number} address Adress of the block.
  * @returns {TokenInfo[]} List of tokens of the addressed block.
  */
@@ -325,7 +325,7 @@ function TokensByAdress(listOfChanges, address) {
 
 /**
  * Gets all tokens of a block of code (possibly non-leaf).
- * @param {ListOfChanges} change The list of changes to get the tokens from.
+ * @param {CodeChange[]} change The list of changes to get the tokens from.
  * @returns {TokenInfo[]} List of all of the tokens.
  */
 function GetAllText(change) {
@@ -345,12 +345,6 @@ function GetAllText(change) {
  * Class representing all required information for animating blocks moving up.
  */
 export class MovingUpAnimation {
-    
-    textAbove = [];
-    textMovingDown = [];
-    textMovingUp = [];
-    textBelow = [];
-    
     /**
      * Creates an instace of MovingUpAnimation.
      * @param {TokenInfo[]} textAbove List of stationary tokens above the moving text.
@@ -359,22 +353,32 @@ export class MovingUpAnimation {
      * @param {TokenInfo[]} textBelow List of stationary tokens below the moving text.
      */
     constructor(textAbove, textMovingDown, textMovingUp, textBelow) {
+        /**
+         * List of stationary tokens above the moving text.
+         * @type {TokenInfo[]}
+         */
         this.textAbove = textAbove;
+        /**
+         * List of tokens switching place by moving down.
+         * @type {TokenInfo[]}
+         */
         this.textMovingDown = textMovingDown;
+        /**
+         * List of tokens switching place by moving up.
+         * @type {TokenInfo[]}
+         */
         this.textMovingUp = textMovingUp;
+        /**
+         * List of stationary tokens below the moving text.
+         * @type {TokenInfo[]}
+         */
         this.textBelow = textBelow;
     }
 }
 /**
  * Class representing all required information for animating blocks being rewritten.
  */
-export class ChangingAnimation {
-    
-    textAbove = [];
-    textChangingFrom = [];
-    textChangingTo = [];
-    textBelow = [];
-    
+export class ChangingAnimation { 
     /**
      * Creates an instace of ChangingAnimation.
      * @param {TokenInfo[]} textAbove List of stationary tokens above the changing text.
@@ -383,9 +387,25 @@ export class ChangingAnimation {
      * @param {TokenInfo[]} textBelow List of stationary tokens below the changing text.
      */
     constructor(textAbove, textChangingFrom, textChangingTo, textBelow) {
+        /**
+         * List of stationary tokens above the changing text.
+         * @type {TokenInfo[]}
+         */
         this.textAbove = textAbove;
+        /**
+         * List of tokens being rewritten, before the rewrite.
+         * @type {TokenInfo[]}
+         */
         this.textChangingFrom = textChangingFrom;
+        /**
+         * List of tokens being rewritten, after the rewrite.
+         * @type {TokenInfo[]}
+         */
         this.textChangingTo = textChangingTo;
+        /**
+         * List of stationary tokens below the changing text.
+         * @type {TokenInfo[]}
+         */
         this.textBelow = textBelow;
     }
 }
@@ -393,11 +413,6 @@ export class ChangingAnimation {
  * Class representing all required information for animating blocks being added.
  */
 export class AddingAnimation {
-    
-    textAbove = [];
-    textBeingAdded = [];
-    textBelow = [];
-    
     /**
      * Creates an instace of AddingAnimation.
      * @param {TokenInfo[]} textAbove List of stationary tokens above the added text.
@@ -405,8 +420,20 @@ export class AddingAnimation {
      * @param {TokenInfo[]} textBelow List of stationary tokens below the added text.
      */
     constructor(textAbove, textBeingAdded, textBelow) {
+        /**
+         * List of stationary tokens above the added text.
+         * @type {TokenInfo[]}
+         */
         this.textAbove = textAbove;
+        /**
+         * List of tokens being added.
+         * @type {TokenInfo[]}
+         */
         this.textBeingAdded = textBeingAdded;
+        /**
+         * List of stationary tokens below the added text.
+         * @type {TokenInfo[]}
+         */
         this.textBelow = textBelow;
     }
 }
@@ -414,11 +441,6 @@ export class AddingAnimation {
  * Class representing all required information for animating blocks being deleted.
  */
 export class RemovingAnimation {
-    
-    textAbove = [];
-    textBeingRemoved = [];
-    textBelow = [];
-    
     /**
      * Creates an instace of RemovingAnimation.
      * @param {TokenInfo[]} textAbove List of stationary tokens above the deleted text.
@@ -426,22 +448,27 @@ export class RemovingAnimation {
      * @param {TokenInfo[]} textBelow List of stationary tokens below the deleted text.
      */
     constructor(textAbove, textBeingRemoved, textBelow) {
+        /**
+         * List of stationary tokens above the deleted text.
+         * @type {TokenInfo[]}
+         */
         this.textAbove = textAbove;
+        /**
+         * List of tokens being deleted.
+         * @type {TokenInfo[]}
+         */
         this.textBeingRemoved = textBeingRemoved;
+        /**
+         * List of stationary tokens below the deleted text.
+         * @type {TokenInfo[]}
+         */
         this.textBelow = textBelow;
     }
 }
 /**
  * Class representing all required information for animating identifiers being renamed.
  */
-export class RenamingAnimation {
-    
-    textAbove = [];
-    textChanging = [];
-    textBelow = [];
-    renameFrom = "";
-    renameTo = "";
-    
+export class RenamingAnimation {  
     /**
      * Creates an instace of RenamingAnimation.
      * @param {TokenInfo[]} textAbove List of unchanged tokens above the edited text.
@@ -451,10 +478,30 @@ export class RenamingAnimation {
      * @param {string} renameTo New name of the identifiers.
      */
     constructor(textAbove, textChanging, textBelow, renameFrom, renameTo) {
+        /**
+         * List of unchanged tokens above the edited text.
+         * @type {TokenInfo[]}
+         */
         this.textAbove = textAbove;
+        /**
+         * List of tokens, where renames are happening.
+         * @type {TokenInfo[]}
+         */
         this.textChanging = textChanging;
+        /**
+         * List of unchanged tokens below the edited text.
+         * @type {TokenInfo[]}
+         */
         this.textBelow = textBelow;
+        /**
+         * Original name of the identifiers.
+         * @type {string}
+         */
         this.renameFrom = renameFrom;
+        /**
+         * New name of the identifiers.
+         * @type {string}
+         */
         this.renameTo = renameTo;
     }
 }
@@ -462,14 +509,15 @@ export class RenamingAnimation {
  * Class representing the end of an animation sequence with resulting code.
  */
 export class EndingAnimation {
-    
-    text = [];
-    
     /**
      * Creates an instace of EndingAnimation.
      * @param {TokenInfo[]} text List of all tokens in the resulting code.
      */
     constructor(text) {
+        /**
+         * List of all tokens in the resulting code.
+         * @type {TokenInfo[]}
+         */
         this.text = text;
     }
 }

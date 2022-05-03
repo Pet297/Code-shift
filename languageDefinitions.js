@@ -29,7 +29,7 @@ function TranslateFileNoLang(text) {
  * Translates representation of given source code in given language.
  * If language is undefined, determines language by the file extension.
  * @param {string} filename Path to the source code file.
- * @param {string?} language Language to use when translating representation.
+ * @param {string} language Language to use when translating representation.
  * @returns {BaseCodeBlock} The result of the representation translation.
  */
 export function TranslateFileByLanguage(filename, language) {

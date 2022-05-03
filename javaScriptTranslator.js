@@ -849,7 +849,7 @@ function TreenodesToTokens(...treeNodes) {
  * Translates given parse tree node as a single NonsemanticText.
  * Optionaly applies a specialType property to it.
  * @param {*} treeNode The node of the parse tree to translate.
- * @param {string?} specialType The string to set special type of the nonsemantic text to.
+ * @param {string} specialType The string to set special type of the nonsemantic text to.
  * @returns {NonsemanticText} The resulting simplified representation node. 
  */
 function TranslateAsNonSemanticText(treeNode, specialType = undefined) {
@@ -867,7 +867,7 @@ function TranslateAsNonSemanticText(treeNode, specialType = undefined) {
  * @param {*} treeNode Any node of the parse tree.
  * @param {number} from Index of the first token to include.
  * @param {number} to Index of the last token to include.
- * @param {string?} specialType The string to set special type of the nonsemantic text to.
+ * @param {string} specialType The string to set special type of the nonsemantic text to.
  * @returns {NonsemanticText} The resulting simplified representation node. 
  */
 function TranslateAsNonSemanticText2(treeNode, from, to, specialType = undefined) {
@@ -961,8 +961,8 @@ function ExpandSingleCommand2(treeNode, from, to, block) {
  * The tokens come from a parse tree node, or are given by two indices.
  * @param {*} treeNode The parse tree node to get tokens from.
  * @param {BaseCodeBlock} block The codeblock to fill the tokens in.
- * @param {number?} from Index of the first token to include.
- * @param {number?} to Index of the last token to include.
+ * @param {number} from Index of the first token to include.
+ * @param {number} to Index of the last token to include.
  */
 function FillInTokens(treeNode, block, from = undefined, to = undefined) {
     if (from == undefined || to == undefined) {
@@ -986,8 +986,8 @@ function FillInTokens(treeNode, block, from = undefined, to = undefined) {
  * The tokens come from a parse tree node, or are given by two indices.
  * @param {*} treeNode  The parse tree node to get tokens from.
  * @param {BaseCommandList} commandBlock The codeblock to fill the tokens in.
- * @param {number?} from Index of the first token to include.
- * @param {number?} to Index of the last token to include.
+ * @param {number} from Index of the first token to include.
+ * @param {number} to Index of the last token to include.
  */
 function FillInTokensNode(treeNode, commandBlock, from, to) {
 
@@ -1015,8 +1015,8 @@ function FillInTokensNode(treeNode, commandBlock, from, to) {
  * The tokens come from a parse tree node, or are given by two indices.
  * @param {*} treeNode  The parse tree node to get tokens from.
  * @param {BaseTokenList} commandBlock The codeblock to fill the tokens in.
- * @param {number?} from Index of the first token to include.
- * @param {number?} to Index of the last token to include.
+ * @param {number} from Index of the first token to include.
+ * @param {number} to Index of the last token to include.
  */
 function FillInTokensLeaf(treeNode, tokenBlock, from, to) {
     for (var i = from; i <= to; i++) {
@@ -1192,7 +1192,7 @@ function TranslateNodeAndConcatInner(treeNode, cmdList) {
  * Translates given node as a nonsemantic text and appens it into a command list.
  * @param {*} treeNode The parse tree node to translate. 
  * @param {BaseCommandList} cmdList The command list to append the result to. 
- * @param {string?} specialType Optional special type to set the nonsemantic text to. 
+ * @param {string} specialType Optional special type to set the nonsemantic text to. 
  */
 function TranslateAsNonSemanticTextAndConcat(treeNode, cmdList, specialType = undefined) {
     var block = new NonsemanticText([], specialType);
@@ -1226,7 +1226,7 @@ function FirstOrNone(list) {
 }
 /**
  * Given a list or undefined, returns the list itself or empty list respectively.
- * @param {*[]?} list The list to return, or 'undefined'.
+ * @param {*[]} list The list to return, or 'undefined'.
  * @returns {*[]} The input list or empty list.
  */
 function ListOrEmpty(list) {

@@ -1,9 +1,9 @@
-import { ListOfChanges } from "./distance.js";
+import { CodeChange } from "./distance.js";
 import { TokenInfo } from "./languageInterface.js";
 
 /**
  * Finds tokens representing an identifier and returns them in a list.
- * @param {ListOfChanges} listOfChanges The list of source changes to find the tokens in.
+ * @param {CodeChange[]} listOfChanges The list of source changes to find the tokens in.
  * @param {string} originalName The identifier to find.
  * @param {TokenInfo[]} outputList The list that will hold all found tokens.
  */

@@ -1,8 +1,16 @@
 /**
  * Executes matrix-form of Levenshtein distance and extracts individual changes for animation.
- * @param {[string,string][]} inputString 
- * @param {[string,string][]} outputString 
- * @returns 
+ * @param {[string,string][]} inputString
+ * List of 2-tuples representing colored text before the change.
+ * First element of the two tuple is a string.
+ * Second element of the 2-tuple is the color of this string.
+ * @param {[string,string][]} outputString
+ * List of 2-tuples representing colored text after the change.
+ * First element of the two tuple is a string.
+ * Second element of the 2-tuple is the color of this string.
+ * @returns {(UnchangedLevenPart | ChangingLevenPart)[]}
+ * Partitioned colored strings representing how they should be animated,
+ * while transitioning from one to the other.
  */
 export function LevenChangesColored(inputString, outputString)
 {
@@ -131,21 +139,67 @@ export function LevenChangesColored(inputString, outputString)
 }
 
 /**
- * Represents a string, which doesn't change during rewrite animation.
+ * Represents a colored string, which doesn't change (in text) during rewrite animation.
  * The color of the string might still change.
  */
 export class UnchangedLevenPart {
+    /**
+     * Creates an instance of UnchangedLevenPart.
+     * @param {[string, string][]} before
+     * List of 2-tuples representing colored text before the change.
+     * First element of the two tuple is a string.
+     * Second element of the 2-tuple is the color of this string.
+     * @param {[string, string][]} after
+     * List of 2-tuples representing colored text after the change.
+     * First element of the two tuple is a string.
+     * Second element of the 2-tuple is the color of this string.
+     */
     constructor(before, after) {
+        /**
+         * List of 2-tuples representing colored text before the change.
+         * First element of the two tuple is a string.
+         * Second element of the 2-tuple is the color of this string.
+         * @type {[string, string][]}
+         */
         this.before = before;
+        /**
+         * List of 2-tuples representing colored text after the change.
+         * First element of the two tuple is a string.
+         * Second element of the 2-tuple is the color of this string.
+         * @type {[string, string][]}
+         */
         this.after = after;
     }
 }
 /**
- * Represents a string, which changes during rewrite animation.
+ * Represents a colored sstring, which changes during rewrite animation.
  */
 export class ChangingLevenPart {
+    /**
+     * Creates an instance of ChangingLevenPart.
+     * @param {[string, string][]} before
+     * List of 2-tuples representing colored text before the change.
+     * First element of the two tuple is a string.
+     * Second element of the 2-tuple is the color of this string.
+     * @param {[string, string][]} after
+     * List of 2-tuples representing colored text after the change.
+     * First element of the two tuple is a string.
+     * Second element of the 2-tuple is the color of this string.
+     */
     constructor(before, after) {
+        /**
+         * List of 2-tuples representing colored text before the change.
+         * First element of the two tuple is a string.
+         * Second element of the 2-tuple is the color of this string.
+         * @type {[string, string][]}
+         */
         this.before = before;
+        /**
+         * List of 2-tuples representing colored text after the change.
+         * First element of the two tuple is a string.
+         * Second element of the 2-tuple is the color of this string.
+         * @type {[string, string][]}
+         */
         this.after = after;
     }
 }

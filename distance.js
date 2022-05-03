@@ -212,26 +212,26 @@ export function FindCodeChanges(codeBefore, codeAfter, parentRenames = {}) {
 
         // Adding the output block is the best
         if (minimalIndexB == -1) {
-            outputSources[minimalIndexA] = new CodeChange('+', [], {...renamesList});
+            outputSources[minimalIndexA] = new CodeChange('+', [], GetNewRenames(parentRenames,renamesList));
         }
         // 1-to-N
         else if (Array.isArray(minimalIndexA)) {
-            for (var p of minimalIndexA) outputSources[p] = new CodeChange('M' + minimalIndexB.toString(), [], {...renamesList});
-            inputDestinations[minimalIndexB] = new CodeChange(minimalIndexA, [], {...renamesList});
+            for (var p of minimalIndexA) outputSources[p] = new CodeChange('M' + minimalIndexB.toString(), [], GetNewRenames(parentRenames,renamesList));
+            inputDestinations[minimalIndexB] = new CodeChange(minimalIndexA, [], GetNewRenames(parentRenames,renamesList));
 
             i += minimalIndexA.length - 1;
             unpairedBefore.splice(minimalIndexUB, 1);
         }
         // M-to-1
         else if (Array.isArray(minimalIndexB)) {
-            for (var p of minimalIndexB) inputDestinations[p] = new CodeChange('M' + minimalIndexA.toString(), [], {...renamesList});
-            outputSources[minimalIndexA] = new CodeChange(minimalIndexB, [], {...renamesList});
+            for (var p of minimalIndexB) inputDestinations[p] = new CodeChange('M' + minimalIndexA.toString(), [], GetNewRenames(parentRenames,renamesList));
+            outputSources[minimalIndexA] = new CodeChange(minimalIndexB, [], GetNewRenames(parentRenames,renamesList));
             unpairedBefore.splice(minimalIndexUB, minimalIndexB.length);
         }
         // 1-to-1 Rewrite
         else {
-            inputDestinations[minimalIndexB] = new CodeChange(minimalIndexA, [], {...renamesList});
-            outputSources[minimalIndexA] = new CodeChange(minimalIndexB, [], {...renamesList});
+            inputDestinations[minimalIndexB] = new CodeChange(minimalIndexA, [], GetNewRenames(parentRenames,renamesList));
+            outputSources[minimalIndexA] = new CodeChange(minimalIndexB, [], GetNewRenames(parentRenames,renamesList));
             unpairedBefore.splice(minimalIndexUB, 1);
         }
 
@@ -241,13 +241,7 @@ export function FindCodeChanges(codeBefore, codeAfter, parentRenames = {}) {
     // C) Unpaired blocks are assumed to be added or deleted.
     for (var i = 0; i < codeBefore.length; i++) {
         if (!(i in inputDestinations)) {
-            inputDestinations[i] = new CodeChange('x', [], {...renamesList});
-        }
-    }
-
-    for (var i = 0; i < codeAfter.length; i++) {
-        if (!(i in outputSources)) {
-            outputSources[i] = new CodeChange('+', [], {...renamesList});
+            inputDestinations[i] = new CodeChange('x', [], GetNewRenames(parentRenames,renamesList));
         }
     }
 
@@ -257,10 +251,10 @@ export function FindCodeChanges(codeBefore, codeAfter, parentRenames = {}) {
         var goalAdress = inputDestinations[i].address;
         if (goalAdress != 'x' && goalAdress in codeAfter &&
             (codeAfter[goalAdress] instanceof BaseCommandList && codeBefore[i] instanceof BaseCommandList)) {
-                var innerChanges = FindCodeChanges(codeBefore[i].innerCode, codeAfter[goalAdress].innerCode, renamesList);
+                var innerChanges = FindCodeChanges(codeBefore[i].innerCode, codeAfter[goalAdress].innerCode, {...renamesList});
 
-                inputDestinations[i] = new CodeChange(goalAdress,innerChanges.inputDestinations, {...renamesList});
-                outputSources[goalAdress] = new CodeChange(parseInt(i),innerChanges.outputSources, {...renamesList});
+                inputDestinations[i] = new CodeChange(goalAdress,innerChanges.inputDestinations, GetNewRenames(parentRenames,renamesList));
+                outputSources[goalAdress] = new CodeChange(parseInt(i),innerChanges.outputSources, GetNewRenames(parentRenames,renamesList));
 
                 codeDistance += innerCodeMultiplierPenalty * innerChanges.distance;
         }
@@ -274,7 +268,7 @@ export function FindCodeChanges(codeBefore, codeAfter, parentRenames = {}) {
         outputSources[index].tokens = Array.from(codeAfter[index].getTokens());
     }
 
-    return new ListOfChanges(inputDestinations, outputSources, codeDistance, renamesList);
+    return new ListOfChanges(inputDestinations, outputSources, codeDistance, GetNewRenames(parentRenames,renamesList));
 }
 
 /**
@@ -487,9 +481,9 @@ function FindCodeChangesShort(codeBefore, codeAfter, parentRenames = {}) {
  * Returns a CodeChange object based on supplied list of changes instead of an automatically found one.
  * @param {BaseCodeBlock[]} codeBefore The first source code in simplified representation.
  * @param {BaseCodeBlock[]} codeAfter The second source code in simplified representation.
- * @param {ListOfChanges} changesBefore The list of changes to consider for 'before' code.
- * @param {ListOfChanges} changesAfter The list of changes to consider for 'after' code.
- * @returns 
+ * @param {CodeChange[]} changesBefore The list of related blocks to consider for 'before' code.
+ * @param {CodeChange[]} changesAfter The list of related blocks to consider for 'after' code.
+ * @returns {ListOfChanges} The resulting list of changes.
  */
 export function SupplyCodeChanges(codeBefore, codeAfter, changesBefore, changesAfter) {
     AddTokenData(codeBefore, changesBefore);
@@ -501,18 +495,15 @@ export function SupplyCodeChanges(codeBefore, codeAfter, changesBefore, changesA
 /**
  * Given a list of changes and related block of code, adds tokens from the code block to the list of changes.
  * @param {BaseCodeBlock[]} code The block of code to get tokens from.
- * @param {ListOfChanges} changes The list of changes to add the tokens to.
+ * @param {CodeChange[]} changes The list of blocks to add the tokens to.
  */
 function AddTokenData(code, changes) {
     for (var index in changes) {
-        if (code[index] instanceof BaseTokenList) {
-            if ('tokens' in code[index]) changes[index].tokens = code[index].tokens;
-        }
-        else if (code[index] instanceof BaseCommandList) {
-            AddTokenData(code[index].innerCode, changes[index].children);
+        if (changes[index].children.length == 0) {
+            changes[index].tokens = [...code[index].getTokens()];
         }
         else {
-            throw new Error("No action taken in function 'AddTokenData' in file 'distance.js'.")
+            AddTokenData(code[index].innerCode, changes[index].children);
         }
     }
 }
@@ -539,13 +530,25 @@ function FindCodeChanges_Special_OneBlock(codeBefore, codeAfter, parentRenames =
 export class CodeChange {
     /**
      * Creates an instance of CodeChange.
-     * @param {*} address Object representing address of the related block, usually a number.
+     * @param {number | number[] | string} address Object representing address of the related block, usually a number.
      * @param {CodeChange[]} children List of child CodeChanges, relating child code of the blocks this instance relates.
      * @param {object} renames List of renames that are to be executed at the scope of child blocks of the block this instance describes.
      */
     constructor (address, children, renames) {
+        /**
+         * Object representing address of the related block, usually a number.
+         * @type {number | number[] | string}
+         */
         this.address = address;
+        /**
+         * List of child CodeChanges, relating child code of the blocks this instance relates.
+         * @type {CodeChange[]}
+         */
         this.children = children;
+        /**
+         * List of renames that are to be executed at the scope of child blocks of the block this instance describes.
+         * @type {object}
+         */
         this.renames = renames;
     }
 
@@ -570,9 +573,25 @@ export class ListOfChanges {
      * @param {object} renames List of renames considered at the scope of the current code.
      */
     constructor (inputDestinations, outputSources, distance, renames) {
+        /**
+         * List of CodeChanges relating blocks in the 'before' code to the ones in the 'after' code.
+         * @type {CodeChange[]}
+         */
         this.inputDestinations = inputDestinations;
+        /**
+         * List of CodeChanges relating blocks in the 'after' code to the ones in the 'before' code.
+         * @type {CodeChange[]}
+         */
         this.outputSources = outputSources;
+        /**
+         * Distance of the two source codes.
+         * @type {number}
+         */
         this.distance = distance;
+        /**
+         * List of renames considered at the scope of the current code.
+         * @type {object}
+         */
         this.renames = renames;
     }
 
@@ -836,4 +855,19 @@ function Rename(original, renames = {}) {
         return renames[original];
     }
     else return original;
+}
+/**
+ * Given 2 objects containing renames, returns a new object, that is the set differnce of the two.
+ * @param {object} parentRenames First object containing renames.
+ * @param {object} localRenames Second object containing renames.
+ * @returns {object} The set difference of the two objects.
+ */
+function GetNewRenames(parentRenames, localRenames) {
+    var newObj = {};
+    for (var key in localRenames) {
+        if (!(key in parentRenames)) {
+            newObj[key] = localRenames[key];
+        }
+    }
+    return newObj;
 }

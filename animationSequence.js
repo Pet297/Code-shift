@@ -1,11 +1,11 @@
-import { ListOfChanges } from './distance.js';
+import { CodeChange } from './distance.js';
 import { TokenInfo } from './languageInterface.js';
 import VariableRename from './identifierFinder.js';
 
 /**
  * Given lists of changes and possibly renames, returns list of animation commands that visualises the given lists of changes.
- * @param {ListOfChanges} sourceChanges List of source changes within the current block.
- * @param {ListOfChanges} destinationChanges List of destination changes within the current block.
+ * @param {CodeChange[]} sourceChanges List of source changes within the current block.
+ * @param {CodeChange[]} destinationChanges List of destination changes within the current block.
  * @param {object} renames List of renames for the current block.
  * @param {object} parentRenames List of renames for the parent block of the current block.
  * @returns 
@@ -131,6 +131,10 @@ export class DeletingCommand {
      */
     constructor (sourceAddresses)
     {
+        /**
+         * List of adresses of blocks to be removed.
+         * @type {number[]}
+         */
         this.sourceAddresses = sourceAddresses;
     }
 }
@@ -141,10 +145,14 @@ export class DeletingCommand {
 export class MovingUpCommand {
     /**
      * Creates an instance of MovingUpCommand.
-     * @param {number[]} sourceAddresses List of adresses of blocks to be moved.
+     * @param {number[]} sourceAddresses List of adresses of blocks to be moved up.
      */
     constructor (sourceAddresses)
     {
+        /**
+         * List of adresses of blocks to be moved up.
+         * @type {number[]}
+         */
         this.sourceAddresses = sourceAddresses;
     }
 }
@@ -160,13 +168,21 @@ export class ChangingCommand {
      */
     constructor (sourceAddresses, destinationAddresses)
     {
+        /**
+         * List of adresses of source blocks to be rewritten.
+         * @type {number[]}
+         */
         this.sourceAddresses = sourceAddresses;
+        /**
+         * List of adresses of destination blocks to do the rewrite into.
+         * @type {number[]}
+         */
         this.destinationAddresses = destinationAddresses;
     }
 }
 
 /**
- * Class that represents doing a sequnce of animations on child blocks of the given parent block. 
+ * Class that represents doing a sequnce of animations on child blocks of the given parent block.
  */
 export class InternalCommandSequence {
     /**
@@ -176,21 +192,35 @@ export class InternalCommandSequence {
      */
     constructor (sourceAddress, animationSequence)
     {
+        /**
+         * The adress of the parent block to animate.
+         * @type {number}
+         */
         this.sourceAddress = sourceAddress;
+        /**
+         * List of animation commands to apply to children of the parent block.
+         * @type {*[]}
+         */
         this.animationSequence = animationSequence;
     }
 }
 
 /**
- * Class that represents adding a new block of code. 
+ * Class that represents adding a new block of code.
  */
 export class AddingCommand {
+    destinationAddresses = [];
+
     /**
      * Creates an instance of AddingCommand.
      * @param {number[]} destinationAddresses List of adresses of destination blocks to be added.
      */
     constructor (destinationAddresses)
     {
+        /**
+         * List of adresses of destination blocks to be added.
+         * @type {number[]}
+         */
         this.destinationAddresses = destinationAddresses;
     }
 }
@@ -199,6 +229,10 @@ export class AddingCommand {
  * Class that represents renaming an identifier within the given scope.
  */
 export class RenamingCommand {
+    origName = undefined;
+    newName = undefined;
+    tokens = [];
+    
     /**
      * Creates an instance of RenamingCommand.
      * @param {string} origName Original name of the identifier.
@@ -207,8 +241,20 @@ export class RenamingCommand {
      */
     constructor (origName, newName, tokensToRename)
     {
+        /**
+         * Original name of the identifier.
+         * @type {string}
+         */
         this.origName = origName;
+        /**
+         * New name of the identifier.
+         * @type {string}
+         */
         this.newName = newName;
+        /**
+         * List of tokens to be rewritten.
+         * @type {TokenInfo[]}
+         */
         this.tokens = tokensToRename;
     }
 }

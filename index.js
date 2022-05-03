@@ -42,7 +42,7 @@ async function MidOutputExecutionSingle(code1, code2, output, language, callback
     var changes = FindCodeChanges([root1], [root2]);
 
     var promise = new Promise(
-        callback0 => ListOfChangesToFile(changes.inputDestinations, changes.outputSources, output, callback0)
+        callback0 => ListOfChangesToFile(changes.inputDestinations, output, callback0)
         );
     promise.then(()=>callback());
     await promise;
@@ -60,7 +60,7 @@ async function MidOutputExecutionSingle(code1, code2, output, language, callback
 async function MidInputExecutionSingle(code1, code2, changes12, output, language, callback) {
     var root1 = TranslateFileByLanguage(code1, language);
     var root2 = TranslateFileByLanguage(code2, language);
-    var changeList = FileToListOfChanges(changes12);
+    var changeList = FileToListOfChanges(changes12, [root2]);
     if (root1 === undefined || root2 === undefined) throw Error("Input file doesn't exist");
 
     var changes = SupplyCodeChanges([root1], [root2], changeList.src, changeList.dst);
@@ -326,11 +326,11 @@ async function UserInput(args, callback) {
 }
 
 // Manual Testing:
-// var testId = 'D3';
+var testId = 'D3';
 // UserInput([undefined, undefined, '-l', 'JS', '-i', './tests/test_' + testId + '_0', '-i', './tests/test_' + testId + '_1', '-o', '../' + testId + '.gif'], ()=>{});
-// UserInput([undefined, undefined, '-l', 'JS', '-f', '-i', './tests/test_' + testId + '_0', '-i', './tests/test_' + testId + '_1', '-o', '../' + testId + '.xml'], ()=>{});
-// UserInput([undefined, undefined, '-l', 'JS', '-i', './tests/test_' + testId + '_0', '-i', './tests/test_' + testId + '_1', '-c', '../' + testId + '.xml', '-o', '../' + testId + '.gif'], ()=>{});
+// UserInput([undefined, undefined, '-l', 'JS', '-f', '-i', './tests/test_' + testId + '_0', '-i', './tests/test_' + testId + '_1', '-o', '../' + testId + '.json'], ()=>{});
+UserInput([undefined, undefined, '-l', 'JS', '-i', './tests/test_' + testId + '_0', '-i', './tests/test_' + testId + '_1', '-c', '../' + testId + '.json', '-o', '../' + testId + '.gif'], ()=>{});
 // UserInput(['-l', 'JS', '-t', './tests/test_' + testId + '_0', ()=>{});
 
 // Runs the program:
-UserInput(process.argv, ()=>{});
+// UserInput(process.argv, ()=>{});
