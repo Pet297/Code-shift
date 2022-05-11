@@ -7,23 +7,8 @@ const languageDefinitions = [
         names : ["JAVASCRIPT", "JS"],
         extensions : [".js"],
         method : JSToTree
-    },
-    {
-        names : ["NONE"],
-        extensions : [],
-        method : TranslateFileNoLang
     }
 ];
-
-/**
- * Translates given source code as a single nonsemantic block as expected in the NONE language.
- * @param {string} text The source code to translate representation of.
- * @returns {BaseCodeBlock} The result of the representation translation.
- */
-function TranslateFileNoLang(text) {
-    var token = new TokenInfo(text, 0, text.length-1, 0, false, '#ffffff');
-    return new NonsemanticText([token], "Only block");
-}
 
 /**
  * Translates representation of given source code in given language.
@@ -34,6 +19,7 @@ function TranslateFileNoLang(text) {
  */
 export function TranslateFileByLanguage(filename, language) {
     if (language === undefined) language = DetermineLanguage(filename);
+    if (language === undefined) throw Error("No language matched with given file ending. Please specify language with the '-l' flag.");
     var langUp = language.toUpperCase();
 
     for (var definition of languageDefinitions) {
@@ -43,7 +29,7 @@ export function TranslateFileByLanguage(filename, language) {
     }
 
     // No language matching
-    return TranslateFile(filename, TranslateFileNoLang);
+    throw Error("No language matched with given language name.");
 }
 
 /**
@@ -52,7 +38,7 @@ export function TranslateFileByLanguage(filename, language) {
  * @returns {string} Supposed language of the source code, if supported.
  */
 export function DetermineLanguage(filename) {
-    var extension = filename.substring(filename.lastIndexOf('.') + 1);
+    var extension = '.' + filename.substring(filename.lastIndexOf('.') + 1);
 
     for (var definition of languageDefinitions) {
         if (definition.extensions.includes(extension)) {
@@ -65,7 +51,7 @@ export function DetermineLanguage(filename) {
         }
     }
 
-    return 'NONE';
+    return undefined;
 }
 
 /**

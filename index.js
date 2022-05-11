@@ -3,7 +3,7 @@ import { GetAnimationSequence } from './animationSequence.js';
 import { AnimationEnumerator } from './animationEnumerator.js';
 import { GIFWriter } from './gifWriter.js';
 import { ListOfChangesToFile, FileToListOfChanges } from './intermediateOutput.js';
-import { TranslateFileByLanguage } from './languageDefinitions.js';
+import { DetermineLanguage, TranslateFileByLanguage } from './languageDefinitions.js';
 
 /**
  * Writes a GIF animation showing edits on a code, given an animation enumerator.
@@ -82,7 +82,7 @@ async function MidInputExecutionSingle(code1, code2, changes12, output, language
  * @param {string} language The language to use while translating representation.
  * @param {(value: any) => void} callback Callback function for asynchronous execution.
  */
-async function FullExecutionSingle(code1, code2, output, language, callback) { 
+async function FullExecutionSingle(code1, code2, output, language, callback) {
     var root1 = TranslateFileByLanguage(code1, language);
     var root2 = TranslateFileByLanguage(code2, language);
     if (root1 === undefined || root2 === undefined) throw Error("Input file doesn't exist");
@@ -179,7 +179,7 @@ function IsRecognizedFlag(flag)
  * Prints help for this software to the output.
  */
 function ShowHelp() {
-    console.log("Code shift Release v1.0");
+    console.log("Code shift Release v1.1");
     console.log("Tool for automatic comparison of different versions of source code");
     console.log("and generating animation of its possible intermediate states.");
     console.log("---------------------------");
@@ -290,6 +290,8 @@ async function UserInput(args, callback) {
         throw Error('ERROR: Two execution modes specified at once.');
     }
 
+    if (language === undefined) language = DetermineLanguage(inputFiles[0]);
+
     // 4) Execute based on settings:
     // 4A) translation test
     if (testTranslation) {
@@ -330,7 +332,7 @@ async function UserInput(args, callback) {
 // UserInput([undefined, undefined, '-l', 'JS', '-i', './tests/test_' + testId + '_0', '-i', './tests/test_' + testId + '_1', '-o', '../' + testId + '.gif'], ()=>{});
 // UserInput([undefined, undefined, '-l', 'JS', '-f', '-i', './tests/test_' + testId + '_0', '-i', './tests/test_' + testId + '_1', '-o', '../' + testId + '.json'], ()=>{});
 // UserInput([undefined, undefined, '-l', 'JS', '-i', './tests/test_' + testId + '_0', '-i', './tests/test_' + testId + '_1', '-c', '../' + testId + '.json', '-o', '../' + testId + '.gif'], ()=>{});
-// UserInput(['-l', 'JS', '-t', './tests/test_' + testId + '_0', ()=>{});
+// UserInput(['-l', 'JS', '-t', './tests/test_' + testId + '_0'], ()=>{});
 
 // Runs the program:
 UserInput(process.argv, ()=>{});

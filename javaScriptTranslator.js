@@ -834,7 +834,7 @@ function TreenodeToTokens(treeNode) {
 /**
  * Returns tokens of the given parse tree nodes.
  * @param  {...any} treeNodes The nodes of the parse tree to get tokens of.
- * @returns {TokenInfo[]]} Tokens of the parse tree nodes.
+ * @returns {TokenInfo[]} Tokens of the parse tree nodes.
  */
 function TreenodesToTokens(...treeNodes) {
     var tokens = [];

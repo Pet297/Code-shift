@@ -669,8 +669,8 @@ function ListDistance(list1, list2, renames = {}) {
  * @param {object} renames The renames to apply to the first list.
  * @returns {Boolean} Boolean indicating equality of the lists.
  */
-function checkCodeListForEquality(code1, code2, renames = {}) {
-    if (code1.length === code2.length) return code1.every((c, i) => checkStatementsForEquality(c, code2[i], renames));
+function CheckCodeListForEquality(code1, code2, renames = {}) {
+    if (code1.length === code2.length) return code1.every((c, i) => CheckStatementsForEquality(c, code2[i], renames));
     return false;
 }
 
@@ -681,14 +681,14 @@ function checkCodeListForEquality(code1, code2, renames = {}) {
  * @param {object} renames The renames to apply to the first block.
  * @returns {Boolean} Boolean indicating equality of the blocks.
  */
-function checkStatementsForEquality(block1, block2, renames = {}) {
+function CheckStatementsForEquality(block1, block2, renames = {}) {
     if (block1 instanceof SemanticDefinition && block2 instanceof SemanticDefinition) {
         return (
             block1.definitionType == block2.definitionType
             && Rename(block1.name, renames) == block2.name
             && CheckIdentifierListsEqual(block1.paramList, block2.paramList, renames)
             && CheckIdentifierListsEqual(block1.dependentOn, block2.dependentOn, renames)
-            && checkCodeListForEquality(block1.innerCode, block2.innerCode, renames));
+            && CheckCodeListForEquality(block1.innerCode, block2.innerCode, renames));
     }
     else if (block1 instanceof SemanticAction && block2 instanceof SemanticAction) {
         return (
@@ -701,7 +701,7 @@ function checkStatementsForEquality(block1, block2, renames = {}) {
             block1.decisionType === block2.decisionType
             && CheckIdentifierListsEqual(block1.paramList, block2.paramList, renames)
             && CheckIdentifierListsEqual(block1.dependentOn, block2.dependentOn, renames)
-            && checkCodeListForEquality(block1.innerCode, block2.innerCode, renames));
+            && CheckCodeListForEquality(block1.innerCode, block2.innerCode, renames));
     }
     else if (block1 instanceof NonsemanticText && block2 instanceof NonsemanticText) {
         return (
