@@ -4,6 +4,7 @@ import { AnimationEnumerator } from './animationEnumerator.js';
 import { GIFWriter } from './gifWriter.js';
 import { ListOfChangesToFile, FileToListOfChanges } from './intermediateOutput.js';
 import { DetermineLanguage, TranslateFileByLanguage } from './languageDefinitions.js';
+import fs from 'fs';
 
 /**
  * Writes a GIF animation showing edits on a code, given an animation enumerator.
@@ -217,6 +218,15 @@ function ShowHelp() {
 }
 
 /**
+ * Creates output directory when running for the first time.
+ */
+function CreateOutputDirectory() {
+    if (!fs.existsSync('./.output')) {
+        fs.mkdirSync('./.output');
+    }
+}
+
+/**
  * Parses list of input console arguments and takes an action based on them.
  * @param {*} args List of command line arguments. Note that args[0] is what runs node.js and args[1] is what runs code-shift.
  * @param {(value: any) => void} callback Callback function for asynchronous execution.
@@ -232,6 +242,8 @@ async function UserInput(args, callback) {
     var showHelp = false;
     var intermediateFilesUsed = false;
     var testTranslation = false;
+
+    CreateOutputDirectory();
 
     // 1) Parse CMD arguments
     for(var i = 2; i < args.length; i++) {
