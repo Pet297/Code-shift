@@ -6,11 +6,10 @@ import { BaseCodeBlock, BaseCommandList } from './languageInterface.js';
  * Serializes given list of changes to an JSON file.
  * @param {CodeChange[]} sourceChanges Source list of changes to serialize.
  * @param {string} outputFile The output JSON file to which the list of changes should be serialized.
- * @param {(value: any) => void} callback Callback function for asynchronous execution.
  */
-export function ListOfChangesToFile(sourceChanges, outputFile, callback) {
+export function ListOfChangesToFile(sourceChanges, outputFile) {
     var json = JSON.stringify(sourceChanges);
-    fs.writeFile(outputFile, json, 'utf8', ()=>{callback()})
+    fs.writeFileSync(outputFile, json, 'utf8');
 }
 
 export function FileToListOfChanges(file, codeAfter) {

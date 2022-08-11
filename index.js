@@ -10,22 +10,19 @@ import fs from 'fs';
  * Writes a GIF animation showing edits on a code, given an animation enumerator.
  * @param {IntermediateTextEnumerator} resenum The animation enumerator.
  * @param {string} output Output GIF file path.
- * @param {(value: any) => void} callback Callback function for asynchronous execution.
+ * @param {() => void} resolve Callback function for parralel file creation.
  */
-async function DoGifOutput(resenum, output, callback) {    
+async function DoGifOutput(resenum, output, resolve) {    
     var gw = new GIFWriter();
 
-    var promise1 = new Promise( callback0 => gw.Begin(output, callback0));
-    await promise1;
+    gw.Begin(output);
 
     for (var anim of resenum.EnumerateAnimations()) {
-        var promise2 = new Promise( callback0 => gw.ApplyAnimation(anim, callback0));
-        await promise2;
+        await new Promise(r => gw.ApplyAnimation(anim, r));
     }
-    var promise3 = new Promise( callback0 => gw.End(callback0));
-    await promise3;
 
-    callback();
+    await new Promise(r => gw.End(r));
+    resolve();
 }
 
 /**
@@ -34,19 +31,14 @@ async function DoGifOutput(resenum, output, callback) {
  * @param {string} code2 Path to the 'after' source code.
  * @param {string} output Output JSON file path.
  * @param {string} language The language to use while translating representation.
- * @param {(value: any) => void} callback Callback function for asynchronous execution.
  */
-async function MidOutputExecutionSingle(code1, code2, output, language, callback) {
+function MidOutputExecutionSingle(code1, code2, output, language) {
     var root1 = TranslateFileByLanguage(code1, language);
     var root2 = TranslateFileByLanguage(code2, language);
 
     var changes = FindCodeChanges([root1], [root2]);
 
-    var promise = new Promise(
-        callback0 => ListOfChangesToFile(changes.inputDestinations, output, callback0)
-        );
-    promise.then(()=>callback());
-    await promise;
+    ListOfChangesToFile(changes.inputDestinations, output);
 }
 
 /**
@@ -56,9 +48,9 @@ async function MidOutputExecutionSingle(code1, code2, output, language, callback
  * @param {string} changes12 Path to the JSON list of changes.
  * @param {string} output Output GIF file path.
  * @param {string} language The language to use while translating representation.
- * @param {(value: any) => void} callback Callback function for asynchronous execution.
+ * @param {() => void} resolve Callback function for parralel file creation.
  */
-async function MidInputExecutionSingle(code1, code2, changes12, output, language, callback) {
+async function MidInputExecutionSingle(code1, code2, changes12, output, language, resolve) {
     var root1 = TranslateFileByLanguage(code1, language);
     var root2 = TranslateFileByLanguage(code2, language);
     var changeList = FileToListOfChanges(changes12, [root2]);
@@ -68,11 +60,8 @@ async function MidInputExecutionSingle(code1, code2, changes12, output, language
     var animationSequennce = GetAnimationSequence(changes.inputDestinations, changes.outputSources, changes.renames);
     var animationEnumerator = new AnimationEnumerator(changes.inputDestinations, changes.outputSources, animationSequennce);
 
-    var promise = new Promise(
-        callback0 => DoGifOutput(animationEnumerator, output, callback0)
-        );
-    promise.then(()=>callback());
-    await promise;
+    await new Promise(r => DoGifOutput(animationEnumerator, output, r));
+    resolve();
 }
 
 /**
@@ -81,9 +70,9 @@ async function MidInputExecutionSingle(code1, code2, changes12, output, language
  * @param {string} code2 Path to the 'after' source code.
  * @param {string} output Output GIF file path.
  * @param {string} language The language to use while translating representation.
- * @param {(value: any) => void} callback Callback function for asynchronous execution.
+ * @param {() => void} resolve Callback function for parralel file creation.
  */
-async function FullExecutionSingle(code1, code2, output, language, callback) {
+async function FullExecutionSingle(code1, code2, output, language, resolve) {
     var root1 = TranslateFileByLanguage(code1, language);
     var root2 = TranslateFileByLanguage(code2, language);
     if (root1 === undefined || root2 === undefined) throw Error("Input file doesn't exist");
@@ -92,11 +81,8 @@ async function FullExecutionSingle(code1, code2, output, language, callback) {
     var animationSequence = GetAnimationSequence(changes.inputDestinations, changes.outputSources, changes.renames);
     var animationEnumerator = new AnimationEnumerator(changes.inputDestinations, changes.outputSources, animationSequence);
 
-    var promise = new Promise(
-        callback0 => DoGifOutput(animationEnumerator, output, callback0)
-        );
-    promise.then(()=>callback());
-    await promise;
+    await new Promise(r => DoGifOutput(animationEnumerator, output, r));
+    resolve();
 }
 
 /**
@@ -104,15 +90,10 @@ async function FullExecutionSingle(code1, code2, output, language, callback) {
  * @param {string[]} codeFiles List of paths to individual versions of the source code.
  * @param {string[]} outputFiles List of output JSON paths.
  * @param {string} language The language to use while translating representation.
- * @param {(value: any) => void} callback Callback function for asynchronous execution.
  */
-async function MidOutputExecutionMulti(codeFiles, outputFiles, language, callback) {
+function MidOutputExecutionMulti(codeFiles, outputFiles, language) {
     for (var i = 0; i < codeFiles.length - 1; i++) {
-        var promise = new Promise(
-            callback0 => MidOutputExecutionSingle(codeFiles[i], codeFiles[i+1], outputFiles[i], language, callback0)
-            );
-        if (i == codeFiles.length - 2) promise.then(()=>callback());
-        await promise;
+        MidOutputExecutionSingle(codeFiles[i], codeFiles[i+1], outputFiles[i], language);
     }
 }
 
@@ -122,16 +103,13 @@ async function MidOutputExecutionMulti(codeFiles, outputFiles, language, callbac
  * @param {[string]} changeFiles List of paths to individual JSON files with changes.
  * @param {[string]} outputFiles List of output GIF paths.
  * @param {string} language The language to use while translating representation.
- * @param {(value: any) => void} callback Callback function for asynchronous execution.
+ * @param {() => void} resolve Callback function for parralel file creation.
  */
-async function MidInputExecutionMulti(codeFiles, changeFiles, outputFiles, language, callback) {
+async function MidInputExecutionMulti(codeFiles, changeFiles, outputFiles, language, resolve) {
     for (var i = 0; i < codeFiles.length - 1; i++) {
-        var promise = new Promise(
-            callback0 => MidInputExecutionSingle(codeFiles[i], codeFiles[i+1], changeFiles[i], outputFiles[i], language, callback0)
-            );
-        if (i == codeFiles.length - 2) promise.then(()=>callback());
-        await promise;
+        await new Promise(r => MidInputExecutionSingle(codeFiles[i], codeFiles[i+1], changeFiles[i], outputFiles[i], language, r));
     }
+    resolve();
 }
 
 /**
@@ -139,28 +117,23 @@ async function MidInputExecutionMulti(codeFiles, changeFiles, outputFiles, langu
  * @param {string[]} codeFiles List of paths to individual versions of the source code.
  * @param {string[]} outputFiles List of output GIF paths.
  * @param {string} language The language to use while translating representation.
- * @param {(value: any) => void} callback Callback function for asynchronous execution.
+ * @param {() => void} resolve Callback function for parralel file creation.
  */
-async function FullExecutionMulti(codeFiles, outputFiles, language, callback) {
+async function FullExecutionMulti(codeFiles, outputFiles, language, resolve) {
     for (var i = 0; i < codeFiles.length - 1; i++) {
-        var promise = new Promise(
-            callback0 => FullExecutionSingle(codeFiles[i], codeFiles[i+1], outputFiles[i], language, callback0)
-            );
-        if (i == codeFiles.length - 2) promise.then(()=>callback());
-        await promise;
+        await new Promise(r => FullExecutionSingle(codeFiles[i], codeFiles[i+1], outputFiles[i], language, r))
     }
+    resolve();
 }
 
 /**
  * Tests whether a file translates in the given language.
  * @param {string} file Path to the file with source code.
  * @param {string} language The language to use while translating representation.
- * @param {(value: any) => void} callback Callback function for asynchronous execution.
  */
-async function SimpleTest(file, language, callback) {
+function SimpleTest(file, language) {
     var root = TranslateFileByLanguage(file, language);
     console.log(root);
-    callback();
 }
 
 const recognizedFlags = ['-i', '-o', '-c', '-l', '-f', '-h', '-t'];
@@ -229,10 +202,9 @@ function CreateOutputDirectory() {
 /**
  * Parses list of input console arguments and takes an action based on them.
  * @param {*} args List of command line arguments. Note that args[0] is what runs node.js and args[1] is what runs code-shift.
- * @param {(value: any) => void} callback Callback function for asynchronous execution.
- * @returns 
+ * @param {() => void} resolve Callback function for parralel file creation. 
  */
-async function UserInput(args, callback) {
+async function UserInput(args, resolve) {
 
     var outputIntermediateFile = false;
     var inputFiles = [];
@@ -307,36 +279,22 @@ async function UserInput(args, callback) {
     // 4) Execute based on settings:
     // 4A) translation test
     if (testTranslation) {
-        var promise = new Promise(
-            callback0 => SimpleTest(inputFiles[0], language, callback0)
-            );
-        promise.then(() => (callback()));    
-        await promise; 
+        SimpleTest(inputFiles[0], language);
     }
     // 4B) intermediate input
     else if (intermediateFilesUsed) {
-        var promise = new Promise(
-            callback0 => MidInputExecutionMulti(inputFiles, intermediateFiles, outputFiles, language, callback0)
-            );
-        promise.then(() => (callback()));    
-        await promise;    
+        await new Promise(r => MidInputExecutionMulti(inputFiles, intermediateFiles, outputFiles, language, r));   
     }
     // 4C) intermediate output
     else if (outputIntermediateFile) {
-        var promise = new Promise(
-            callback0 => MidOutputExecutionMulti(inputFiles, outputFiles, language, callback0)
-            );
-        promise.then(() => (callback()));    
-        await promise; 
+        MidOutputExecutionMulti(inputFiles, outputFiles, language)
     }
     // 4D) full execution
     else {
-        var promise = new Promise(
-            callback0 => FullExecutionMulti(inputFiles, outputFiles, language, callback0)
-            );
-        promise.then(() => (callback()));    
-        await promise; 
+        await new Promise(r => FullExecutionMulti(inputFiles, outputFiles, language, r));
     }
+
+    resolve();
 }
 
 // Manual Testing:
@@ -347,4 +305,4 @@ async function UserInput(args, callback) {
 // UserInput(['-l', 'JS', '-t', './tests/test_' + testId + '_0'], ()=>{});
 
 // Runs the program:
-UserInput(process.argv, ()=>{});
+UserInput(process.argv, () => {});

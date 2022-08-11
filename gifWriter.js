@@ -35,25 +35,18 @@ export class GIFWriter {
     /**
      * Begins a session for generating final animation.
      * @param {string} outputFile The GIF file to which the animation should be outputed.
-     * @param {(value: any) => void} callback Callback function for asynchronous execution.
      */
-    async Begin (outputFile, callback) {
-        
-        var promise = new Promise(
-            resolve0 => ClearTemporaryFiles(resolve0)
-        )
-        await promise;
-
+    Begin (outputFile) {   
+        ClearTemporaryFiles();
         this._gifNumber = 100001; //Using a high number so that numbered files are in alphabetical order as well.
         this._outputFile = outputFile;
-        callback();
     }
     /**
      * Generates GIF files representing a single change in code.
      * @param {*} animation The change in code to animate.
-     * @param {(value: any) => void} callback Callback function for asynchronous execution.
+     * @param {() => void} resolve Callback function for parralel file creation.
      */
-    async ApplyAnimation (animation, callback) {
+    async ApplyAnimation (animation, resolve) {
         if (animation instanceof MovingUpAnimation) {
             var promises = [];
             for (var i=0; i<gifsPerAnimation; i++)
@@ -72,7 +65,6 @@ export class GIFWriter {
                 this._gifNumber++;
             }
             await Promise.all(promises);
-            callback();
         }
 
         else if (animation instanceof AddingAnimation) {
@@ -92,7 +84,6 @@ export class GIFWriter {
                 this._gifNumber++;
             }
             await Promise.all(promises);
-            callback();
         }
 
         else if (animation instanceof RemovingAnimation) {
@@ -112,7 +103,6 @@ export class GIFWriter {
                 this._gifNumber++;
             }
             await Promise.all(promises);
-            callback();
         }
 
         else if (animation instanceof ChangingAnimation) {
@@ -136,7 +126,6 @@ export class GIFWriter {
                 this._gifNumber++;
             }
             await Promise.all(promises);
-            callback();
         }
 
         else if (animation instanceof RenamingAnimation)
@@ -171,7 +160,6 @@ export class GIFWriter {
                 this._gifNumber++;
             }
             await Promise.all(promises);
-            callback();
         }
 
         else if (animation instanceof EndingAnimation) {
@@ -188,51 +176,37 @@ export class GIFWriter {
                 this._gifNumber++;
             }
             await Promise.all(promises);
-            callback();
         }
+
+        resolve();
     }
     /**
      * End a session for generating the final animation.
      * Concatenates all stationary files into a single animation.
-     * @param {(value: any) => void} callback Callback function for asynchronous execution.
+     * @param {() => void} resolve Callback function for parralel file creation.
      */
-    async End (callback) {
-        var promise = new Promise(
-            callback0 => WriteGifFile('.output/frame*.gif', '.output/result.gif', callback0)
-            )
-        await promise;
-        
-        //move result
+    async End (resolve) {
+        await new Promise(r => WriteGifFile('.output/frame*.gif', '.output/result.gif', r))
+
+        //moves result
         const outputPath = path.join(".", ".output", "result.gif");
-        promise = new Promise(
-            callback0 => fs.rename(outputPath, this._outputFile, callback0)
-        )
-        await promise;
+        fs.renameSync(outputPath, this._outputFile)
             
         //delete individual frames
-        promise = new Promise(
-            callback0 => ClearTemporaryFiles(callback0)
-        )
-        await promise;
-        
-        callback();
+        ClearTemporaryFiles();
+
+        resolve();
     }   
 }
 
 /**
  * Clears all files in the temporary directory '.output'.
- * @param {(value: any) => void} callback Callback function for asynchronous execution.
  */
-async function ClearTemporaryFiles(callback) {
-    var promises = [];
+async function ClearTemporaryFiles() {
     var files = fs.readdirSync('.output');
     for (const file of files) {
-        var promise = new Promise( (resolve0) => fs.unlink(path.join('.output', file), err => { if (err) throw err; else resolve0(); }));
-        promises.push(promise);
+        fs.unlinkSync(path.join('.output', file), err => { if (err) throw err; else resolve0(); });
     }
-    var promiseAll = Promise.all(promises);
-    promiseAll.then(() => callback())
-    await Promise.all(promises);
 }
 
 /**
@@ -298,9 +272,9 @@ function AnimationEasing(percentage) {
  * Writes a GIF file showing no animation.
  * @param {TokenInfo[]} tokens Tokens to draw.
  * @param {string} filename Filename of the output file.
- * @param {(value: any) => void} callback Callback function for asynchronous execution.
+ * @param {() => void} resolve Callback function for parralel file creation.
  */
-function WriteGifFileSH(tokens,filename,callback) {
+async function WriteGifFileSH(tokens,filename,resolve) {
     var gms = StartNewGIF();
     var x = 0;
     var y = 0;
@@ -320,16 +294,16 @@ function WriteGifFileSH(tokens,filename,callback) {
         }      
     }
 
-    gms.write(filename, ()=>{callback()});
+    gms.write(filename, ()=>{resolve()});
 }
 /**
  * Writes a GIF file, in which some groups of tokens transform into a diffrent groups and some tokens stay as they are.
  * @param {*[]} tokens List of changing groups of tokens and unchanging tokens.
  * @param {number} percentage The timestep at which to draw the animation.
  * @param {string} filename Filename of the output file.
- * @param {(value: any) => void} callback Callback function for asynchronous execution.
+ * @param {() => void} resolve Callback function for parralel file creation.
  */
-function WriteGifFileSHTransform(tokens,percentage,filename,callback) {
+async function WriteGifFileSHTransform(tokens,percentage,filename,resolve) {
     percentage = AnimationEasing(percentage);
     var gms = StartNewGIF();
 
@@ -486,7 +460,7 @@ function WriteGifFileSHTransform(tokens,percentage,filename,callback) {
         }
     }
 
-    gms.write(filename, ()=>{callback()});
+    gms.write(filename, ()=>{resolve()});
 }
 /**
  * Writes a GIF file, in which a group of tokens moves up, moving a different group of tokens down in the process.
@@ -496,9 +470,9 @@ function WriteGifFileSHTransform(tokens,percentage,filename,callback) {
  * @param {TokenInfo[]} tokensAfter List of tokens which don't move, which come after the moving groups.
  * @param {number} percentage The timestep at which to draw the animation.
  * @param {string} filename Filename of the output file.
- * @param {(value: any) => void} callback Callback function for asynchronous execution.
+ * @param {() => void} resolve Callback function for parralel file creation.
  */
-function WriteGifFileSHMoveUp(tokensPreceding, tokensMovingDown, tokensMovingUp, tokensAfter, percentage, filename, callback) {
+async function WriteGifFileSHMoveUp(tokensPreceding, tokensMovingDown, tokensMovingUp, tokensAfter, percentage, filename, resolve) {
     percentage = AnimationEasing(percentage);
     var gms = StartNewGIF();
     
@@ -525,7 +499,7 @@ function WriteGifFileSHMoveUp(tokensPreceding, tokensMovingDown, tokensMovingUp,
     DrawTokens(tokensMovingUp, pos2, gms);
     DrawTokens(tokensAfter, pos3, gms);
 
-    gms.write(filename, ()=>{callback()});
+    gms.write(filename, ()=>{resolve()});
 }
 /**
  * Writes a GIF file, in which a group of tokens gets deleted.
@@ -534,9 +508,9 @@ function WriteGifFileSHMoveUp(tokensPreceding, tokensMovingDown, tokensMovingUp,
  * @param {TokenInfo[]} tokensAfter List of tokens which don't change, which come after the removed group.
  * @param {number} percentage The timestep at which to draw the animation.
  * @param {string} filename Filename of the output file.
- * @param {(value: any) => void} callback Callback function for asynchronous execution.
+ * @param {() => void} resolve Callback function for parralel file creation.
  */
-function WriteGifFileSHRemove(tokensPreceding, tokensRemoved, tokensAfter, percentage, filename, callback) {
+async function WriteGifFileSHRemove(tokensPreceding, tokensRemoved, tokensAfter, percentage, filename, resolve) {
     percentage = AnimationEasing(percentage);
     var gms = StartNewGIF();
     
@@ -558,7 +532,7 @@ function WriteGifFileSHRemove(tokensPreceding, tokensRemoved, tokensAfter, perce
     DrawTokens(tokensRemoved, pos1, gms, 1-percentage);
     DrawTokens(tokensAfter, pos2, gms);
     
-    gms.write(filename, ()=>{callback()});
+    gms.write(filename, ()=>{resolve()});
 }
 /**
  * Writes a GIF file, in which a group of tokens gets added.
@@ -567,10 +541,10 @@ function WriteGifFileSHRemove(tokensPreceding, tokensRemoved, tokensAfter, perce
  * @param {TokenInfo[]} tokensAfter List of tokens which don't change, which come after the added group.
  * @param {number} percentage The timestep at which to draw the animation.
  * @param {string} filename Filename of the output file.
- * @param {(value: any) => void} callback Callback function for asynchronous execution.
+ * @param {() => void} resolve Callback function for parralel file creation.
  */
-function WriteGifFileSHAdd(tokensPreceding, tokensAdded, tokensAfter, percentage, filename, callback) {
-    WriteGifFileSHRemove(tokensPreceding, tokensAdded, tokensAfter, 1-percentage, filename, callback);
+async function WriteGifFileSHAdd(tokensPreceding, tokensAdded, tokensAfter, percentage, filename, resolve) {
+    WriteGifFileSHRemove(tokensPreceding, tokensAdded, tokensAfter, 1-percentage, filename, resolve);
 }
 /**
  * Given a list of tokens and a starting position, returns position of each token, taking into account spaces, newlines and tabs.
@@ -636,13 +610,13 @@ function DrawTokens(tokens, positions, gms, opacity = 1) {
 /**
  * Given a file with a wildcard ('*'), connects multiple image files into a single GIF file.
  * @param {string} inputFilenames 
- * @param {string} outputFilename 
- * @param {(value: any) => void} callback Callback function for asynchronous execution.
+ * @param {string} outputFilename
+ * @param {() => void} resolve Callback function for parralel file creation.
  */
-function WriteGifFile(inputFilenames, outputFilename, callback) {
+function WriteGifFile(inputFilenames, outputFilename, resolve) {
     let imageMagick = gm.subClass({imageMagick: true});
 
-    imageMagick().delay(10).loop(-1).in(inputFilenames).write(outputFilename, ()=>{callback()});
+    imageMagick().delay(10).loop(-1).in(inputFilenames).write(outputFilename, ()=>{resolve()});
 }
 /**
  * Given three numeric values from 0 to 255, returns a color string.
